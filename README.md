@@ -1,26 +1,17 @@
 # Line Balance Chart
 
-เว็บแอปสำหรับทำ Line Balance / Man-Machine Chart (ไฟล์เดียว, ไม่ต้อง build)
+เว็บแอปทำ Line Balance / Man-Machine Chart (ไฟล์เดียว ไม่ต้อง build)
+เข้าด้วยชื่อผู้ใช้ + รหัสผ่าน และบันทึกงานอัตโนมัติลง Supabase
 
-## 1) ตั้งค่า Supabase
-1. สร้าง project ที่ supabase.com
-2. SQL Editor → วางไฟล์ `supabase/schema.sql` → Run
-3. Project Settings → API → คัดลอก **Project URL** และ **anon public key** ไปใส่ใน `config.js`
-4. Authentication → URL Configuration → ใส่ลิงก์ GitHub Pages ใน Site URL (ทำหลังข้อ 2 ด้านล่าง)
+## เพิ่มผู้ใช้ (ผู้ดูแลทำใน Supabase)
+1. Authentication → Users → Add user → Create new user
+2. Email: พิมพ์ `ชื่อผู้ใช้@lb.local` เช่น `bee@lb.local`
+3. ตั้งรหัสผ่าน และติ๊ก **Auto Confirm User**
+4. ผู้ใช้เข้าเว็บแล้วพิมพ์แค่ `bee` กับรหัสผ่าน
 
-## 2) ขึ้น GitHub + GitHub Pages
-```bash
-cd line-balance
-git init
-git add .
-git commit -m "Line Balance Chart + Supabase save/load"
-git branch -M main
-git remote add origin https://github.com/<username>/line-balance.git
-git push -u origin main
-```
-GitHub → Settings → Pages → Source: `Deploy from a branch` → `main` / `(root)` → Save
-เว็บจะอยู่ที่ `https://<username>.github.io/line-balance/`
+ปิดการสมัครเอง: Authentication → Sign In / Providers → ปิด **Allow new users to sign up**
 
-## ความปลอดภัย
-- `anon key` ใส่ใน repo public ได้ เพราะข้อมูลถูกป้องกันด้วย RLS (ดู `schema.sql`)
-- ห้ามใส่ `service_role` key ใน repo
+## ไฟล์
+- `index.html` แอปหลัก
+- `config.js` Supabase URL + anon key (anon key ใส่ใน repo public ได้ ห้ามใส่ service_role)
+- `supabase/schema.sql` ตารางเก็บงาน + RLS (แต่ละบัญชีเห็นเฉพาะงานของตัวเอง)

@@ -1986,20 +1986,28 @@ try { showTab((location.hash || '').replace('#', '')); } catch (e) { showTab('fl
 .cd-msg.err { color: var(--bad-text); }
 .cd .btn.sm { padding: 5px 10px; font-size: 13px; }
 .cd .btn.danger { color: var(--bad-text); border-color: var(--bad); }
+#lbGate { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 16px; background: var(--bg); }
+.gate-card { width: min(380px, 100%); display: flex; flex-direction: column; gap: 12px; padding: 24px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.gate-card h1 { font-size: 22px; }
+.gate-card p { color: var(--fg2); }
+.gate-card input { width: 100%; padding: 10px 12px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--bg); text-align: left; }
+.gate-card .btn { justify-content: center; padding: 10px 14px; }
 </style>
+<div id="lbGate" role="dialog" aria-modal="true" aria-label="เข้าสู่ระบบ">
+  <form class="gate-card" id="gForm" onsubmit="return false">
+    <h1>Line Balance</h1>
+    <p>เข้าสู่ระบบเพื่อใช้งาน</p>
+    <input id="gUser" type="text" placeholder="ชื่อผู้ใช้" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false">
+    <input id="gPass" type="password" placeholder="รหัสผ่าน" autocomplete="current-password">
+    <button class="btn" id="gGo" type="submit">เข้าสู่ระบบ</button>
+    <p class="cd-msg" id="gMsg" role="status" aria-live="polite"></p>
+  </form>
+</div>
 <dialog id="cloudDlg" aria-labelledby="cdTitle">
   <div class="cd">
     <div class="cd-row" style="justify-content:space-between"><h2 id="cdTitle">งานที่บันทึกบน Cloud</h2><button class="btn ghost sm" id="cdClose" type="button">ปิด</button></div>
 
     <div id="cdNoCfg" hidden><p class="hint">ยังไม่ได้ตั้งค่า Supabase ให้ใส่ URL และ anon key ในไฟล์ <span class="mono">config.js</span> แล้วรีเฟรชหน้านี้</p></div>
-
-    <div id="cdLogin" hidden>
-      <div class="cd-row" style="flex-direction:column;align-items:stretch">
-        <input id="cdEmail" type="email" placeholder="อีเมล" autocomplete="email">
-        <input id="cdPass" type="password" placeholder="รหัสผ่าน (อย่างน้อย 6 ตัว)" autocomplete="current-password">
-        <div class="cd-row"><button class="btn" id="cdSignIn" type="button">เข้าสู่ระบบ</button><button class="btn ghost" id="cdSignUp" type="button">สมัครบัญชีใหม่</button></div>
-      </div>
-    </div>
 
     <div id="cdMain" hidden>
       <div class="cd-row" style="justify-content:space-between"><span class="hint">เข้าสู่ระบบเป็น <b id="cdUser"></b></span><button class="btn ghost sm" id="cdSignOut" type="button">ออกจากระบบ</button></div>
@@ -2022,6 +2030,21 @@ try { showTab((location.hash || '').replace('#', '')); } catch (e) { showTab('fl
   var cfgOk = !!(cfg.url && cfg.anonKey && !/YOUR-/i.test(cfg.url + cfg.anonKey) && window.supabase);
   if (cfgOk) { try { sb = window.supabase.createClient(cfg.url, cfg.anonKey); } catch (e) { sb = null; } }
 
+  var DOM = '@' + (cfg.domain || 'lb.local');
+  function toEmail(u) { u = String(u || '').trim(); return u.indexOf('@') >= 0 ? u : u.toLowerCase() + DOM; }
+  function shortName(e) { e = String(e || ''); return e.slice(-DOM.length) === DOM ? e.slice(0, -DOM.length) : e; }
+  function gate(show) { $('lbGate').hidden = !show; }
+  function gm(t, err) { var el = $('gMsg'); el.textContent = t || ''; el.className = 'cd-msg' + (err ? ' err' : ''); }
+  function login() {
+    var u = $('gUser').value.trim(), pw = $('gPass').value;
+    if (!sb) { gm('ยังไม่ได้ตั้งค่า Supabase ใน config.js', true); return; }
+    if (!u || !pw) { gm('ใส่ชื่อผู้ใช้และรหัสผ่านก่อน', true); return; }
+    gm('กำลังเข้าสู่ระบบ…');
+    sb.auth.signInWithPassword({ email: toEmail(u), password: pw }).then(function (r) {
+      if (r.error) { gm(/invalid login/i.test(r.error.message) ? 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' : r.error.message, true); return; }
+      user = r.data.session.user; $('gPass').value = ''; gm(''); gate(false); openLatest();
+    });
+  }
   function stat(t, err) { var el = $('cloudStat'); if (!el) return; el.hidden = !t; el.textContent = t || ''; el.className = 'live' + (err ? ' bad' : ''); }
   function hhmm() { var d = new Date(); return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); }
   function newName() {
@@ -2031,10 +2054,10 @@ try { showTab((location.hash || '').replace('#', '')); } catch (e) { showTab('fl
   }
   function cm(t, err) { var el = $('cdMsg'); el.textContent = t || ''; el.className = 'cd-msg' + (err ? ' err' : ''); }
   function view() {
-    var m = !sb ? 'nocfg' : user ? 'main' : 'login';
-    $('cdNoCfg').hidden = m !== 'nocfg'; $('cdLogin').hidden = m !== 'login'; $('cdMain').hidden = m !== 'main';
-    if (m === 'main') {
-      $('cdUser').textContent = user.email || ''; $('cdAuto').checked = auto;
+    var m = !sb ? 'nocfg' : 'main';
+    $('cdNoCfg').hidden = m !== 'nocfg'; $('cdMain').hidden = m !== 'main';
+    if (m === 'main' && user) {
+      $('cdUser').textContent = shortName(user.email); $('cdAuto').checked = auto;
       $('cdCur').textContent = cur ? 'งานที่เปิดอยู่: ' + cur : 'ยังไม่มีงานที่เปิดอยู่ ระบบจะสร้างงานใหม่ให้เองเมื่อมีการแก้ไข';
       loadList();
     }
@@ -2047,9 +2070,11 @@ try { showTab((location.hash || '').replace('#', '')); } catch (e) { showTab('fl
     if (focusName && user) $('cdName').focus();
   }
 
+  if (!sb) gate(false);
+  $('gForm').addEventListener('submit', function (e) { e.preventDefault(); login(); });
   if (sb) {
-    sb.auth.getSession().then(function (r) { user = r.data && r.data.session ? r.data.session.user : null; if (user) openLatest(); });
-    sb.auth.onAuthStateChange(function (ev, sess) { user = sess ? sess.user : null; if (!user) stat(''); if (dlg.open) view(); });
+    sb.auth.getSession().then(function (r) { user = r.data && r.data.session ? r.data.session.user : null; if (user) { gate(false); openLatest(); } else { gate(true); $('gUser').focus(); } });
+    sb.auth.onAuthStateChange(function (ev, sess) { user = sess ? sess.user : null; if (ev === 'SIGNED_OUT') { location.reload(); return; } if (dlg.open) view(); });
   }
 
   /* เก็บสถานะที่ผู้ใช้กรอกไว้: Process Flow (D), ตาราง Manual vs Robot (SC), และโมเดลที่มาจากไฟล์ Excel (S) */
@@ -2117,21 +2142,7 @@ try { showTab((location.hash || '').replace('#', '')); } catch (e) { showTab('fl
   $('cdClose').addEventListener('click', function () { dlg.close(); });
   dlg.addEventListener('click', function (e) { if (e.target === dlg) dlg.close(); });
 
-  function auth(kind) {
-    var email = $('cdEmail').value.trim(), pass = $('cdPass').value;
-    if (!email || pass.length < 6) { cm('ใส่อีเมลและรหัสผ่านอย่างน้อย 6 ตัว', true); return; }
-    cm('กำลังดำเนินการ…');
-    var p = kind === 'in' ? sb.auth.signInWithPassword({ email: email, password: pass }) : sb.auth.signUp({ email: email, password: pass });
-    p.then(function (r) {
-      if (r.error) { cm(r.error.message, true); return; }
-      if (kind === 'up' && !(r.data && r.data.session)) { cm('สมัครแล้ว ตรวจอีเมลเพื่อกดยืนยัน จากนั้นกลับมาเข้าสู่ระบบ'); return; }
-      user = r.data.session.user; $('cdPass').value = ''; cm(''); view();
-    });
-  }
-  $('cdSignIn').addEventListener('click', function () { auth('in'); });
-  $('cdSignUp').addEventListener('click', function () { auth('up'); });
-  $('cdPass').addEventListener('keydown', function (e) { if (e.key === 'Enter') auth('in'); });
-  $('cdSignOut').addEventListener('click', function () { sb.auth.signOut().then(function () { user = null; cur = null; clearTimeout(saveT); stat(''); cm(''); view(); }); });
+  $('cdSignOut').addEventListener('click', function () { clearTimeout(saveT); sb.auth.signOut().then(function () { location.reload(); }); });
 
   $('cdSave').addEventListener('click', function () {
     var name = $('cdName').value.trim();
