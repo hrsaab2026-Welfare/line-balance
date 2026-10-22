@@ -2014,7 +2014,7 @@ try { showTab((location.hash || '').replace('#', '')); } catch (e) { showTab('fl
       <label class="hint" style="display:flex;gap:8px;align-items:center;margin-top:12px"><input type="checkbox" id="cdAuto"> บันทึกอัตโนมัติทุกครั้งที่แก้ไข</label>
       <p class="hint" id="cdCur" style="margin-top:4px"></p>
       <div class="cd-row" style="margin-top:12px"><input id="cdName" type="text" placeholder="ตั้งชื่องาน เช่น ES37 Line A" maxlength="120"><button class="btn" id="cdSave" type="button">บันทึกเป็นชื่อนี้</button></div>
-      <p class="hint" style="margin-top:6px">ถ้าใช้ชื่อเดิม ระบบจะบันทึกทับงานเก่า</p>
+      <p class="hint" style="margin-top:6px">ทุกบัญชีเห็นงานชุดเดียวกัน ถ้าใช้ชื่อเดิมระบบจะบันทึกทับงานเก่า</p>
       <div class="cd-list" id="cdList" style="margin-top:12px"></div>
     </div>
 
@@ -2099,11 +2099,11 @@ try { showTab((location.hash || '').replace('#', '')); } catch (e) { showTab('fl
   function fmtDate(iso) { try { return new Date(iso).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' }); } catch (e) { return ''; } }
   function loadList() {
     var box = $('cdList'); box.innerHTML = '<div class="cd-empty">กำลังโหลด…</div>';
-    sb.from(TBL).select('id,name,updated_at').order('updated_at', { ascending: false }).then(function (r) {
+    sb.from(TBL).select('id,name,updated_at,updated_by').order('updated_at', { ascending: false }).then(function (r) {
       if (r.error) { box.innerHTML = ''; cm('โหลดรายการไม่สำเร็จ: ' + r.error.message, true); return; }
       if (!r.data.length) { box.innerHTML = '<div class="cd-empty">ยังไม่มีงานที่บันทึกไว้</div>'; return; }
       box.innerHTML = r.data.map(function (p) {
-        return '<div class="cd-item"><span class="nm">' + esc(p.name) + '<span class="dt">' + esc(fmtDate(p.updated_at)) + '</span></span>' +
+        return '<div class="cd-item"><span class="nm">' + esc(p.name) + '<span class="dt">' + esc(fmtDate(p.updated_at)) + (p.updated_by ? ' · โดย ' + esc(p.updated_by) : '') + '</span></span>' +
           '<button class="btn sm" data-cd="open" data-id="' + esc(p.id) + '" type="button">เปิด</button>' +
           '<button class="btn ghost sm danger" data-cd="del" data-id="' + esc(p.id) + '" type="button">ลบ</button></div>';
       }).join('');
@@ -2121,7 +2121,7 @@ try { showTab((location.hash || '').replace('#', '')); } catch (e) { showTab('fl
     if (!cur) cur = newName();
     var snap; try { snap = snapshot(); } catch (e) { return; }
     var name = cur; stat('กำลังบันทึก…');
-    sb.from(TBL).upsert({ user_id: user.id, name: name, data: snap, updated_at: new Date().toISOString() }, { onConflict: 'user_id,name' }).then(function (r) {
+    sb.from(TBL).upsert({ name: name, data: snap, updated_at: new Date().toISOString(), updated_by: shortName(user.email) }, { onConflict: 'name' }).then(function (r) {
       if (r.error) stat('บันทึกอัตโนมัติไม่สำเร็จ', true); else stat('บันทึกอัตโนมัติแล้ว ' + hhmm());
     });
   }
@@ -2150,7 +2150,7 @@ try { showTab((location.hash || '').replace('#', '')); } catch (e) { showTab('fl
     if (!D && !S) { cm('ยังไม่มีข้อมูลให้บันทึก', true); return; }
     var snap; try { snap = snapshot(); } catch (e) { cm('เตรียมข้อมูลไม่สำเร็จ: ' + e.message, true); return; }
     cm('กำลังบันทึก…');
-    sb.from(TBL).upsert({ user_id: user.id, name: name, data: snap, updated_at: new Date().toISOString() }, { onConflict: 'user_id,name' }).then(function (r) {
+    sb.from(TBL).upsert({ name: name, data: snap, updated_at: new Date().toISOString(), updated_by: shortName(user.email) }, { onConflict: 'name' }).then(function (r) {
       if (r.error) { cm('บันทึกไม่สำเร็จ: ' + r.error.message, true); return; }
       cur = name; cm('บันทึก “' + name + '” แล้ว'); loadList(); view();
     });
