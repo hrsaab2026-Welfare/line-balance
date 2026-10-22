@@ -425,12 +425,31 @@ th { background:var(--th-bg); color:var(--muted); font-weight:600; font-size:12p
   <button class="icbtn" id="undoBtn" type="button" aria-label="ย้อนกลับ (Ctrl+Z)" title="ย้อนกลับ (Ctrl+Z)" disabled>↶</button><button class="icbtn" id="redoBtn" type="button" aria-label="ทำซ้ำ (Ctrl+Y)" title="ทำซ้ำ (Ctrl+Y)" disabled>↷</button>
   <button class="btn ghost" id="cloudSaveBtn" type="button">บันทึกขึ้น Cloud</button>
   <button class="btn ghost" id="cloudOpenBtn" type="button">งานที่บันทึกไว้</button>
-  <span class="live" id="cloudStat" hidden></span>
+  <span class="live" id="cloudStat" role="status" aria-live="polite" hidden></span>
+  <button class="btn ghost" id="cloudRetry" type="button" hidden>ลองบันทึกใหม่</button>
   <button class="icbtn" id="themeBtn" type="button" aria-label="สลับโหมดสว่าง/มืด"><svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg></button>
 </header>
 <div class="wrap">
   <div class="pagehead"><h1 id="pgT">สร้างจาก Process Flow</h1><p id="pgS"></p></div>
   <p id="msg" role="status" aria-live="polite"></p>
+  <div class="errbox" id="errBox" role="alert" hidden></div>
+
+  <section class="welcome" id="welcome" aria-label="เริ่มต้นใช้งาน">
+    <div class="wl-hero">
+      <h2>เริ่มงาน Line Balance ใหม่</h2>
+      <p>อัปโหลดไฟล์ Excel ของคุณ หรือเปิดตัวอย่างเพื่อลองก่อน ระบบจะคำนวณ Takt Time จัดคนและสถานี แล้วสร้าง Man-Machine Chart ให้</p>
+      <div class="wl-cta">
+        <label class="btn wl-big" for="fileInput">เริ่มงานใหม่จากไฟล์ Excel</label>
+        <button class="btn ghost wl-big" id="wlSample" type="button">ดูตัวอย่างก่อน</button>
+      </div>
+      <p class="wl-drop">ลากไฟล์ .xlsx มาวางที่หน้านี้ได้เลย · ยังไม่มีไฟล์? <button class="linkbtn" type="button" data-ea="tpl">ดาวน์โหลดแม่แบบ Excel</button></p>
+    </div>
+    <ol class="wl-steps">
+      <li><b>อัปโหลดไฟล์</b><span>ใช้ไฟล์ Process Flow, Process Line หรือ Man-Machine ระบบดูรูปแบบให้เอง</span></li>
+      <li><b>ใส่เวลาและ Takt Time</b><span>กรอกยอดผลิตกับเวลาทำงาน หรือใส่ Takt ตรงๆ แล้วกรอกเวลางานย่อย วางคอลัมน์จาก Excel ได้</span></li>
+      <li><b>ดูผลและส่งออก</b><span>ดูคอขวดและโหลดของแต่ละคน แล้วส่งออก Excel พร้อม Man-Machine Chart</span></li>
+    </ol>
+  </section>
 
   
 <div class="tabpanel" id="tab-flow">
@@ -989,6 +1008,21 @@ function status(load, cycle) {
   return { cls: 'good', ico: '✓', txt: 'ปกติ' };
 }
 
+/* ---------- animation: แท่งเลื่อนจากค่าเดิมไปค่าใหม่ (ไม่เล่นถ้าผู้ใช้ตั้งลดการเคลื่อนไหว) ---------- */
+var LB_PREV = {};
+function lbMotionOk() { try { return !matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return true; } }
+function lbAnimBars(root, ns) {
+  if (!root) return;
+  var ok = lbMotionOk(), prev = LB_PREV[ns] || (LB_PREV[ns] = {});
+  root.querySelectorAll('[data-key]').forEach(function (el) {
+    var k = el.getAttribute('data-key'), w = parseFloat(el.getAttribute('data-w')), p = prev[k];
+    prev[k] = w;
+    if (!ok || !el.animate || !(p > 0) || !(w > 0) || Math.abs(p - w) < 0.5) return;
+    el.style.transformBox = 'fill-box'; el.style.transformOrigin = '0 50%';
+    el.animate([{ transform: 'scaleX(' + (p / w) + ')' }, { transform: 'scaleX(1)' }], { duration: 380, easing: 'cubic-bezier(.2,.7,.2,1)' });
+  });
+}
+
 /* ---------- verdict + kpis ---------- */
 function renderVerdict(m) {
   var el = $('verdict');
@@ -1044,7 +1078,7 @@ function renderLoadChart(m) {
     var tip = esc(r.name) + (r.tag ? ' (' + esc(r.tag) + ')' : '') + ' · โหลด ' + fmt(ld) + ' วินาที · ' + pct(m.cycle ? ld / m.cycle : 0) + ' ของ Cycle';
     bars += '<text class="strong" x="' + (gut - 10) + '" y="' + (y + rowH / 2 + 4) + '" text-anchor="end">' + esc(r.name) + (r.tag ? '<tspan class="mut" dx="5" style="font-size:11px">' + esc(r.tag) + '</tspan>' : '') + '</text>';
     bars += '<rect x="' + gut + '" y="' + (y + 4) + '" width="' + Math.max(2, X(m.cycle) - gut) + '" height="20" rx="10" fill="var(--fg)" opacity=".07"/>';
-    bars += '<rect data-tip="' + tip + '" x="' + gut + '" y="' + (y + 4) + '" width="' + Math.max(8, X(ld) - gut) + '" height="20" rx="10" fill="' + col + '"/>';
+    bars += '<rect data-tip="' + tip + '" x="' + gut + '" y="' + (y + 4) + '" data-key="' + r.id + '" data-w="' + Math.max(8, X(ld) - gut) + '" width="' + Math.max(8, X(ld) - gut) + '" height="20" rx="10" fill="' + col + '"/>';
     bars += '<rect data-tip="' + tip + '" x="' + gut + '" y="' + y + '" width="' + (pw + right - 4) + '" height="' + rowH + '" fill="transparent"/>';
     bars += '<text class="num strong" x="' + (X(ld) + 7) + '" y="' + (y + rowH / 2 + 4) + '" style="font-size:12px">' + fmt(ld) + '</text>';
   });
@@ -1056,6 +1090,7 @@ function renderLoadChart(m) {
   });
   $('loadChart').innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" role="img" aria-label="โหลดงานต่อรอบของแต่ละคนและเครื่อง เทียบกับ Cycle Time และ Takt Time">' + g + bars + refs + '</svg>';
   $('loadNote').textContent = 'หน่วย: วินาทีต่อรอบ (' + m.pcs + ' ชิ้น)';
+  lbAnimBars($('loadChart'), 'load');
 }
 
 function renderResTable(m) {
@@ -1440,7 +1475,7 @@ function renderFlowResult(res) {
   var meter = '<div class="rs-meter"><div class="rs-mt"><span>Cycle Time สูงสุด</span><b class="mono">' + fmt(m.cycle) + ' <small>วินาที</small></b></div>';
   if (T) {
     var sc2 = Math.max(T, m.cycle) * 1.15, fp = m.cycle / sc2 * 100, mp = T / sc2 * 100;
-    meter += '<div class="rs-track" role="img" aria-label="Cycle Time ' + fmt(m.cycle) + ' วินาที เทียบ Takt Time ' + fmt(T) + ' วินาที"><i class="' + (over ? 'over' : '') + '" style="width:' + fp + '%"></i><u style="left:' + mp + '%"><em>Takt ' + fmt(T) + '</em></u></div>' +
+    meter += '<div class="rs-track" role="img" aria-label="Cycle Time ' + fmt(m.cycle) + ' วินาที เทียบ Takt Time ' + fmt(T) + ' วินาที"><i class="' + (over ? 'over' : '') + '" data-key="meter" data-w="' + fp + '" style="width:' + fp + '%"></i><u style="left:' + mp + '%"><em>Takt ' + fmt(T) + '</em></u></div>' +
       '<div class="rs-ml"><span>0</span><span>' + (over ? 'เกิน Takt ' + fmt(m.cycle - T) + ' วินาที' : 'เหลือ ' + fmt(T - m.cycle) + ' วินาที') + '</span></div>';
   } else meter += '<div class="rs-ml" style="margin-top:10px"><span>ใส่ Takt Time เพื่อเทียบ</span></div>';
   meter += '</div>';
@@ -1481,6 +1516,7 @@ function renderFlowResult(res) {
   });
   h += '</div><p class="help">คนหนึ่งคนรับงานต่อเนื่องตามลำดับในตาราง ระบบแบ่งกลุ่มให้โหลดใกล้เคียงกันที่สุดภายใต้จำนวนคนที่ต้องใช้ ผลนี้ส่งไปที่แท็บ Line Balance และ Man-Machine แล้ว ไฟล์ Excel ที่ส่งออกมีตาราง Man-Machine แกนเวลาเป็นชีตที่สอง</p></div>';
   el.innerHTML = h;
+  lbAnimBars(el, 'flow');
 }
 
 /* flow events */
@@ -1865,7 +1901,7 @@ $('exportBtn2').addEventListener('click', function () {
 
 
 /* ---------- events ---------- */
-function msg(t, err) { var el = $('msg'); el.textContent = t || ''; el.className = err ? 'err' : ''; }
+function msg(t, err) { var el = $('msg'); el.textContent = t || ''; el.className = err ? 'err' : ''; if (!err) hideErr(); }
 
 ['takt', 'pcs', 'cycle'].forEach(function (id) {
   $(id).addEventListener('input', function () {
@@ -1894,21 +1930,121 @@ document.addEventListener('input', function (ev) {
   }
 });
 
+/* ---------- แม่แบบ Excel + ข้อความ error ที่บอกวิธีแก้ ---------- */
+function tplBook() {
+  var X = XLSX, wb = X.utils.book_new();
+  function add(name, aoa, wch) {
+    var ws = X.utils.aoa_to_sheet(aoa);
+    ws['!cols'] = wch.map(function (w) { return { wch: w }; });
+    X.utils.book_append_sheet(wb, ws, name);
+  }
+  add('วิธีใช้', [
+    ['แม่แบบ Line Balance Chart'],
+    [null],
+    ['ไฟล์นี้มี 3 ชีตตัวอย่าง ใช้ชีตไหนก็ได้ ลบชีตที่ไม่ต้องการออกได้ ระบบอ่านทุกชีตที่หัวตารางตรงรูปแบบ'],
+    ['ชีต Process Line: เวลาของแต่ละงานแยกตามคนและเครื่อง ได้กราฟ Line Balance และ Man-Machine Chart'],
+    ['ชีต Process Flow: ลำดับกระบวนการผลิต ระบบแตกงานย่อยให้ แล้วใส่เวลาในเว็บ'],
+    ['ชีต Man-Machine: เทียบเวลาต่อชิ้นของสองสถานการณ์ขึ้นไป เช่น Manual กับ Robot'],
+    [null],
+    ['กติกาสำคัญ'],
+    ['- อย่าเปลี่ยนชื่อหัวคอลัมน์ เช่น Time (Sec), Man 1, Robot, Jig, PROC., PROCESS NAME, Scenario, Process'],
+    ['- เวลาเป็นตัวเลขหน่วยวินาที ห้ามใส่หน่วยหรือข้อความในช่องเวลา'],
+    ['- ตัวเลขในแม่แบบเป็นค่าสมมุติ ต้องแทนด้วยเวลาที่จับได้จริงก่อนนำผลไปใช้']
+  ], [105]);
+  add('Process Line', [
+    ['Process Line (ตัวอย่างแม่แบบ)'],
+    ['Takt Time', 45],
+    ['Cycle Time', '30 sec / 1 pcs'],
+    [null],
+    ['Station', 'Step', 'Category', 'Process', 'Time (Sec)', null, 'Robot', 'Man 1', 'Man 2'],
+    [null, null, null, null, null, null, null, 'R', 'L'],
+    ['Station 1', 'Step 1', 'Set', '1.1 Set part on jig', 10, null, null, 10, null],
+    [null, null, "Ass'y", '1.2 Assemble part', 20, null, null, 20, null],
+    [null, null, 'Weld', '1.3 Robot welding', 30, null, 30, null, null],
+    [null, null, 'Move', '1.4 Take off', 10, null, null, null, 10],
+    ['Sumary Total', null, null, null, 70, null, 30, 30, 10]
+  ], [13, 11, 10, 30, 11, 3, 9, 9, 9]);
+  add('Process Flow', [
+    ['Cust. :', 'Model :', 'Part No.', 'Part Name', 'Rev. No.'],
+    ['ชื่อลูกค้า', 'ชื่อรุ่น', 'เลขชิ้นงาน', 'ชื่อชิ้นงาน', '0'],
+    [null],
+    ['PROC.', 'PROCESS NAME', 'MACHINE', 'CHARACTERISTICS', 'PRODUCT', 'RANK'],
+    [10, 'WAREHOUSE PART', 'RACK', 'PRESERVATION TAG', 'APPEARANCE', 'C'],
+    [20, "MAIN ASS'Y", 'ROBOT WELDING M/C', 'ROBOT WELDING', 'APPEARANCE', null],
+    [null, null, "JIG SUB ASS'Y", null, 'DIMENSION', 'B'],
+    [30, 'FINAL INSPECTION', 'CHECKING FIXTURE', 'CHECK', 'APPEARANCE', null],
+    [40, 'PACKING', 'POLY BOX', 'QUANTITY', 'APPEARANCE', 'C'],
+    [50, 'HANDLING TO WAREHOUSE FG', 'PUSHCART', 'TRANSPORT', 'APPEARANCE', 'C']
+  ], [8, 28, 22, 22, 14, 8]);
+  add('Man-Machine', [
+    ['Scenario', 'Process', 'Time (Sec)'],
+    ['Manual', 'Set Part', 10],
+    [null, 'Grinding (Manual)', 480],
+    [null, 'Check', 210],
+    [null, 'Take Off', 10],
+    ['Robot', 'Set Part', 10],
+    [null, 'Robot Grinding', 220],
+    [null, 'Take Off', 10]
+  ], [12, 24, 12]);
+  return wb;
+}
+function downloadTemplate() {
+  if (typeof XLSX === 'undefined') { msg('โหลดตัวเขียน Excel ไม่สำเร็จ ลองรีเฟรชหน้านี้อีกครั้ง', true); return; }
+  var blob = new Blob([XLSX.write(tplBook(), { type: 'array', bookType: 'xlsx' })], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  plSave(blob, 'Line Balance - แม่แบบ Excel.xlsx');
+}
+function hideErr() { var b = $('errBox'); if (b) b.hidden = true; }
+function fileError(title, reasons, note) {
+  var b = $('errBox');
+  b.innerHTML = '<b aria-hidden="true">!</b><div><div class="eh">' + esc(title) + '</div><ul>' + reasons.map(function (r) { return '<li>' + esc(r) + '</li>'; }).join('') + '</ul>' +
+    (note ? '<p class="help" style="margin-top:8px">' + esc(note) + '</p>' : '') +
+    '<div class="ea"><button class="btn" type="button" data-ea="tpl">ดาวน์โหลดแม่แบบ Excel</button><button class="btn ghost" type="button" data-ea="close">ปิด</button></div></div>';
+  b.hidden = false; $('msg').textContent = ''; $('msg').className = '';
+  if (b.scrollIntoView) b.scrollIntoView({ block: 'nearest' });
+}
+/* บอกว่าแต่ละชีตขาดอะไร จากหัวคอลัมน์ที่เจอ */
+function lbDiagnose(wb, X) {
+  var out = [];
+  wb.SheetNames.forEach(function (n) {
+    var aoa = X.utils.sheet_to_json(wb.Sheets[n], { header: 1, raw: true, defval: null, blankrows: true }), seen = {};
+    aoa.slice(0, 40).forEach(function (row) {
+      (row || []).forEach(function (c) {
+        var t = lbClean(c);
+        if (/^scenario$/i.test(t)) seen.sc = 1;
+        else if (LB_TIME_RE.test(t)) seen.time = 1;
+        else if (/^proc\.?$/i.test(t)) seen.proc = 1;
+      });
+    });
+    if (seen.sc) out.push('ชีต "' + n + '" มีหัวคอลัมน์ Scenario แต่ต้องมีหัวคอลัมน์ Process และ Time ด้วย และมีอย่างน้อย 2 สถานการณ์ (เช่น Manual กับ Robot)');
+    else if (seen.time) out.push('ชีต "' + n + '" มีหัวคอลัมน์ Time (Sec) แล้ว แต่ไม่พบคอลัมน์ Man / Robot / Jig ที่มีเวลาอยู่ใต้หัวตาราง หรือไม่มีแถวงานที่ใส่ทั้งชื่องานและเวลา');
+    if (seen.proc) out.push('ชีต "' + n + '" มีหัวคอลัมน์ PROC. แต่ไม่พบ PROCESS NAME ในแถวเดียวกัน หรือมีกระบวนการไม่ถึง 2 ขั้นตอน');
+  });
+  if (!out.length) out.push('ไม่พบหัวคอลัมน์ที่ระบบรู้จักในชีต: ' + wb.SheetNames.join(', '));
+  return out;
+}
+document.addEventListener('click', function (ev) {
+  var b = ev.target.closest ? ev.target.closest('[data-ea]') : null; if (!b) return;
+  if (b.dataset.ea === 'tpl') downloadTemplate(); else hideErr();
+});
+$('wlSample').addEventListener('click', function () { $('sampleBtn').click(); });
+
 function handleFile(file) {
   if (!file) return;
+  if (!/\.(xlsx|xlsm|xls)$/i.test(file.name)) { fileError('ไฟล์ "' + file.name + '" ยังไม่รองรับ', ['ระบบอ่านได้เฉพาะไฟล์ Excel (.xlsx, .xlsm, .xls)', 'ถ้าเป็น CSV หรือ Google Sheets ให้เปิดแล้วเลือกบันทึก/ดาวน์โหลดเป็น Excel (.xlsx) ก่อน แล้วอัปโหลดอีกครั้ง']); return; }
+  if (!file.size) { fileError('ไฟล์ "' + file.name + '" ว่างเปล่า', ['ไฟล์มีขนาด 0 ไบต์ ลองเลือกไฟล์ใหม่ หรือบันทึกไฟล์จาก Excel อีกครั้ง']); return; }
   if (typeof XLSX === 'undefined') { msg('โหลดตัวอ่าน Excel ไม่สำเร็จ ลองรีเฟรชหน้านี้อีกครั้ง', true); return; }
   var rd = new FileReader();
   rd.onload = function () {
     try {
       var wb = XLSX.read(rd.result, { type: 'array' });
       var pf = lbParseProcessFlowWorkbook(wb, XLSX), res = lbParseWorkbook(wb, XLSX), sc = lbParseScenarioWorkbook(wb, XLSX), got = [];
-      if (!pf && !res && !sc) { msg('ไม่พบตารางที่อ่านได้ในไฟล์นี้ ต้องเป็น Process Flow (หัวคอลัมน์ PROC. / PROCESS NAME), ตาราง Process Line (หัวคอลัมน์ "Time (Sec)" และ Man / Robot / Jig) หรือตาราง Man-Machine (หัวคอลัมน์ Scenario / Process / Time)', true); return; }
+      if (!pf && !res && !sc) { fileError('อ่านตารางจากไฟล์ "' + file.name + '" ไม่ได้', lbDiagnose(wb, XLSX), 'ระบบรองรับ 3 รูปแบบ: Process Flow (หัวคอลัมน์ PROC. / PROCESS NAME), Process Line (หัวคอลัมน์ Time (Sec) และ Man / Robot / Jig) และ Man-Machine (หัวคอลัมน์ Scenario / Process / Time) ดาวน์โหลดแม่แบบแล้วคัดลอกข้อมูลลงในรูปแบบเดียวกันได้'); return; }
       if (pf) { setFlow(pf, file.name, false); got.push('Process Flow'); }
       if (res) { setModel(res, file.name); got.push('Line Balance'); }
       if (sc) { setScenarios(sc); got.push('เทียบ Manual กับ Robot'); }
       showTab(pf ? 'flow' : res ? 'balance' : 'compare');
       msg('อ่าน ' + file.name + ' แล้ว: ' + got.join(' และ '));
-    } catch (err) { msg('อ่านไฟล์ไม่ได้: ' + err.message, true); }
+    } catch (err) { fileError('เปิดไฟล์ "' + file.name + '" ไม่ได้', ['ไฟล์อาจเสีย มีรหัสผ่านป้องกัน หรือเป็นไฟล์ชนิดอื่นที่ตั้งนามสกุลเป็น Excel', 'ลองเปิดไฟล์ใน Excel เอารหัสผ่านออก แล้วบันทึกเป็น .xlsx ใหม่ จากนั้นอัปโหลดอีกครั้ง', 'รายละเอียดจากระบบ: ' + err.message]); }
   };
   rd.readAsArrayBuffer(file);
 }
@@ -1944,7 +2080,19 @@ document.addEventListener('change', function (ev) {
 /* ---------- shell: หัวเรื่องแท็บ, เกจ Takt vs Cycle, สลับธีม ---------- */
 var PG = { flow: ['สร้างจาก Process Flow', 'ใส่เวลางานย่อย แล้วระบบจัดคนและสถานีให้ตาม Takt Time'], balance: ['Line Balance และ Man-Machine', 'ดูโหลดของแต่ละคนและเครื่อง เทียบกับ Cycle Time และ Takt Time'], compare: ['เทียบ Manual กับ Robot', 'เวลาต่อชิ้นของสถานีเดียว เห็นว่าหุ่นยนต์ช่วยลดเวลาได้เท่าไร'] };
 var _showTab = showTab;
-showTab = function (tok) { _showTab(tok); if (!PG[tok]) tok = 'flow'; $('pgT').textContent = $('crumb').textContent = PG[tok][0]; $('pgS').textContent = PG[tok][1]; };
+showTab = function (tok) {
+  _showTab(tok);
+  var has = !!(S || D || SC);
+  $('welcome').hidden = has;
+  if (!has) {
+    Object.keys(TAB_PANELS).forEach(function (k) { TAB_PANELS[k].forEach(function (id) { $(id).hidden = true; }); });
+    $('pgT').textContent = $('crumb').textContent = 'เริ่มต้นใช้งาน';
+    $('pgS').textContent = 'เริ่มจากไฟล์ Excel ของคุณ หรือเปิดตัวอย่างเพื่อลองใช้งานก่อน';
+    return;
+  }
+  if (!PG[tok]) tok = 'flow';
+  $('pgT').textContent = $('crumb').textContent = PG[tok][0]; $('pgS').textContent = PG[tok][1];
+};
 function liveChip() {
   if (!S) return;
   var m = compute(), lv = $('live'), g = $('gauge'), t = +m.takt || 0, pp = m.perPiece || 0, d = t - pp;
@@ -1964,8 +2112,7 @@ $('themeBtn').addEventListener('click', function () {
   var r = document.documentElement, cur = r.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
   r.dataset.theme = cur === 'dark' ? 'light' : 'dark';
 });
-setScenarios(sampleSc());
-setFlow(SAMPLE_PF, 'Process Flow ES37 (ตัวอย่าง)', true);
+/* เปิดมาเจอหน้าเริ่มต้น (ไม่โหลดข้อมูลตัวอย่างให้เอง) */
 try { showTab((location.hash || '').replace('#', '')); } catch (e) { showTab('flow'); }
 </script>
 
@@ -1995,6 +2142,25 @@ try { showTab((location.hash || '').replace('#', '')); } catch (e) { showTab('fl
 .wi-res { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px 16px; font-size: 13px; }
 .wi-res span { color: var(--muted); display: block; } .wi-res .ok { color: var(--good-text); } .wi-res .no { color: var(--bad-text); }
 .icbtn:disabled { opacity: .35; cursor: default; }
+.errbox { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border: 1px solid var(--bad); border-radius: 14px; background: color-mix(in srgb, var(--bad) 9%, var(--surface)); box-shadow: var(--shadow); }
+.errbox > b { flex: none; width: 22px; height: 22px; border-radius: 50%; background: var(--bad); color: #fff; display: grid; place-items: center; font-size: 13px; }
+.errbox .eh { font-weight: 600; color: var(--bad-text); }
+.errbox ul { margin: 6px 0 0; padding-left: 18px; color: var(--fg2); }
+.errbox .ea { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.errbox .ea .btn { padding: 6px 12px; font-size: 13px; }
+.welcome { display: flex; flex-direction: column; gap: 22px; }
+.wl-hero { display: flex; flex-direction: column; align-items: flex-start; gap: 14px; padding: 36px 32px; border: 1.5px dashed var(--line-strong); border-radius: var(--r); background: var(--surface); box-shadow: var(--shadow); }
+.wl-hero h2 { font-size: 22px; color: var(--text-heading); }
+.wl-hero p { color: var(--fg2); max-width: 62ch; }
+.wl-cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 6px; }
+.wl-big { padding: 14px 24px; font-size: 16px; }
+.wl-drop { font-size: 12.5px; }
+.wl-steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; counter-reset: wl; }
+.wl-steps li { position: relative; display: flex; flex-direction: column; gap: 4px; padding: 16px 16px 16px 62px; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); box-shadow: var(--shadow); counter-increment: wl; }
+.wl-steps li::before { content: counter(wl); position: absolute; left: 16px; top: 16px; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: var(--brand-navy-700); color: #fff; font-weight: 600; }
+.wl-steps li span { color: var(--fg2); font-size: 13px; }
+.live { transition: background-color .25s, color .25s; }
+@media (prefers-reduced-motion: reduce) { .live { transition: none; } }
 #gF { transition: width .4s ease; }
 @media (prefers-reduced-motion: reduce) { #gF { transition: none; } }
 #lbGate { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 16px; background: var(--bg); }
@@ -2129,18 +2295,40 @@ try { showTab((location.hash || '').replace('#', '')); } catch (e) { showTab('fl
       try { restore(r.data[0].data); cur = r.data[0].name; stat('เปิดงานล่าสุดแล้ว'); msg('เปิดงานล่าสุด “' + cur + '” จาก Cloud แล้ว'); } catch (e) {}
     });
   }
-  function doSave() {
-    if (!sb || !user || !auto) return;
+  /* สถานะการบันทึก: dirty = มีการแก้ที่ยังไม่ขึ้น Cloud, failed = ครั้งล่าสุดพลาด (มีปุ่มลองใหม่) */
+  var dirty = false, failed = false, saving = false, editSeq = 0, lastErr = '';
+  function online() { return navigator.onLine !== false; }
+  function retryUI() { var b = $('cloudRetry'); if (!b) return; b.hidden = !failed; b.title = lastErr ? 'สาเหตุ: ' + lastErr : ''; }
+  function saveFail(why) {
+    saving = false; failed = true; lastErr = why || '';
+    stat(online() ? 'บันทึกไม่สำเร็จ · ข้อมูลยังอยู่ในหน้านี้' : 'ออฟไลน์ · ยังไม่ได้บันทึก', true); retryUI();
+  }
+  window.addEventListener('offline', function () { if (user) stat('ออฟไลน์ · แก้ไขต่อได้ จะบันทึกเมื่อกลับมาออนไลน์', true); });
+  window.addEventListener('online', function () {
+    if (!user) return;
+    if (dirty || failed) { stat('กลับมาออนไลน์แล้ว กำลังบันทึก…'); doSave(true); } else stat('กลับมาออนไลน์แล้ว');
+  });
+  window.addEventListener('beforeunload', function (e) { if (user && (dirty || failed || saving)) { e.preventDefault(); e.returnValue = ''; } });
+  $('cloudRetry').addEventListener('click', function () { doSave(true); });
+  function doSave(force) {
+    if (!sb || !user || (!auto && !force)) return;
     if (!cur) cur = newName();
     var snap; try { snap = snapshot(); } catch (e) { return; }
-    var name = cur; stat('กำลังบันทึก…');
+    if (!online()) { saveFail('ไม่มีอินเทอร์เน็ต'); return; }
+    var name = cur, mySeq = editSeq; stat('กำลังบันทึก…'); saving = true;
     sb.from(TBL).upsert({ name: name, data: snap, updated_at: new Date().toISOString(), updated_by: shortName(user.email) }, { onConflict: 'name' }).then(function (r) {
-      if (r.error) stat('บันทึกอัตโนมัติไม่สำเร็จ', true); else { stat('บันทึกอัตโนมัติแล้ว ' + hhmm()); if (Date.now() - lastVer > 300000) addVersion('auto'); }
+      saving = false;
+      if (r.error) { saveFail(r.error.message); return; }
+      if (editSeq === mySeq) dirty = false;
+      failed = false; retryUI();
+      stat('บันทึกอัตโนมัติแล้ว ' + hhmm()); if (Date.now() - lastVer > 300000) addVersion('auto');
     });
   }
   function schedule() {
     if (!sb || !user || !auto || quiet > Date.now()) return;
-    clearTimeout(saveT); saveT = setTimeout(doSave, 2000); stat('รอบันทึก…');
+    dirty = true; editSeq++;
+    clearTimeout(saveT); saveT = setTimeout(function () { doSave(); }, 2000);
+    stat(online() ? 'รอบันทึก…' : 'ออฟไลน์ · ยังไม่ได้บันทึก', !online());
   }
   ['renderAll', 'flowUpdate', 'renderSc'].forEach(function (n) {
     var f = window[n];
@@ -2165,7 +2353,7 @@ try { showTab((location.hash || '').replace('#', '')); } catch (e) { showTab('fl
     cm('กำลังบันทึก…');
     sb.from(TBL).upsert({ name: name, data: snap, updated_at: new Date().toISOString(), updated_by: shortName(user.email) }, { onConflict: 'name' }).then(function (r) {
       if (r.error) { cm('บันทึกไม่สำเร็จ: ' + r.error.message, true); return; }
-      cur = name; cm('บันทึก “' + name + '” แล้ว'); loadList(); view();
+      cur = name; dirty = false; failed = false; retryUI(); cm('บันทึก “' + name + '” แล้ว'); loadList(); view();
     });
   });
 
@@ -2192,7 +2380,7 @@ try { showTab((location.hash || '').replace('#', '')); } catch (e) { showTab('fl
   var hist = [], hi = -1, histBusy = 0, histT = null;
   function histSync() { $('undoBtn').disabled = hi <= 0; $('redoBtn').disabled = hi >= hist.length - 1; }
   function pushHist() {
-    if (histBusy > Date.now()) return;
+    if (histBusy > Date.now() || !(S || D || SC)) return;
     clearTimeout(histT);
     histT = setTimeout(function () {
       var j; try { j = JSON.stringify(snapshot()); } catch (e) { return; }
