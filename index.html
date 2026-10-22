@@ -4,8 +4,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&family=Sarabun:wght@400;500;600&family=Outfit:wght@400;500;600&display=swap">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script src="js/lazy.js"></script>
+<script src="js/errlog.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="config.js"></script>
 <style>
@@ -1444,7 +1444,8 @@ function plXlsx(m) {
   mmSheet(wb, m);
   return wb;
 }
-function exportXlsx() {
+function exportXlsx() { if (!lbLoaded(['xlsx','exceljs'])) msg('กำลังโหลดตัวช่วย Excel…'); lbLoad(['xlsx','exceljs']).then(exportXlsxNow); }
+function exportXlsxNow() {
   if (!S || !S.elements.length) { msg('ยังไม่มีข้อมูลให้ส่งออก', true); return; }
   var MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
   var nm = 'Process Line - ' + (plSafe(S.sheet || FILE, 60) || 'export') + (S.sample ? ' (ตัวอย่าง-ค่าสมมุติ)' : '') + '.xlsx';
@@ -1556,7 +1557,8 @@ function tplBook() {
   ], [12, 24, 12]);
   return wb;
 }
-function downloadTemplate() {
+function downloadTemplate() { if (!lbLoaded(['xlsx'])) msg('กำลังโหลดตัวช่วย Excel…'); lbLoad(['xlsx']).then(downloadTemplateNow); }
+function downloadTemplateNow() {
   if (typeof XLSX === 'undefined') { msg('โหลดตัวเขียน Excel ไม่สำเร็จ ลองรีเฟรชหน้านี้อีกครั้ง', true); return; }
   var blob = new Blob([XLSX.write(tplBook(), { type: 'array', bookType: 'xlsx' })], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   plSave(blob, 'Line Balance - แม่แบบ Excel.xlsx');
@@ -1596,7 +1598,8 @@ document.addEventListener('click', function (ev) {
 });
 $('wlSample').addEventListener('click', function () { $('sampleBtn').click(); });
 
-function handleFile(file) {
+function handleFile(file) { if (!file) return; if (!lbLoaded(['xlsx'])) msg('กำลังโหลดตัวช่วย Excel…'); lbLoad(['xlsx']).then(function () { handleFileNow(file); }); }
+function handleFileNow(file) {
   if (!file) return;
   if (!/\.(xlsx|xlsm|xls)$/i.test(file.name)) { fileError('ไฟล์ "' + file.name + '" ยังไม่รองรับ', ['ระบบอ่านได้เฉพาะไฟล์ Excel (.xlsx, .xlsm, .xls)', 'ถ้าเป็น CSV หรือ Google Sheets ให้เปิดแล้วเลือกบันทึก/ดาวน์โหลดเป็น Excel (.xlsx) ก่อน แล้วอัปโหลดอีกครั้ง']); return; }
   if (!file.size) { fileError('ไฟล์ "' + file.name + '" ว่างเปล่า', ['ไฟล์มีขนาด 0 ไบต์ ลองเลือกไฟล์ใหม่ หรือบันทึกไฟล์จาก Excel อีกครั้ง']); return; }
@@ -1780,6 +1783,7 @@ body.viewer .tabpanel td input, body.viewer .tabpanel .field input { opacity: .8
       <p class="hint" id="cdSaveHint" style="margin-top:6px">ทุกบัญชีเห็นงานชุดเดียวกัน ถ้าใช้ชื่อเดิมระบบจะบันทึกทับงานเก่า</p>
       <div class="cd-row" id="cdTabs" style="margin-top:12px"><button class="btn sm" id="cdTabLive" type="button">งานทั้งหมด</button><button class="btn ghost sm" id="cdTabTrash" type="button">ถังขยะ</button><span class="hint" id="cdTrashHint"></span></div>
       <div class="cd-list" id="cdList" style="margin-top:8px"></div>
+      <div class="cd-row" style="margin-top:8px"><button class="btn ghost sm" id="cdBackup" type="button">ดาวน์โหลดสำรองทุกงาน (.json)</button><button class="btn ghost sm" id="cdImport" type="button">นำเข้าจากไฟล์สำรอง</button><input id="cdImportFile" type="file" accept=".json,application/json" hidden></div>
     </div>
 
     <p class="cd-msg" id="cdMsg" role="status" aria-live="polite"></p>
@@ -1900,7 +1904,7 @@ body.viewer .tabpanel td input, body.viewer .tabpanel .field input { opacity: .8
     var chip = $('roleChip'); chip.hidden = !v; chip.textContent = 'ดูอย่างเดียว';
     $('viewerNotice').hidden = !v;
     $('cloudSaveBtn').hidden = v;
-    ['cdAutoRow', 'cdMarkRow', 'cdSaveRow', 'cdSaveHint'].forEach(function (id) { $(id).hidden = v; });
+    ['cdAutoRow', 'cdMarkRow', 'cdSaveRow', 'cdSaveHint', 'cdImport'].forEach(function (id) { $(id).hidden = v; });
     if (v) { clearTimeout(saveT); stat(''); }
   }
   function loadRole() {
@@ -1978,6 +1982,7 @@ body.viewer .tabpanel td input, body.viewer .tabpanel .field input { opacity: .8
   function retryUI() { var b = $('cloudRetry'); if (!b) return; b.hidden = !failed; b.title = lastErr ? 'สาเหตุ: ' + lastErr : ''; }
   function saveFail(why) {
     saving = false; failed = true; lastErr = why || '';
+    if (window.lbLogError && online()) window.lbLogError('บันทึกไม่สำเร็จ: ' + lastErr);
     stat(online() ? 'บันทึกไม่สำเร็จ · ข้อมูลยังอยู่ในหน้านี้' : 'ออฟไลน์ · ยังไม่ได้บันทึก', true); retryUI();
   }
   window.addEventListener('offline', function () { if (user) stat('ออฟไลน์ · แก้ไขต่อได้ จะบันทึกเมื่อกลับมาออนไลน์', true); });
@@ -2068,6 +2073,36 @@ body.viewer .tabpanel td input, body.viewer .tabpanel .field input { opacity: .8
   });
   $('cdTabLive').addEventListener('click', function () { listMode = 'live'; loadList(); });
   $('cdTabTrash').addEventListener('click', function () { listMode = 'trash'; loadList(); });
+
+  /* ---------- สำรอง / นำเข้างานทั้งหมดเป็นไฟล์ .json ---------- */
+  $('cdBackup').addEventListener('click', function () {
+    cm('กำลังรวบรวมงานทั้งหมด…');
+    tq(function (f) { var q = sb.from(TBL).select('name,data,updated_at,updated_by'); if (f) q = q.is('deleted_at', null); return q.order('name'); }).then(function (r) {
+      if (r.error) { cm('สำรองไม่สำเร็จ: ' + r.error.message, true); return; }
+      var out = { app: 'line-balance', v: 1, exported_at: new Date().toISOString(), exported_by: shortName(user.email), projects: r.data };
+      plSave(new Blob([JSON.stringify(out)], { type: 'application/json' }), 'line-balance-backup-' + new Date().toISOString().slice(0, 10) + '.json');
+      cm('สำรอง ' + r.data.length + ' งานแล้ว');
+    });
+  });
+  $('cdImport').addEventListener('click', function () { if (canEdit()) $('cdImportFile').click(); });
+  $('cdImportFile').addEventListener('change', function () {
+    var f = this.files[0]; this.value = ''; if (!f || !canEdit()) return;
+    var rd = new FileReader();
+    rd.onload = function () {
+      var j; try { j = JSON.parse(rd.result); } catch (e) { cm('ไฟล์สำรองไม่ถูกต้อง', true); return; }
+      var map = {};
+      (j && j.app === 'line-balance' && Array.isArray(j.projects) ? j.projects : []).forEach(function (p) { if (p && p.name && p.data && p.data.v === 1) map[String(p.name).slice(0, 120)] = p.data; });
+      var names = Object.keys(map);
+      if (!names.length) { cm('ไม่พบงานที่นำเข้าได้ในไฟล์นี้', true); return; }
+      if (!confirm('นำเข้า ' + names.length + ' งาน? งานที่ชื่อซ้ำกับในระบบจะถูกบันทึกทับ ถ้าไม่แน่ใจให้กดดาวน์โหลดสำรองก่อน')) return;
+      cm('กำลังนำเข้า…');
+      sb.from(TBL).upsert(names.map(function (n) { return rowOf(n, map[n]); }), { onConflict: 'name' }).then(function (r) {
+        if (r.error) { cm('นำเข้าไม่สำเร็จ: ' + r.error.message, true); return; }
+        cm('นำเข้า ' + names.length + ' งานแล้ว'); loadList();
+      });
+    };
+    rd.readAsText(f);
+  });
 
   /* ---------- Undo / Redo (Ctrl+Z / Ctrl+Y) ---------- */
   var hist = [], hi = -1, histBusy = 0, histT = null;
@@ -2207,7 +2242,7 @@ body.viewer .tabpanel td input, body.viewer .tabpanel .field input { opacity: .8
   });
   if (sb) setInterval(function () { if (user && cur !== pcName) pJoin(cur); }, 1500);
 
-  window.__lbCloud = { snapshot: snapshot, restore: restore, jump: jump, insight: insight, info: function () { return { user: user ? shortName(user.email) : '', job: cur }; } };
+  window.__lbCloud = { snapshot: snapshot, restore: restore, jump: jump, insight: insight, db: function () { return sb && user ? sb : null; }, info: function () { return { user: user ? shortName(user.email) : '', job: cur }; } };
 })();
 </script>
 
