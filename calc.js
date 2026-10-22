@@ -56,5 +56,7 @@ function status(load, cycle) {
 
 
 var api = { fmt: fmt, pct: pct, lbSchedule: lbSchedule, bandsOf: bandsOf, lbCompute: lbCompute, status: status };
-if (typeof module !== 'undefined' && module.exports) module.exports = api; else Object.assign(root, api);
+/* บนเบราว์เซอร์ห้ามวางชื่อ status ลง window: window.status เป็นข้อความเก่าของเบราว์เซอร์ ฟังก์ชันที่ใส่เข้าไปจะถูกแปลงเป็นสตริง แล้วเรียก status() ไม่ได้ (กราฟไม่ขึ้น) จึงใช้ชื่อ lbStatus แทน */
+if (typeof module !== 'undefined' && module.exports) module.exports = api;
+else { var g = Object.assign({}, api, { lbStatus: status }); delete g.status; Object.assign(root, g); }
 })(typeof window !== 'undefined' ? window : globalThis);
