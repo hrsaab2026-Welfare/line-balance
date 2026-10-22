@@ -424,6 +424,7 @@ th { background:var(--th-bg); color:var(--muted); font-weight:600; font-size:12p
   <button class="btn ghost" id="sampleBtn" type="button">โหลดข้อมูลตัวอย่าง</button>
   <button class="btn ghost" id="cloudSaveBtn" type="button">บันทึกขึ้น Cloud</button>
   <button class="btn ghost" id="cloudOpenBtn" type="button">งานที่บันทึกไว้</button>
+  <span class="live" id="cloudStat" hidden></span>
   <button class="icbtn" id="themeBtn" type="button" aria-label="สลับโหมดสว่าง/มืด"><svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg></button>
 </header>
 <div class="wrap">
@@ -2002,7 +2003,9 @@ try { showTab((location.hash || '').replace('#', '')); } catch (e) { showTab('fl
 
     <div id="cdMain" hidden>
       <div class="cd-row" style="justify-content:space-between"><span class="hint">เข้าสู่ระบบเป็น <b id="cdUser"></b></span><button class="btn ghost sm" id="cdSignOut" type="button">ออกจากระบบ</button></div>
-      <div class="cd-row" style="margin-top:12px"><input id="cdName" type="text" placeholder="ตั้งชื่องาน เช่น ES37 Line A" maxlength="120"><button class="btn" id="cdSave" type="button">บันทึก</button></div>
+      <label class="hint" style="display:flex;gap:8px;align-items:center;margin-top:12px"><input type="checkbox" id="cdAuto"> บันทึกอัตโนมัติทุกครั้งที่แก้ไข</label>
+      <p class="hint" id="cdCur" style="margin-top:4px"></p>
+      <div class="cd-row" style="margin-top:12px"><input id="cdName" type="text" placeholder="ตั้งชื่องาน เช่น ES37 Line A" maxlength="120"><button class="btn" id="cdSave" type="button">บันทึกเป็นชื่อนี้</button></div>
       <p class="hint" style="margin-top:6px">ถ้าใช้ชื่อเดิม ระบบจะบันทึกทับงานเก่า</p>
       <div class="cd-list" id="cdList" style="margin-top:12px"></div>
     </div>
@@ -2014,26 +2017,39 @@ try { showTab((location.hash || '').replace('#', '')); } catch (e) { showTab('fl
 /* ---------- Cloud: บันทึก/เปิดงานผ่าน Supabase (ตาราง line_balance_projects) ---------- */
 (function () {
   var cfg = window.LB_CONFIG || {}, dlg = $('cloudDlg'), sb = null, user = null, TBL = 'line_balance_projects';
+  var cur = null, saveT = null, quiet = 0, auto = true;
+  try { auto = localStorage.getItem('lbAuto') !== '0'; } catch (e) {}
   var cfgOk = !!(cfg.url && cfg.anonKey && !/YOUR-/i.test(cfg.url + cfg.anonKey) && window.supabase);
   if (cfgOk) { try { sb = window.supabase.createClient(cfg.url, cfg.anonKey); } catch (e) { sb = null; } }
 
+  function stat(t, err) { var el = $('cloudStat'); if (!el) return; el.hidden = !t; el.textContent = t || ''; el.className = 'live' + (err ? ' bad' : ''); }
+  function hhmm() { var d = new Date(); return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); }
+  function newName() {
+    var d = new Date(), p2 = function (n) { return ('0' + n).slice(-2); };
+    var base = (D && D.part && (D.part.partName || D.part.partNo)) || String(FILE || 'งานใหม่');
+    return (base + ' · ' + p2(d.getDate()) + '/' + p2(d.getMonth() + 1) + ' ' + p2(d.getHours()) + ':' + p2(d.getMinutes())).slice(0, 120);
+  }
   function cm(t, err) { var el = $('cdMsg'); el.textContent = t || ''; el.className = 'cd-msg' + (err ? ' err' : ''); }
   function view() {
     var m = !sb ? 'nocfg' : user ? 'main' : 'login';
     $('cdNoCfg').hidden = m !== 'nocfg'; $('cdLogin').hidden = m !== 'login'; $('cdMain').hidden = m !== 'main';
-    if (m === 'main') { $('cdUser').textContent = user.email || ''; loadList(); }
+    if (m === 'main') {
+      $('cdUser').textContent = user.email || ''; $('cdAuto').checked = auto;
+      $('cdCur').textContent = cur ? 'งานที่เปิดอยู่: ' + cur : 'ยังไม่มีงานที่เปิดอยู่ ระบบจะสร้างงานใหม่ให้เองเมื่อมีการแก้ไข';
+      loadList();
+    }
   }
   function openDlg(focusName) {
     cm('');
-    if (focusName && !$('cdName').value) $('cdName').value = (D && D.part && (D.part.partName || D.part.partNo)) || '';
+    if (focusName) $('cdName').value = cur || (D && D.part && (D.part.partName || D.part.partNo)) || '';
     if (!dlg.open) dlg.showModal();
     view();
     if (focusName && user) $('cdName').focus();
   }
 
   if (sb) {
-    sb.auth.getSession().then(function (r) { user = r.data && r.data.session ? r.data.session.user : null; });
-    sb.auth.onAuthStateChange(function (ev, sess) { user = sess ? sess.user : null; if (dlg.open) view(); });
+    sb.auth.getSession().then(function (r) { user = r.data && r.data.session ? r.data.session.user : null; if (user) openLatest(); });
+    sb.auth.onAuthStateChange(function (ev, sess) { user = sess ? sess.user : null; if (!user) stat(''); if (dlg.open) view(); });
   }
 
   /* เก็บสถานะที่ผู้ใช้กรอกไว้: Process Flow (D), ตาราง Manual vs Robot (SC), และโมเดลที่มาจากไฟล์ Excel (S) */
@@ -2048,6 +2064,7 @@ try { showTab((location.hash || '').replace('#', '')); } catch (e) { showTab('fl
   }
   function restore(s) {
     if (!s || s.v !== 1) throw new Error('รูปแบบข้อมูลไม่ถูกต้อง');
+    quiet = Date.now() + 4000; clearTimeout(saveT);
     if (s.sc) setScenarios(s.sc);
     if (s.flow) { D = s.flow; renderFlow(); flowUpdate(); }
     if (s.fromFile && s.model) { clearTimeout(flTimer); setModel(s.model, s.file || 'งานที่บันทึกไว้'); }
@@ -2068,6 +2085,33 @@ try { showTab((location.hash || '').replace('#', '')); } catch (e) { showTab('fl
     });
   }
 
+  function openLatest() {
+    sb.from(TBL).select('name,data').order('updated_at', { ascending: false }).limit(1).then(function (r) {
+      if (r.error || !r.data || !r.data.length) return;
+      try { restore(r.data[0].data); cur = r.data[0].name; stat('เปิดงานล่าสุดแล้ว'); msg('เปิดงานล่าสุด “' + cur + '” จาก Cloud แล้ว'); } catch (e) {}
+    });
+  }
+  function doSave() {
+    if (!sb || !user || !auto) return;
+    if (!cur) cur = newName();
+    var snap; try { snap = snapshot(); } catch (e) { return; }
+    var name = cur; stat('กำลังบันทึก…');
+    sb.from(TBL).upsert({ user_id: user.id, name: name, data: snap, updated_at: new Date().toISOString() }, { onConflict: 'user_id,name' }).then(function (r) {
+      if (r.error) stat('บันทึกอัตโนมัติไม่สำเร็จ', true); else stat('บันทึกอัตโนมัติแล้ว ' + hhmm());
+    });
+  }
+  function schedule() {
+    if (!sb || !user || !auto || quiet > Date.now()) return;
+    clearTimeout(saveT); saveT = setTimeout(doSave, 2000); stat('รอบันทึก…');
+  }
+  ['renderAll', 'flowUpdate', 'renderSc'].forEach(function (n) {
+    var f = window[n];
+    if (typeof f === 'function') window[n] = function () { var r = f.apply(this, arguments); schedule(); return r; };
+  });
+  $('fileInput').addEventListener('change', function () { cur = null; });
+  $('sampleBtn').addEventListener('click', function () { cur = null; quiet = Date.now() + 4000; clearTimeout(saveT); });
+  $('cdAuto').addEventListener('change', function () { auto = this.checked; try { localStorage.setItem('lbAuto', auto ? '1' : '0'); } catch (e) {} if (!auto) { clearTimeout(saveT); stat(''); } });
+
   $('cloudSaveBtn').addEventListener('click', function () { openDlg(true); });
   $('cloudOpenBtn').addEventListener('click', function () { openDlg(false); });
   $('cdClose').addEventListener('click', function () { dlg.close(); });
@@ -2087,7 +2131,7 @@ try { showTab((location.hash || '').replace('#', '')); } catch (e) { showTab('fl
   $('cdSignIn').addEventListener('click', function () { auth('in'); });
   $('cdSignUp').addEventListener('click', function () { auth('up'); });
   $('cdPass').addEventListener('keydown', function (e) { if (e.key === 'Enter') auth('in'); });
-  $('cdSignOut').addEventListener('click', function () { sb.auth.signOut().then(function () { user = null; cm(''); view(); }); });
+  $('cdSignOut').addEventListener('click', function () { sb.auth.signOut().then(function () { user = null; cur = null; clearTimeout(saveT); stat(''); cm(''); view(); }); });
 
   $('cdSave').addEventListener('click', function () {
     var name = $('cdName').value.trim();
@@ -2097,7 +2141,7 @@ try { showTab((location.hash || '').replace('#', '')); } catch (e) { showTab('fl
     cm('กำลังบันทึก…');
     sb.from(TBL).upsert({ user_id: user.id, name: name, data: snap, updated_at: new Date().toISOString() }, { onConflict: 'user_id,name' }).then(function (r) {
       if (r.error) { cm('บันทึกไม่สำเร็จ: ' + r.error.message, true); return; }
-      cm('บันทึก “' + name + '” แล้ว'); loadList();
+      cur = name; cm('บันทึก “' + name + '” แล้ว'); loadList(); view();
     });
   });
 
@@ -2108,7 +2152,7 @@ try { showTab((location.hash || '').replace('#', '')); } catch (e) { showTab('fl
       cm('กำลังเปิด…');
       sb.from(TBL).select('name,data').eq('id', id).single().then(function (r) {
         if (r.error) { cm('เปิดไม่สำเร็จ: ' + r.error.message, true); return; }
-        try { restore(r.data.data); dlg.close(); msg('เปิดงาน “' + r.data.name + '” จาก Cloud แล้ว'); }
+        try { restore(r.data.data); cur = r.data.name; stat('เปิดงานแล้ว'); dlg.close(); msg('เปิดงาน “' + r.data.name + '” จาก Cloud แล้ว'); }
         catch (err) { cm('เปิดไม่สำเร็จ: ' + err.message, true); }
       });
     } else if (b.dataset.cd === 'del') {
