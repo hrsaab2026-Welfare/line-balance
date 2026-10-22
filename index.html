@@ -427,12 +427,14 @@ th { background:var(--th-bg); color:var(--muted); font-weight:600; font-size:12p
   <button class="btn ghost" id="cloudOpenBtn" type="button">งานที่บันทึกไว้</button>
   <span class="live" id="cloudStat" role="status" aria-live="polite" hidden></span>
   <button class="btn ghost" id="cloudRetry" type="button" hidden>ลองบันทึกใหม่</button>
+  <span class="live" id="roleChip" hidden></span>
   <button class="icbtn" id="themeBtn" type="button" aria-label="สลับโหมดสว่าง/มืด"><svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg></button>
 </header>
 <div class="wrap">
   <div class="pagehead"><h1 id="pgT">สร้างจาก Process Flow</h1><p id="pgS"></p></div>
   <p id="msg" role="status" aria-live="polite"></p>
   <div class="errbox" id="errBox" role="alert" hidden></div>
+  <div class="notice" id="viewerNotice" hidden><b aria-hidden="true">i</b><span><strong>โหมดดูอย่างเดียว</strong> บัญชีนี้เปิดดู คำนวณ ลองสมมติ และส่งออก Excel ได้ แต่แก้ไขข้อมูล บันทึก และลบงานไม่ได้ ถ้าต้องการสิทธิ์แก้ไข ให้ผู้ดูแลระบบปรับสิทธิ์ให้</span></div>
 
   <section class="welcome" id="welcome" aria-label="เริ่มต้นใช้งาน">
     <div class="wl-hero">
@@ -2142,6 +2144,9 @@ try { showTab((location.hash || '').replace('#', '')); } catch (e) { showTab('fl
 .wi-res { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px 16px; font-size: 13px; }
 .wi-res span { color: var(--muted); display: block; } .wi-res .ok { color: var(--good-text); } .wi-res .no { color: var(--bad-text); }
 .icbtn:disabled { opacity: .35; cursor: default; }
+body.viewer .tabpanel input:not(#parChk):not(#wiP), body.viewer .tabpanel select:not(#wiT), body.viewer .tabpanel [data-fa], body.viewer #cycleReset { pointer-events: none; }
+body.viewer .tabpanel [data-fa] { opacity: .35; }
+body.viewer .tabpanel td input, body.viewer .tabpanel .field input { opacity: .8; }
 .errbox { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border: 1px solid var(--bad); border-radius: 14px; background: color-mix(in srgb, var(--bad) 9%, var(--surface)); box-shadow: var(--shadow); }
 .errbox > b { flex: none; width: 22px; height: 22px; border-radius: 50%; background: var(--bad); color: #fff; display: grid; place-items: center; font-size: 13px; }
 .errbox .eh { font-weight: 600; color: var(--bad-text); }
@@ -2187,14 +2192,15 @@ try { showTab((location.hash || '').replace('#', '')); } catch (e) { showTab('fl
     <div id="cdNoCfg" hidden><p class="hint">ยังไม่ได้ตั้งค่า Supabase ให้ใส่ URL และ anon key ในไฟล์ <span class="mono">config.js</span> แล้วรีเฟรชหน้านี้</p></div>
 
     <div id="cdMain" hidden>
-      <div class="cd-row" style="justify-content:space-between"><span class="hint">เข้าสู่ระบบเป็น <b id="cdUser"></b></span><button class="btn ghost sm" id="cdSignOut" type="button">ออกจากระบบ</button></div>
-      <label class="hint" style="display:flex;gap:8px;align-items:center;margin-top:12px"><input type="checkbox" id="cdAuto"> บันทึกอัตโนมัติทุกครั้งที่แก้ไข</label>
+      <div class="cd-row" style="justify-content:space-between"><span class="hint">เข้าสู่ระบบเป็น <b id="cdUser"></b> · <span id="cdRole"></span></span><button class="btn ghost sm" id="cdSignOut" type="button">ออกจากระบบ</button></div>
+      <label class="hint" id="cdAutoRow" style="display:flex;gap:8px;align-items:center;margin-top:12px"><input type="checkbox" id="cdAuto"> บันทึกอัตโนมัติทุกครั้งที่แก้ไข</label>
       <p class="hint" id="cdCur" style="margin-top:4px"></p>
-      <div class="cd-row" style="margin-top:10px"><button class="btn ghost sm" id="cdMark" type="button">บันทึกจุดย้อนกลับตอนนี้</button></div>
+      <div class="cd-row" id="cdMarkRow" style="margin-top:10px"><button class="btn ghost sm" id="cdMark" type="button">บันทึกจุดย้อนกลับตอนนี้</button></div>
       <div id="cdVerBox" hidden style="margin-top:12px"><p class="hint" style="margin-bottom:6px">ประวัติของงานนี้ (กู้คืนได้)</p><div class="cd-list" id="cdVer"></div></div>
-      <div class="cd-row" style="margin-top:12px"><input id="cdName" type="text" placeholder="ตั้งชื่องาน เช่น ES37 Line A" maxlength="120"><button class="btn" id="cdSave" type="button">บันทึกเป็นชื่อนี้</button></div>
-      <p class="hint" style="margin-top:6px">ทุกบัญชีเห็นงานชุดเดียวกัน ถ้าใช้ชื่อเดิมระบบจะบันทึกทับงานเก่า</p>
-      <div class="cd-list" id="cdList" style="margin-top:12px"></div>
+      <div class="cd-row" id="cdSaveRow" style="margin-top:12px"><input id="cdName" type="text" placeholder="ตั้งชื่องาน เช่น ES37 Line A" maxlength="120"><button class="btn" id="cdSave" type="button">บันทึกเป็นชื่อนี้</button></div>
+      <p class="hint" id="cdSaveHint" style="margin-top:6px">ทุกบัญชีเห็นงานชุดเดียวกัน ถ้าใช้ชื่อเดิมระบบจะบันทึกทับงานเก่า</p>
+      <div class="cd-row" id="cdTabs" style="margin-top:12px"><button class="btn sm" id="cdTabLive" type="button">งานทั้งหมด</button><button class="btn ghost sm" id="cdTabTrash" type="button">ถังขยะ</button><span class="hint" id="cdTrashHint"></span></div>
+      <div class="cd-list" id="cdList" style="margin-top:8px"></div>
     </div>
 
     <p class="cd-msg" id="cdMsg" role="status" aria-live="polite"></p>
@@ -2205,6 +2211,7 @@ try { showTab((location.hash || '').replace('#', '')); } catch (e) { showTab('fl
 (function () {
   var cfg = window.LB_CONFIG || {}, dlg = $('cloudDlg'), sb = null, user = null, TBL = 'line_balance_projects';
   var cur = null, saveT = null, quiet = 0, auto = true;
+  var role = 'editor', rolesOn = true, trashOk = null, listMode = 'live';
   try { auto = localStorage.getItem('lbAuto') !== '0'; } catch (e) {}
   var cfgOk = !!(cfg.url && cfg.anonKey && !/YOUR-/i.test(cfg.url + cfg.anonKey) && window.supabase);
   if (cfgOk) { try { sb = window.supabase.createClient(cfg.url, cfg.anonKey); } catch (e) { sb = null; } }
@@ -2221,7 +2228,7 @@ try { showTab((location.hash || '').replace('#', '')); } catch (e) { showTab('fl
     gm('กำลังเข้าสู่ระบบ…');
     sb.auth.signInWithPassword({ email: toEmail(u), password: pw }).then(function (r) {
       if (r.error) { gm(/invalid login/i.test(r.error.message) ? 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' : r.error.message, true); return; }
-      user = r.data.session.user; $('gPass').value = ''; gm(''); gate(false); openLatest();
+      user = r.data.session.user; $('gPass').value = ''; gm(''); gate(false); afterAuth();
     });
   }
   function stat(t, err) { var el = $('cloudStat'); if (!el) return; el.hidden = !t; el.textContent = t || ''; el.className = 'live' + (err ? ' bad' : ''); }
@@ -2237,11 +2244,13 @@ try { showTab((location.hash || '').replace('#', '')); } catch (e) { showTab('fl
     $('cdNoCfg').hidden = m !== 'nocfg'; $('cdMain').hidden = m !== 'main';
     if (m === 'main' && user) {
       $('cdUser').textContent = shortName(user.email); $('cdAuto').checked = auto;
+      $('cdRole').textContent = canEdit() ? (rolesOn ? 'ผู้แก้ไข' : 'ผู้แก้ไข (ยังไม่ได้ติดตั้งระบบสิทธิ์)') : 'ผู้ดูอย่างเดียว';
       $('cdCur').textContent = cur ? 'งานที่เปิดอยู่: ' + cur : 'ยังไม่มีงานที่เปิดอยู่ ระบบจะสร้างงานใหม่ให้เองเมื่อมีการแก้ไข';
       loadList(); loadVers();
     }
   }
   function openDlg(focusName) {
+    listMode = 'live';
     cm('');
     if (focusName) $('cdName').value = cur || (D && D.part && (D.part.partName || D.part.partNo)) || '';
     if (!dlg.open) dlg.showModal();
@@ -2252,7 +2261,7 @@ try { showTab((location.hash || '').replace('#', '')); } catch (e) { showTab('fl
   if (!sb) gate(false);
   $('gForm').addEventListener('submit', function (e) { e.preventDefault(); login(); });
   if (sb) {
-    sb.auth.getSession().then(function (r) { user = r.data && r.data.session ? r.data.session.user : null; if (user) { gate(false); openLatest(); } else { gate(true); $('gUser').focus(); } });
+    sb.auth.getSession().then(function (r) { user = r.data && r.data.session ? r.data.session.user : null; if (user) { gate(false); afterAuth(); } else { gate(true); $('gUser').focus(); } });
     sb.auth.onAuthStateChange(function (ev, sess) { user = sess ? sess.user : null; if (ev === 'SIGNED_OUT') { location.reload(); return; } if (dlg.open) view(); });
   }
 
@@ -2276,21 +2285,96 @@ try { showTab((location.hash || '').replace('#', '')); } catch (e) { showTab('fl
   }
 
   function fmtDate(iso) { try { return new Date(iso).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' }); } catch (e) { return ''; } }
+  var TRASH_DAYS = 30;
+  function canEdit() { return role === 'editor'; }
+  /* ถังขยะ: ถ้าตารางยังไม่มีคอลัมน์ deleted_at (ยังไม่รัน supabase/roles_trash.sql) ให้ถอยกลับไปทำงานแบบเดิม */
+  function tq(build) {
+    return build(trashOk !== false).then(function (r) {
+      if (r.error && trashOk !== false && /deleted_at|deleted_by/i.test(r.error.message || '')) { trashOk = false; return build(false); }
+      if (!r.error && trashOk === null) trashOk = true;
+      return r;
+    });
+  }
+  function rowOf(name, snap) {
+    var o = { name: name, data: snap, updated_at: new Date().toISOString(), updated_by: shortName(user.email) };
+    if (trashOk === true) { o.deleted_at = null; o.deleted_by = null; }
+    return o;
+  }
+  /* ---------- สิทธิ์ผู้ใช้: ผู้แก้ไข (editor) / ผู้ดูอย่างเดียว (viewer) ---------- */
+  function applyRole() {
+    var v = !canEdit();
+    document.body.classList.toggle('viewer', v);
+    var chip = $('roleChip'); chip.hidden = !v; chip.textContent = 'ดูอย่างเดียว';
+    $('viewerNotice').hidden = !v;
+    $('cloudSaveBtn').hidden = v;
+    ['cdAutoRow', 'cdMarkRow', 'cdSaveRow', 'cdSaveHint'].forEach(function (id) { $(id).hidden = v; });
+    if (v) { clearTimeout(saveT); stat(''); }
+  }
+  function loadRole() {
+    return sb.from('lb_roles').select('role').eq('user_id', user.id).maybeSingle().then(function (r) {
+      if (r.error) {
+        var missing = r.error.code === '42P01' || r.error.code === 'PGRST205' || /lb_roles|schema cache|does not exist/i.test(r.error.message || '');
+        rolesOn = !missing; role = missing ? 'editor' : 'viewer';
+      } else { rolesOn = true; role = r.data && r.data.role === 'editor' ? 'editor' : 'viewer'; }
+      applyRole();
+    }, function () { rolesOn = true; role = 'viewer'; applyRole(); });
+  }
+  function afterAuth() { loadRole().then(function () { openLatest(); }); }
+  function purgeOld() {
+    if (!canEdit() || trashOk !== true) return;
+    sb.from(TBL).delete().lt('deleted_at', new Date(Date.now() - TRASH_DAYS * 864e5).toISOString()).then(function () {});
+  }
+  /* กันแก้ข้อมูลในหน้าจอเมื่อเป็นผู้ดูอย่างเดียว (ฐานข้อมูลก็บล็อกด้วย RLS อีกชั้น) */
+  function viewing() { return document.body.classList.contains('viewer'); }
+  function lockedEl(t) { return !!(t && t.closest && t.closest('.tabpanel') && !t.closest('#lbInsight') && t.id !== 'parChk'); }
+  ['beforeinput', 'paste', 'cut'].forEach(function (n) {
+    document.addEventListener(n, function (e) { if (viewing() && lockedEl(e.target)) e.preventDefault(); }, true);
+  });
+  document.addEventListener('keydown', function (e) {
+    if (!viewing() || e.ctrlKey || e.metaKey || e.key === 'Tab' || !lockedEl(e.target) || !/^(input|select|textarea)$/i.test(e.target.tagName)) return;
+    e.preventDefault();
+  }, true);
+  document.addEventListener('click', function (e) {
+    if (!viewing()) return;
+    var t = e.target.closest ? e.target.closest('[data-fa], input[type=checkbox], select, #cycleReset') : null;
+    if (t && lockedEl(t)) { e.preventDefault(); e.stopPropagation(); }
+  }, true);
+
   function loadList() {
-    var box = $('cdList'); box.innerHTML = '<div class="cd-empty">กำลังโหลด…</div>';
-    sb.from(TBL).select('id,name,updated_at,updated_by').order('updated_at', { ascending: false }).then(function (r) {
+    var box = $('cdList'), trash = listMode === 'trash';
+    box.innerHTML = '<div class="cd-empty">กำลังโหลด…</div>';
+    $('cdTabLive').className = 'btn sm' + (trash ? ' ghost' : ''); $('cdTabTrash').className = 'btn sm' + (trash ? '' : ' ghost');
+    $('cdTrashHint').textContent = trash ? 'เก็บไว้ ' + TRASH_DAYS + ' วัน แล้วลบถาวรอัตโนมัติ' : '';
+    tq(function (f) {
+      var q = sb.from(TBL).select(f ? 'id,name,updated_at,updated_by,deleted_at,deleted_by' : 'id,name,updated_at,updated_by');
+      if (f) q = trash ? q.not('deleted_at', 'is', null) : q.is('deleted_at', null);
+      return q.order(trash && f ? 'deleted_at' : 'updated_at', { ascending: false });
+    }).then(function (r) {
+      $('cdTabs').hidden = trashOk === false;
+      if (trashOk === false && trash) { listMode = 'live'; loadList(); return; }
       if (r.error) { box.innerHTML = ''; cm('โหลดรายการไม่สำเร็จ: ' + r.error.message, true); return; }
-      if (!r.data.length) { box.innerHTML = '<div class="cd-empty">ยังไม่มีงานที่บันทึกไว้</div>'; return; }
+      var ed = canEdit();
+      if (!r.data.length) { box.innerHTML = '<div class="cd-empty">' + (trash ? 'ถังขยะว่างเปล่า' : 'ยังไม่มีงานที่บันทึกไว้') + '</div>'; return; }
       box.innerHTML = r.data.map(function (p) {
+        var id = esc(p.id);
+        if (trash) {
+          var left = Math.max(0, TRASH_DAYS - Math.floor((Date.now() - new Date(p.deleted_at).getTime()) / 864e5));
+          return '<div class="cd-item"><span class="nm">' + esc(p.name) + '<span class="dt">ลบเมื่อ ' + esc(fmtDate(p.deleted_at)) + (p.deleted_by ? ' · โดย ' + esc(p.deleted_by) : '') + ' · เหลือ ' + left + ' วัน</span></span>' +
+            (ed ? '<button class="btn sm" data-cd="restore" data-id="' + id + '" type="button">กู้คืน</button><button class="btn ghost sm danger" data-cd="purge" data-id="' + id + '" type="button">ลบถาวร</button>' : '') + '</div>';
+        }
         return '<div class="cd-item"><span class="nm">' + esc(p.name) + '<span class="dt">' + esc(fmtDate(p.updated_at)) + (p.updated_by ? ' · โดย ' + esc(p.updated_by) : '') + '</span></span>' +
-          '<button class="btn sm" data-cd="open" data-id="' + esc(p.id) + '" type="button">เปิด</button>' +
-          '<button class="btn ghost sm danger" data-cd="del" data-id="' + esc(p.id) + '" type="button">ลบ</button></div>';
+          '<button class="btn sm" data-cd="open" data-id="' + id + '" type="button">เปิด</button>' +
+          (ed ? '<button class="btn ghost sm danger" data-cd="del" data-id="' + id + '" type="button">' + (trashOk === false ? 'ลบ' : 'ย้ายไปถังขยะ') + '</button>' : '') + '</div>';
       }).join('');
     });
   }
 
   function openLatest() {
-    sb.from(TBL).select('name,data').order('updated_at', { ascending: false }).limit(1).then(function (r) {
+    tq(function (f) {
+      var q = sb.from(TBL).select('name,data'); if (f) q = q.is('deleted_at', null);
+      return q.order('updated_at', { ascending: false }).limit(1);
+    }).then(function (r) {
+      purgeOld();
       if (r.error || !r.data || !r.data.length) return;
       try { restore(r.data[0].data); cur = r.data[0].name; stat('เปิดงานล่าสุดแล้ว'); msg('เปิดงานล่าสุด “' + cur + '” จาก Cloud แล้ว'); } catch (e) {}
     });
@@ -2311,12 +2395,12 @@ try { showTab((location.hash || '').replace('#', '')); } catch (e) { showTab('fl
   window.addEventListener('beforeunload', function (e) { if (user && (dirty || failed || saving)) { e.preventDefault(); e.returnValue = ''; } });
   $('cloudRetry').addEventListener('click', function () { doSave(true); });
   function doSave(force) {
-    if (!sb || !user || (!auto && !force)) return;
+    if (!sb || !user || !canEdit() || (!auto && !force)) return;
     if (!cur) cur = newName();
     var snap; try { snap = snapshot(); } catch (e) { return; }
     if (!online()) { saveFail('ไม่มีอินเทอร์เน็ต'); return; }
     var name = cur, mySeq = editSeq; stat('กำลังบันทึก…'); saving = true;
-    sb.from(TBL).upsert({ name: name, data: snap, updated_at: new Date().toISOString(), updated_by: shortName(user.email) }, { onConflict: 'name' }).then(function (r) {
+    sb.from(TBL).upsert(rowOf(name, snap), { onConflict: 'name' }).then(function (r) {
       saving = false;
       if (r.error) { saveFail(r.error.message); return; }
       if (editSeq === mySeq) dirty = false;
@@ -2325,7 +2409,7 @@ try { showTab((location.hash || '').replace('#', '')); } catch (e) { showTab('fl
     });
   }
   function schedule() {
-    if (!sb || !user || !auto || quiet > Date.now()) return;
+    if (!sb || !user || !canEdit() || !auto || quiet > Date.now()) return;
     dirty = true; editSeq++;
     clearTimeout(saveT); saveT = setTimeout(function () { doSave(); }, 2000);
     stat(online() ? 'รอบันทึก…' : 'ออฟไลน์ · ยังไม่ได้บันทึก', !online());
@@ -2346,12 +2430,13 @@ try { showTab((location.hash || '').replace('#', '')); } catch (e) { showTab('fl
   $('cdSignOut').addEventListener('click', function () { clearTimeout(saveT); sb.auth.signOut().then(function () { location.reload(); }); });
 
   $('cdSave').addEventListener('click', function () {
+    if (!canEdit()) { cm('บัญชีนี้ดูได้อย่างเดียว บันทึกไม่ได้', true); return; }
     var name = $('cdName').value.trim();
     if (!name) { cm('ตั้งชื่องานก่อนบันทึก', true); $('cdName').focus(); return; }
     if (!D && !S) { cm('ยังไม่มีข้อมูลให้บันทึก', true); return; }
     var snap; try { snap = snapshot(); } catch (e) { cm('เตรียมข้อมูลไม่สำเร็จ: ' + e.message, true); return; }
     cm('กำลังบันทึก…');
-    sb.from(TBL).upsert({ name: name, data: snap, updated_at: new Date().toISOString(), updated_by: shortName(user.email) }, { onConflict: 'name' }).then(function (r) {
+    sb.from(TBL).upsert(rowOf(name, snap), { onConflict: 'name' }).then(function (r) {
       if (r.error) { cm('บันทึกไม่สำเร็จ: ' + r.error.message, true); return; }
       cur = name; dirty = false; failed = false; retryUI(); cm('บันทึก “' + name + '” แล้ว'); loadList(); view();
     });
@@ -2367,14 +2452,29 @@ try { showTab((location.hash || '').replace('#', '')); } catch (e) { showTab('fl
         try { restore(r.data.data); cur = r.data.name; stat('เปิดงานแล้ว'); dlg.close(); msg('เปิดงาน “' + r.data.name + '” จาก Cloud แล้ว'); }
         catch (err) { cm('เปิดไม่สำเร็จ: ' + err.message, true); }
       });
-    } else if (b.dataset.cd === 'del') {
-      if (!confirm('ลบงานนี้ถาวร?')) return;
-      sb.from(TBL).delete().eq('id', id).then(function (r) {
-        if (r.error) { cm('ลบไม่สำเร็จ: ' + r.error.message, true); return; }
-        cm('ลบแล้ว'); loadList();
+    } else if (b.dataset.cd === 'del' || b.dataset.cd === 'restore' || b.dataset.cd === 'purge') {
+      var act = b.dataset.cd, item = b.closest('.cd-item'), nmEl = item && item.querySelector('.nm'), nm = (nmEl && nmEl.firstChild && nmEl.firstChild.textContent) || 'งานนี้';
+      if (!canEdit()) { cm('บัญชีนี้ไม่มีสิทธิ์แก้ไข', true); return; }
+      var q, okMsg;
+      if (act === 'del' && trashOk !== false) {
+        if (!confirm('ย้าย “' + nm + '” ไปถังขยะ? กู้คืนได้ภายใน ' + TRASH_DAYS + ' วัน')) return;
+        q = sb.from(TBL).update({ deleted_at: new Date().toISOString(), deleted_by: shortName(user.email) }).eq('id', id).select('id'); okMsg = 'ย้าย “' + nm + '” ไปถังขยะแล้ว';
+      } else if (act === 'restore') {
+        q = sb.from(TBL).update({ deleted_at: null, deleted_by: null }).eq('id', id).select('id'); okMsg = 'กู้คืน “' + nm + '” แล้ว';
+      } else {
+        if (!confirm('ลบ “' + nm + '” ถาวร?' + (trashOk === false ? ' (ยังไม่ได้ติดตั้งถังขยะ กู้คืนไม่ได้)' : ' กู้คืนไม่ได้อีก'))) return;
+        q = sb.from(TBL).delete().eq('id', id).select('id'); okMsg = 'ลบ “' + nm + '” ถาวรแล้ว';
+      }
+      q.then(function (r) {
+        if (r.error) { cm('ทำรายการไม่สำเร็จ: ' + r.error.message, true); return; }
+        if (!r.data || !r.data.length) { cm('ทำรายการไม่สำเร็จ: ไม่มีสิทธิ์ หรือไม่พบงานนี้แล้ว', true); return; }
+        if (act !== 'restore' && nm === cur) cur = null;
+        cm(okMsg); loadList();
       });
     }
   });
+  $('cdTabLive').addEventListener('click', function () { listMode = 'live'; loadList(); });
+  $('cdTabTrash').addEventListener('click', function () { listMode = 'trash'; loadList(); });
 
   /* ---------- Undo / Redo (Ctrl+Z / Ctrl+Y) ---------- */
   var hist = [], hi = -1, histBusy = 0, histT = null;
@@ -2404,7 +2504,7 @@ try { showTab((location.hash || '').replace('#', '')); } catch (e) { showTab('fl
   /* ---------- ประวัติเวอร์ชัน (ตาราง line_balance_versions) ---------- */
   var VT = 'line_balance_versions', lastVer = 0, NOTE = { manual: 'จุดย้อนกลับ', 'before-restore': 'ก่อนกู้คืน' };
   function addVersion(why, cb) {
-    if (!sb || !user || !cur) return;
+    if (!sb || !user || !cur || !canEdit()) return;
     var snap; try { snap = snapshot(); } catch (e) { return; }
     lastVer = Date.now();
     sb.from(VT).insert({ project_name: cur, data: snap, saved_by: shortName(user.email), note: why || null }).then(function (r) {
@@ -2418,7 +2518,7 @@ try { showTab((location.hash || '').replace('#', '')); } catch (e) { showTab('fl
     sb.from(VT).select('id,saved_at,saved_by,note').eq('project_name', cur).order('saved_at', { ascending: false }).limit(15).then(function (r) {
       if (r.error || !r.data.length) { l.innerHTML = '<div class="cd-empty">ยังไม่มีประวัติ</div>'; return; }
       l.innerHTML = r.data.map(function (v) {
-        return '<div class="cd-item"><span class="nm">' + esc(fmtDate(v.saved_at)) + '<span class="dt">' + esc((v.saved_by || '') + (NOTE[v.note] ? ' · ' + NOTE[v.note] : '')) + '</span></span><button class="btn sm" data-v="' + esc(v.id) + '" type="button">กู้คืน</button></div>';
+        return '<div class="cd-item"><span class="nm">' + esc(fmtDate(v.saved_at)) + '<span class="dt">' + esc((v.saved_by || '') + (NOTE[v.note] ? ' · ' + NOTE[v.note] : '')) + '</span></span><button class="btn sm" data-v="' + esc(v.id) + '" type="button">' + (canEdit() ? 'กู้คืน' : 'เปิดดู') + '</button></div>';
       }).join('');
     });
   }
@@ -2427,8 +2527,8 @@ try { showTab((location.hash || '').replace('#', '')); } catch (e) { showTab('fl
     addVersion('manual', function (err) { cm(err ? 'บันทึกจุดย้อนกลับไม่สำเร็จ: ' + err.message : 'บันทึกจุดย้อนกลับแล้ว', !!err); });
   });
   $('cdVer').addEventListener('click', function (e) {
-    var b = e.target.closest('button[data-v]'); if (!b || !confirm('กู้คืนเวอร์ชันนี้? ระบบจะเก็บเวอร์ชันปัจจุบันไว้ให้ก่อน')) return;
-    cm('กำลังกู้คืน…'); addVersion('before-restore');
+    var b = e.target.closest('button[data-v]'); if (!b || (canEdit() && !confirm('กู้คืนเวอร์ชันนี้? ระบบจะเก็บเวอร์ชันปัจจุบันไว้ให้ก่อน'))) return;
+    cm(canEdit() ? 'กำลังกู้คืน…' : 'กำลังเปิดดู…'); addVersion('before-restore');
     sb.from(VT).select('data').eq('id', b.dataset.v).single().then(function (r) {
       if (r.error) { cm('กู้คืนไม่สำเร็จ: ' + r.error.message, true); return; }
       try { restore(r.data.data, true); cm('กู้คืนแล้ว'); msg('กู้คืนเวอร์ชันแล้ว'); } catch (err) { cm('กู้คืนไม่สำเร็จ: ' + err.message, true); }
