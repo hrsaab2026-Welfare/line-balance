@@ -1,0 +1,2127 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Line Balance Chart</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&family=Sarabun:wght@400;500;600&family=Outfit:wght@400;500;600&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<style>
+/* Layout: one-column workbench. Inputs and verdict on top, load chart and Gantt in the middle, editable tables at the bottom. */
+:root {
+  --bg: #f1f2ee;
+  --surface: #fcfcfb;
+  --fg: #14201d;
+  --fg2: #4b5653;
+  --muted: #7d8683;
+  --line: #dcddd6;
+  --line-strong: #c3c4bc;
+  --accent: #11594f;
+  --accent-fg: #ffffff;
+  --bar: #5d6d75;
+  --good: #0a8a0a;
+  --good-text: #006300;
+  --warn: #b97a00;
+  --warn-text: #7a5200;
+  --bad: #c43434;
+  --bad-text: #a52a2a;
+  --c1: #2a78d6; --c2: #eb6834; --c3: #1baf7a; --c4: #eda100; --c5: #e87ba4;
+  --on1: #ffffff; --on2: #101010; --on3: #101010; --on4: #101010; --on5: #101010;
+  --font-body: "Noto Sans Thai", "Sarabun", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-data: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1210; --surface: #1a1a19; --fg: #eceee9; --fg2: #b9c0bb; --muted: #8b928e;
+    --line: #2c2e2b; --line-strong: #3e413d; --accent: #5cc4b2; --accent-fg: #0b1512;
+    --bar: #8fa1aa; --good: #0ca30c; --good-text: #4fcf4f; --warn: #fab219; --warn-text: #fab219;
+    --bad: #e66767; --bad-text: #ff8a8a;
+    --c1: #3987e5; --c2: #d95926; --c3: #199e70; --c4: #c98500; --c5: #d55181;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1210; --surface: #1a1a19; --fg: #eceee9; --fg2: #b9c0bb; --muted: #8b928e;
+  --line: #2c2e2b; --line-strong: #3e413d; --accent: #5cc4b2; --accent-fg: #0b1512;
+  --bar: #8fa1aa; --good: #0ca30c; --good-text: #4fcf4f; --warn: #fab219; --warn-text: #fab219;
+  --bad: #e66767; --bad-text: #ff8a8a;
+  --c1: #3987e5; --c2: #d95926; --c3: #199e70; --c4: #c98500; --c5: #d55181;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg);
+  font-family: var(--font-body); font-size: 14px; line-height: 1.55;
+  padding-block: 20px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 28px; }
+h1 { font-size: 22px; font-weight: 600; margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+h2 { font-size: 15px; font-weight: 600; margin: 0; }
+p { margin: 0; }
+.eyebrow { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.mono, .num { font-family: var(--font-data); font-variant-numeric: tabular-nums; }
+button, input { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* header */
+.top { display: flex; flex-wrap: wrap; gap: 14px 24px; align-items: flex-end; justify-content: space-between; }
+.top .title { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.top .sub { color: var(--fg2); font-size: 13px; }
+.file-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.file-chip { display: inline-flex; gap: 8px; align-items: center; padding: 6px 10px; border: 1px solid var(--line); background: var(--surface); border-radius: 6px; font-size: 12.5px; max-width: 100%; min-width: 0; }
+.file-chip span { overflow-wrap: anywhere; }
+.btn { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 6px; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-fg); font-weight: 500; cursor: pointer; }
+.btn:hover { filter: brightness(1.08); }
+.btn.ghost { background: transparent; color: var(--accent); }
+.btn.ghost:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); filter: none; }
+#msg { font-size: 13px; min-height: 0; }
+#msg.err { color: var(--bad-text); }
+#msg:empty { display: none; }
+body.drag::after { content: "วางไฟล์ Excel ที่นี่"; position: fixed; inset: 12px; border: 2px dashed var(--accent); border-radius: 10px; background: color-mix(in srgb, var(--bg) 88%, transparent); display: grid; place-items: center; font-size: 20px; font-weight: 600; color: var(--accent); z-index: 20; pointer-events: none; }
+
+/* conditions */
+.cond { display: flex; flex-wrap: wrap; gap: 14px 28px; align-items: flex-end; padding: 14px 0; border-block: 1px solid var(--line); }
+.field { display: flex; flex-direction: column; gap: 4px; }
+.field label { font-size: 12px; color: var(--fg2); }
+.field .row { display: flex; align-items: center; gap: 8px; }
+.field input { width: 96px; padding: 7px 9px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--surface); text-align: right; }
+.field .unit { font-size: 12px; color: var(--muted); }
+.derived { font-size: 13px; color: var(--fg2); padding-bottom: 8px; }
+.linkbtn { background: none; border: 0; padding: 0; color: var(--accent); text-decoration: underline; cursor: pointer; font-size: 12px; }
+
+/* verdict */
+.verdict { display: flex; gap: 14px; align-items: flex-start; padding: 16px 18px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.verdict .ico { flex: none; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; color: #fff; font-size: 16px; }
+.verdict .head { font-size: 17px; font-weight: 600; }
+.verdict .detail { color: var(--fg2); margin-top: 2px; }
+.verdict.good { background: color-mix(in srgb, var(--good) 11%, var(--surface)); }
+.verdict.good .ico { background: var(--good); }
+.verdict.good .head { color: var(--good-text); }
+.verdict.bad { background: color-mix(in srgb, var(--bad) 11%, var(--surface)); }
+.verdict.bad .ico { background: var(--bad); }
+.verdict.bad .head { color: var(--bad-text); }
+.verdict.none .ico { background: var(--muted); }
+
+/* kpi */
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.kpi { padding: 14px 16px; display: flex; flex-direction: column; gap: 3px; border-left: 1px solid var(--line); min-width: 0; }
+.kpi:first-child { border-left: 0; }
+.kpi .k { font-size: 12px; color: var(--fg2); }
+.kpi .v { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; overflow-wrap: anywhere; }
+.kpi .s { font-size: 12px; color: var(--muted); }
+@media (max-width: 640px) { .kpi { border-left: 0; border-top: 1px solid var(--line); } .kpi:first-child { border-top: 0; } }
+
+/* sections */
+.sec { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.sec-head { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: baseline; justify-content: space-between; }
+.sec-head .note { color: var(--fg2); font-size: 12.5px; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px; min-width: 0; }
+.scroll { overflow-x: auto; max-width: 100%; }
+svg text { font-family: var(--font-body); fill: var(--fg2); font-size: 12px; }
+svg .num { font-family: var(--font-data); }
+svg .strong { fill: var(--fg); }
+svg .mut { fill: var(--muted); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12.5px; color: var(--fg2); margin-bottom: 10px; }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+.legend .ln { display: inline-block; width: 18px; height: 0; border-top: 2px solid var(--fg); margin-right: 6px; vertical-align: 3px; }
+.legend .ln.dash { border-top: 2px dashed var(--fg2); }
+
+/* tables */
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { padding: 7px 10px; text-align: left; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { font-weight: 500; font-size: 12px; color: var(--fg2); background: transparent; }
+td.r, th.r { text-align: right; }
+td.wrapcell { white-space: normal; min-width: 240px; }
+tfoot td { font-weight: 600; border-top: 1px solid var(--line-strong); }
+tr.stepstart td { border-top: 1px solid var(--line-strong); }
+td input { width: 58px; padding: 4px 6px; border: 1px solid transparent; border-radius: 4px; background: transparent; text-align: right; font-family: var(--font-data); font-size: 13px; }
+td input:hover { border-color: var(--line-strong); }
+td input:focus { border-color: var(--accent); background: var(--surface); }
+td input.mult { width: 52px; }
+.pill { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; padding: 1px 8px; border-radius: 999px; border: 1px solid currentColor; }
+.pill.good { color: var(--good-text); } .pill.warn { color: var(--warn-text); } .pill.bad { color: var(--bad-text); }
+.swatch { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 6px; }
+.tip { position: fixed; z-index: 30; pointer-events: none; background: var(--fg); color: var(--bg); padding: 6px 9px; border-radius: 6px; font-size: 12px; line-height: 1.4; max-width: 260px; opacity: 0; transition: opacity .08s; }
+.tip.on { opacity: 1; }
+.help { color: var(--fg2); font-size: 12.5px; }
+[hidden] { display: none !important; }
+/* tabs */
+.tabs { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--line); }
+.tab { background: none; border: 0; border-bottom: 3px solid transparent; padding: 10px 14px; margin-bottom: -1px; cursor: pointer; color: var(--fg2); font-weight: 500; }
+.tab:hover { color: var(--fg); }
+.tab.on { color: var(--accent); border-bottom-color: var(--accent); }
+.tabpanel { display: flex; flex-direction: column; gap: 28px; min-width: 0; }
+/* process flow builder */
+.partband { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px 24px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.partband > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.partband .pv { font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
+.notice { display: flex; gap: 10px; align-items: flex-start; padding: 10px 14px; border: 1px solid var(--warn); border-radius: 8px; background: color-mix(in srgb, var(--warn) 10%, var(--surface)); font-size: 13px; }
+.notice b { flex: none; width: 20px; height: 20px; border-radius: 50%; background: var(--warn); color: #101010; display: grid; place-items: center; font-size: 13px; }
+.chip { display: inline-block; padding: 1px 7px; border: 1px solid var(--line-strong); border-radius: 4px; font-size: 11.5px; color: var(--fg2); margin: 0 4px 4px 0; }
+.rank { display: inline-block; font-family: var(--font-data); font-size: 11.5px; padding: 0 6px; border: 1px solid var(--line-strong); border-radius: 4px; margin: 0 4px 4px 0; color: var(--fg2); }
+.rank.sc { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+.pill.acc { color: var(--accent); }
+.muted { color: var(--muted); }
+.small { font-size: 12px; }
+tr.dim td { opacity: 0.55; }
+tr.stephead td { background: color-mix(in srgb, var(--accent) 8%, var(--surface)); border-bottom: 1px solid var(--line-strong); font-size: 13px; }
+tr.stephead .acts { float: right; display: inline-flex; gap: 16px; }
+.chk { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+.chk input { width: 16px; height: 16px; accent-color: var(--accent); }
+td input.nm { width: 100%; min-width: 200px; text-align: left; font-family: var(--font-body); border-color: var(--line); }
+td input.tm { width: 72px; border-color: var(--line); }
+select { font: inherit; color: inherit; background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 4px 6px; }
+.iconbtn { background: none; border: 1px solid var(--line); border-radius: 4px; padding: 1px 7px; cursor: pointer; color: var(--fg2); }
+.iconbtn:hover { border-color: var(--accent); color: var(--accent); }
+td.nowrap { white-space: nowrap; }
+.empty { padding: 22px 18px; border: 1px dashed var(--line-strong); border-radius: 8px; color: var(--fg2); }
+.lbar { position: relative; height: 14px; min-width: 150px; background: var(--line); border-radius: 3px; }
+.lbar .fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: var(--bar); }
+.lbar .fill.over { background: var(--bad); }
+.lbar .mark { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--fg); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; filter: none; }
+.stack > div { display: block; }
+@media (prefers-reduced-motion: reduce) { .tip { transition: none; } }
+</style>
+
+<style>
+/* ===== app shell redesign: sidebar + sticky header ===== */
+:root { --bg:#e9eeec; --surface:#fff; --line:#d9e0dd; --line-strong:#bcc8c3; --accent:#0a7564; --accent-fg:#fff; --bar:#51666f; --r:14px;
+  --shadow:0 1px 2px rgba(12,36,31,.06),0 10px 28px -14px rgba(12,36,31,.18); --ink:#0b2420; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#0b1110; --surface:#151c1a; --line:#25302d; --line-strong:#364440; --accent:#4fd1b8; --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 28px -14px rgba(0,0,0,.6); } }
+:root[data-theme="dark"] { --bg:#0b1110; --surface:#151c1a; --line:#25302d; --line-strong:#364440; --accent:#4fd1b8; --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 28px -14px rgba(0,0,0,.6); }
+body { padding:0; }
+.app { display:grid; grid-template-columns:268px minmax(0,1fr); min-height:100vh; }
+.side { position:sticky; top:0; height:100vh; display:flex; flex-direction:column; gap:22px; padding:22px 14px; color:#cfe0db; background:radial-gradient(120% 60% at 0% 0%,#14463d 0%,transparent 60%),linear-gradient(180deg,#0c2824,#081715); }
+.brand { display:flex; align-items:center; gap:12px; padding:0 8px; }
+.brand .logo { width:40px; height:40px; border-radius:11px; display:grid; place-items:center; background:linear-gradient(145deg,#5be0c4,#12917b); box-shadow:0 6px 18px -6px #29d3b0; }
+.brand b { display:block; font-size:16px; color:#fff; letter-spacing:-.01em; line-height:1.2; }
+.brand small { font-size:12px; color:#8fb0a8; }
+.navlabel { padding:0 10px; font-size:12px; color:#7fa299; }
+.nav, .nav.tabs { display:flex; flex-direction:column; gap:4px; border:0; }
+.nav .tab { display:flex; align-items:center; gap:12px; width:100%; text-align:left; padding:11px 12px; margin:0; border:0; border-radius:11px; background:none; color:#a8c2bb; font-weight:500; transition:background .15s,color .15s; }
+.nav .tab svg { flex:none; width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+.nav .tab span small { display:block; font-size:11.5px; font-weight:400; color:#7fa299; }
+.nav .tab:hover { background:rgba(255,255,255,.06); color:#fff; }
+.nav .tab.on { background:rgba(255,255,255,.1); color:#fff; box-shadow:inset 3px 0 0 #5be0c4; }
+.gauge { margin-top:auto; padding:14px; border-radius:14px; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.08); display:flex; flex-direction:column; gap:8px; }
+.gauge .gt { font-size:12px; color:#8fb0a8; }
+.gauge .gr { display:flex; justify-content:space-between; align-items:baseline; font-size:12.5px; color:#cfe0db; }
+.gauge .gr b { font-family:var(--font-data); font-size:18px; color:#fff; }
+.gtrack { position:relative; height:10px; border-radius:6px; background:rgba(255,255,255,.12); overflow:visible; }
+.gtrack i { position:absolute; left:0; top:0; bottom:0; border-radius:6px; background:#5be0c4; transition:width .35s,background .2s; }
+.gtrack u { position:absolute; left:76.9%; top:-4px; bottom:-4px; width:2px; background:#fff; }
+.gauge.bad .gtrack i { background:#ff7b7b; }
+.gstate { font-size:12.5px; font-weight:600; color:#5be0c4; } .gauge.bad .gstate { color:#ff9d9d; }
+.main { min-width:0; display:flex; flex-direction:column; }
+.bar { position:sticky; top:0; z-index:15; display:flex; flex-wrap:wrap; align-items:center; gap:10px 12px; padding:12px 32px; background:color-mix(in srgb,var(--bg) 80%,transparent); backdrop-filter:blur(12px); border-bottom:1px solid var(--line); }
+.bar .crumb { font-size:13px; color:var(--fg2); margin-right:auto; display:flex; align-items:center; gap:8px; min-width:0; }
+.bar .crumb b { color:var(--fg); font-weight:600; }
+.live { display:inline-flex; align-items:center; gap:8px; padding:6px 12px; border-radius:999px; font-size:12.5px; font-weight:600; background:color-mix(in srgb,var(--muted) 14%,var(--surface)); color:var(--fg2); }
+.live::before { content:""; width:8px; height:8px; border-radius:50%; background:currentColor; }
+.live.good { color:var(--good-text); background:color-mix(in srgb,var(--good) 13%,var(--surface)); } .live.bad { color:var(--bad-text); background:color-mix(in srgb,var(--bad) 13%,var(--surface)); }
+.icbtn { width:38px; height:38px; display:grid; place-items:center; border-radius:10px; border:1px solid var(--line-strong); background:var(--surface); cursor:pointer; color:var(--fg2); }
+.icbtn:hover { color:var(--accent); border-color:var(--accent); }
+.icbtn svg { width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+.wrap { max-width:1200px; width:100%; padding:28px 32px 64px; gap:26px; }
+.pagehead h1 { font-size:30px; letter-spacing:-.02em; line-height:1.2; }
+.pagehead p { color:var(--fg2); margin-top:6px; max-width:62ch; font-size:14.5px; }
+.btn { padding:9px 16px; border-radius:10px; background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 88%,#fff),var(--accent)); box-shadow:0 6px 14px -8px var(--accent); transition:transform .12s,box-shadow .12s,filter .12s; }
+.btn:hover { transform:translateY(-1px); } .btn:active { transform:none; }
+.btn.ghost { background:var(--surface); box-shadow:none; border-color:var(--line-strong); color:var(--fg); }
+.btn.ghost:hover { border-color:var(--accent); color:var(--accent); background:var(--surface); }
+.file-chip { border-radius:10px; padding:7px 11px; max-width:340px; }
+#msg { padding:10px 14px; border-radius:11px; border:1px solid color-mix(in srgb,var(--accent) 35%,var(--line)); background:color-mix(in srgb,var(--accent) 9%,var(--surface)); color:var(--fg); }
+#msg.err { border-color:var(--bad); background:color-mix(in srgb,var(--bad) 10%,var(--surface)); }
+.panel,.kpis,.verdict,.partband,.cond,.notice,.empty { border-radius:var(--r); box-shadow:var(--shadow); }
+.cond { padding:18px 20px; background:var(--surface); border:1px solid var(--line); }
+.partband { padding:18px 22px; }
+.partband .pv { font-size:17px; }
+.sec-head h2 { display:flex; align-items:center; gap:10px; font-size:16px; }
+.sec-head h2::before { content:""; width:4px; height:18px; border-radius:2px; background:var(--accent); }
+.field input,select { border-radius:10px; } .field input { padding:9px 11px; }
+.field input:focus { outline:2px solid color-mix(in srgb,var(--accent) 45%,transparent); border-color:var(--accent); }
+.kpis { overflow:hidden; } .kpi { position:relative; padding:18px 18px 16px; } .kpi::before { content:""; position:absolute; left:18px; top:0; width:30px; height:3px; border-radius:0 0 3px 3px; background:var(--accent); }
+.kpi .v { font-size:27px; }
+.verdict { padding:20px 22px; border-left-width:5px; } .verdict .ico { width:38px; height:38px; font-size:19px; } .verdict .head { font-size:19px; }
+.verdict.good { border-left-color:var(--good); } .verdict.bad { border-left-color:var(--bad); }
+.panel { padding:18px; }
+th { background:color-mix(in srgb,var(--fg) 4%,var(--surface)); }
+tbody tr:hover td { background:color-mix(in srgb,var(--accent) 6%,transparent); }
+.tabpanel:not([hidden]) { animation:tabin .28s ease-out; }
+@keyframes tabin { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+@media (prefers-reduced-motion:reduce) { .tabpanel:not([hidden]) { animation:none; } .btn,.gtrack i { transition:none; } }
+@media (max-width:960px) {
+  .app { grid-template-columns:1fr; } .side { position:static; height:auto; flex-direction:row; align-items:center; gap:10px; padding:12px; overflow-x:auto; }
+  .gauge,.navlabel,.brand small,.nav .tab span small { display:none; } .nav { flex-direction:row; } .nav .tab { white-space:nowrap; padding:9px 12px; }
+  .bar { padding:10px 16px; position:static; } .wrap { padding:20px 16px 48px; }
+}
+/* ===== ตารางขั้นตอนและงานย่อย ===== */
+tr.stephead td { padding:12px; border-top:1px solid var(--line-strong); background:linear-gradient(90deg,color-mix(in srgb,var(--accent) 15%,var(--surface)),color-mix(in srgb,var(--accent) 4%,var(--surface))); }
+.stepno { display:inline-grid; place-items:center; min-width:34px; height:24px; padding:0 8px; margin-right:10px; border-radius:7px; background:var(--accent); color:var(--accent-fg); font-size:12.5px; font-weight:600; }
+.stsum { margin-left:12px; font-size:12px; color:var(--fg2); padding:2px 9px; border-radius:999px; background:color-mix(in srgb,var(--fg) 7%,transparent); }
+#taskTable tbody tr:not(.stephead) td { padding:6px 10px; }
+td input.nm { border-radius:8px; border-color:transparent; background:color-mix(in srgb,var(--fg) 3%,transparent); }
+td input.nm:hover { border-color:var(--line-strong); }
+td input.tm { width:86px; padding:7px 9px; font-size:15px; font-weight:600; border-radius:9px; background:var(--surface); }
+td input.tm:placeholder-shown { border:1px dashed var(--warn); background:color-mix(in srgb,var(--warn) 7%,var(--surface)); }
+select[data-cat] { border-left:4px solid var(--muted); padding-block:5px; }
+select[data-cat="Set"] { border-left-color:#e0b400; } select[data-cat="Ass'y"] { border-left-color:var(--c3); } select[data-cat="Check"] { border-left-color:var(--c1); } select[data-cat="Weld"] { border-left-color:var(--c2); } select[data-cat="Move"] { border-left-color:var(--c5); }
+tr.rob td { background:color-mix(in srgb,var(--c1) 7%,transparent); } tr.rob td:first-child { box-shadow:inset 3px 0 0 var(--c1); }
+.iconbtn { width:28px; height:28px; padding:0; display:inline-grid; place-items:center; border-radius:8px; line-height:1; }
+#flowProg { padding:3px 11px; border-radius:999px; background:color-mix(in srgb,var(--accent) 12%,var(--surface)); color:var(--accent); font-weight:600; font-size:12.5px; } #flowProg:empty { display:none; }
+.chip { border-radius:999px; padding:2px 9px; } .rank { border-radius:6px; }
+.chk input { appearance:none; -webkit-appearance:none; width:34px; height:20px; border-radius:999px; background:var(--line-strong); position:relative; cursor:pointer; transition:background .15s; }
+.chk input::after { content:""; position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:50%; background:#fff; transition:transform .15s; }
+.chk input:checked { background:var(--accent); } .chk input:checked::after { transform:translateX(14px); }
+</style>
+<style>
+/* ===== การ์ดผลลัพธ์ข้อ 4 (ดีไซน์ใหม่) + ป้ายข้อมูลตัวอย่าง ===== */
+.rs { display:flex; flex-direction:column; gap:16px; }
+.rs-sample { display:flex; flex-wrap:wrap; gap:8px 12px; align-items:center; padding:11px 16px; border-radius:12px; border:1.5px dashed var(--warn); background:color-mix(in srgb,var(--warn) 12%,var(--surface)); color:var(--warn-text); font-size:13px; font-weight:500; }
+.rs-badge { flex:none; padding:2px 10px; border-radius:999px; background:var(--warn); color:#101010; font-size:12px; font-weight:700; letter-spacing:.02em; }
+.rs-hero { position:relative; display:grid; grid-template-columns:minmax(0,1.2fr) minmax(260px,1fr); gap:18px 32px; align-items:center; padding:22px 26px 22px 32px; border-radius:var(--r); border:1px solid var(--line); background:var(--surface); box-shadow:var(--shadow); overflow:hidden; }
+.rs-hero::before { content:""; position:absolute; left:0; top:0; bottom:0; width:7px; background:var(--muted); }
+.rs-hero.good::before { background:var(--good); } .rs-hero.bad::before { background:var(--bad); }
+.rs-hero.smp { border:1.5px dashed var(--warn); }
+.rs-hero.smp::before { background:repeating-linear-gradient(135deg,var(--warn) 0 8px,transparent 8px 14px); }
+.rs-ttl { display:flex; gap:14px; align-items:flex-start; min-width:0; }
+.rs-ico { flex:none; width:44px; height:44px; border-radius:50%; display:grid; place-items:center; font-size:21px; font-weight:700; color:#fff; background:var(--muted); }
+.rs-hero.good .rs-ico { background:var(--good); } .rs-hero.bad .rs-ico { background:var(--bad); } .rs-hero.smp .rs-ico { background:var(--warn); color:#101010; }
+.rs-head { font-size:20px; font-weight:600; line-height:1.3; text-wrap:balance; }
+.rs-hero.good .rs-head { color:var(--good-text); } .rs-hero.bad .rs-head { color:var(--bad-text); } .rs-hero.smp .rs-head { color:var(--warn-text); }
+.rs-det { margin-top:4px; color:var(--fg2); font-size:13.5px; }
+.rs-meter { min-width:0; }
+.rs-mt { display:flex; justify-content:space-between; align-items:baseline; gap:10px; font-size:12.5px; color:var(--fg2); }
+.rs-mt b { font-size:28px; font-weight:600; color:var(--fg); letter-spacing:-.01em; }
+.rs-mt b small { font-size:12.5px; font-weight:500; color:var(--fg2); font-family:var(--font-body); }
+.rs-track { position:relative; height:16px; margin:26px 0 8px; border-radius:9px; background:color-mix(in srgb,var(--fg) 9%,transparent); }
+.rs-track i { position:absolute; left:0; top:0; bottom:0; border-radius:9px; background:var(--accent); }
+.rs-track i.over { background:var(--bad); }
+.rs-hero.smp .rs-track i { background:var(--warn); }
+.rs-track u { position:absolute; top:-7px; bottom:-7px; width:2px; background:var(--fg); text-decoration:none; }
+.rs-track u em { position:absolute; bottom:calc(100% + 3px); left:50%; transform:translateX(-50%); white-space:nowrap; font:600 11.5px var(--font-data); font-style:normal; color:var(--fg); }
+.rs-ml { display:flex; justify-content:space-between; font-size:12px; color:var(--muted); }
+.rs-tiles { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:12px; }
+.rs-tile { display:flex; flex-direction:column; gap:3px; padding:14px 16px 13px; border-radius:12px; border:1px solid var(--line); border-top:3px solid var(--t,var(--accent)); background:var(--surface); box-shadow:var(--shadow); min-width:0; }
+.rs-tile .k { font-size:12px; color:var(--fg2); } .rs-tile .v { font-size:25px; font-weight:600; letter-spacing:-.01em; overflow-wrap:anywhere; } .rs-tile .s { font-size:12px; color:var(--muted); }
+.rs-legend { display:flex; flex-wrap:wrap; gap:6px 16px; align-items:center; font-size:12.5px; color:var(--fg2); }
+.rs-legend i { display:inline-block; width:12px; height:12px; border-radius:3px; margin-right:6px; vertical-align:-1px; }
+.rs-cards { display:grid; grid-template-columns:repeat(auto-fill,minmax(310px,1fr)); gap:14px; }
+.rs-card { display:flex; flex-direction:column; gap:12px; padding:16px; border-radius:var(--r); border:1px solid var(--line); background:var(--surface); box-shadow:var(--shadow); min-width:0; }
+.rs-card.over { border-color:color-mix(in srgb,var(--bad) 55%,var(--line)); }
+.rs-ch { display:flex; align-items:center; gap:12px; }
+.rs-av { flex:none; width:40px; height:40px; border-radius:12px; display:grid; place-items:center; font:600 13px var(--font-data); color:#fff; background:var(--accent); }
+.rs-av.robot { background:var(--c1); color:#fff; }
+.rs-ch .who { min-width:0; flex:1; } .rs-ch .who b { display:block; overflow-wrap:anywhere; } .rs-ch .who small { color:var(--muted); font-size:12px; }
+.rs-big { display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
+.rs-big b { font:600 28px var(--font-data); letter-spacing:-.01em; } .rs-big span { color:var(--fg2); font-size:12.5px; }
+.rs-seg { position:relative; display:flex; height:18px; border-radius:6px; background:color-mix(in srgb,var(--fg) 8%,transparent); }
+.rs-seg .sg { height:100%; border-right:2px solid var(--surface); min-width:2px; }
+.rs-seg .sg:first-child { border-radius:6px 0 0 6px; } .rs-seg .sg:last-of-type { border-right:0; border-radius:0 6px 6px 0; } .rs-seg .sg:only-of-type { border-radius:6px; }
+.rs-seg .mk { position:absolute; top:-5px; bottom:-5px; width:2px; background:var(--fg); }
+.rs-tasks { list-style:none; margin:0; padding:8px 0 0; border-top:1px solid var(--line); display:flex; flex-direction:column; gap:1px; }
+.rs-tasks li { display:grid; grid-template-columns:auto minmax(0,1fr) auto; gap:9px; align-items:center; padding:4px 0; font-size:13px; }
+.rs-tasks .dot { width:9px; height:9px; border-radius:3px; }
+.rs-tasks .id { font:12px var(--font-data); color:var(--muted); margin-right:6px; }
+.rs-tasks .tm { font:12.5px var(--font-data); color:var(--fg2); }
+.notice .linkbtn { margin-left:6px; }
+.live.smp { color:var(--warn-text); background:color-mix(in srgb,var(--warn) 16%,var(--surface)); }
+@media (max-width:760px) { .rs-hero { grid-template-columns:1fr; padding:18px 18px 18px 24px; } }
+</style>
+<style>
+/* ===== สไตล์องค์กร: กรมท่า + ทอง (อ้างอิง JIG Inspection Dashboard style.css) ===== */
+:root { --brand-navy-900:#0f2137; --brand-navy-800:#16324f; --brand-navy-700:#1e3a5f; --brand-navy-600:#2d5586; --brand-gold:#b8903a;
+  --bg:hsl(220,20%,96%); --surface:#fff; --bg-input:hsl(220,15%,97%); --th-bg:hsl(220,15%,96%);
+  --fg:hsl(220,20%,18%); --fg2:hsl(220,12%,36%); --muted:hsl(220,10%,50%); --text-heading:#1e3a5f;
+  --line:hsl(220,15%,87%); --line-strong:hsl(220,15%,77%); --accent:#2f6fd1; --accent-fg:#fff; --bar:#5b7391; --ink:hsl(220,20%,18%);
+  --good:hsl(145,60%,36%); --good-text:hsl(145,62%,27%); --warn:hsl(42,78%,46%); --warn-text:hsl(38,85%,28%); --bad:hsl(0,68%,50%); --bad-text:hsl(0,68%,40%);
+  --c1:#2f6fd1; --c2:#d9822b; --c3:#2e9e6b; --c4:#b8903a; --c5:#c25b8e; --on1:#fff; --on2:#101010; --on3:#101010; --on4:#101010; --on5:#101010;
+  --r:14px; --shadow:0 4px 20px hsla(220,20%,60%,.14);
+  --font-body:'Noto Sans Thai','Sarabun','Leelawadee UI','Leelawadee',Tahoma,sans-serif; --font-data:'Outfit','Leelawadee UI',Tahoma,sans-serif; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:hsl(222,30%,8%); --surface:hsl(222,25%,14%); --bg-input:hsl(222,25%,11%); --th-bg:hsl(222,25%,12%);
+  --fg:hsl(220,15%,90%); --fg2:hsl(220,12%,72%); --muted:hsl(220,10%,58%); --text-heading:hsl(210,40%,82%);
+  --line:hsl(220,18%,23%); --line-strong:hsl(220,15%,32%); --accent:#4b84d6; --accent-fg:#fff; --bar:#8fa4bf; --ink:hsl(220,15%,90%);
+  --good:hsl(145,65%,45%); --good-text:hsl(145,60%,62%); --warn:hsl(45,80%,50%); --warn-text:hsl(45,85%,64%); --bad:hsl(0,72%,58%); --bad-text:hsl(0,85%,74%);
+  --c1:#4b84d6; --c2:#e0903c; --c3:#3bb07c; --c4:#d4ad5a; --c5:#d06f9f; --shadow:0 4px 24px hsla(0,0%,0%,.4); color-scheme:dark; } }
+:root[data-theme="dark"] { --bg:hsl(222,30%,8%); --surface:hsl(222,25%,14%); --bg-input:hsl(222,25%,11%); --th-bg:hsl(222,25%,12%);
+  --fg:hsl(220,15%,90%); --fg2:hsl(220,12%,72%); --muted:hsl(220,10%,58%); --text-heading:hsl(210,40%,82%);
+  --line:hsl(220,18%,23%); --line-strong:hsl(220,15%,32%); --accent:#4b84d6; --accent-fg:#fff; --bar:#8fa4bf; --ink:hsl(220,15%,90%);
+  --good:hsl(145,65%,45%); --good-text:hsl(145,60%,62%); --warn:hsl(45,80%,50%); --warn-text:hsl(45,85%,64%); --bad:hsl(0,72%,58%); --bad-text:hsl(0,85%,74%);
+  --c1:#4b84d6; --c2:#e0903c; --c3:#3bb07c; --c4:#d4ad5a; --c5:#d06f9f; --shadow:0 4px 24px hsla(0,0%,0%,.4); color-scheme:dark; }
+body { font-size:14px; line-height:1.65; -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility; }
+.mono, .num, .kpi .v, .rs-mt b, .rs-big b, .rs-tile .v { font-variant-numeric:tabular-nums; }
+/* แถบข้างสีกรมท่า */
+.side { color:#c9d6e6; background:linear-gradient(180deg,var(--brand-navy-900),var(--brand-navy-800)); box-shadow:inset -1px 0 0 hsla(38,55%,48%,.28); }
+.brand .logo { background:linear-gradient(145deg,#dcb766,var(--brand-gold)); box-shadow:0 6px 18px -6px hsla(38,55%,48%,.8); }
+.brand small { color:var(--brand-gold); font-size:10.5px; font-weight:600; letter-spacing:.5px; text-transform:uppercase; }
+.navlabel, .nav .tab span small, .gauge .gt { color:#8da3bf; }
+.nav .tab { color:#b4c4d8; } .nav .tab.on { box-shadow:inset 3px 0 0 var(--brand-gold); }
+.gauge .gr { color:#c9d6e6; } .gtrack i { background:var(--brand-gold); } .gstate { color:#e8c97d; }
+.gauge.bad .gtrack i { background:#ff7b7b; } .gauge.bad .gstate { color:#ff9d9d; }
+/* แถบหัวลอยมีเส้นทองด้านล่าง */
+.bar { top:12px; margin:12px 32px 0; padding:.8rem 1.1rem; border:0; border-radius:20px; backdrop-filter:none; background:linear-gradient(120deg,var(--brand-navy-800),var(--brand-navy-700)); box-shadow:0 8px 26px hsla(210,60%,12%,.28); }
+.bar::after { content:""; position:absolute; left:24px; right:24px; bottom:0; height:2px; background:linear-gradient(90deg,transparent 0%,var(--brand-gold) 18%,var(--brand-gold) 82%,transparent 100%); opacity:.85; }
+.bar .crumb { color:hsla(0,0%,100%,.7); } .bar .crumb b { color:#fff; }
+.bar .file-chip { background:hsla(0,0%,100%,.08); border-color:hsla(0,0%,100%,.18); color:#fff; }
+.bar .file-chip .mut { color:hsla(0,0%,100%,.6) !important; }
+.bar .btn { background:var(--brand-gold); border-color:var(--brand-gold); color:var(--brand-navy-900); font-weight:600; box-shadow:none; }
+.bar .btn.ghost { background:hsla(0,0%,100%,.08); color:#fff; border-color:hsla(0,0%,100%,.18); }
+.bar .btn.ghost:hover { border-color:var(--brand-gold); color:var(--brand-gold); background:hsla(0,0%,100%,.14); }
+.bar .icbtn { background:hsla(0,0%,100%,.08); border-color:hsla(0,0%,100%,.18); color:hsla(0,0%,100%,.85); }
+.bar .icbtn:hover { border-color:var(--brand-gold); color:var(--brand-gold); }
+.bar .live { background:hsla(0,0%,100%,.1); color:#fff; }
+.bar .live.good { color:#8be8ae; background:hsla(145,60%,50%,.16); } .bar .live.bad { color:#ffa3a3; background:hsla(0,80%,65%,.16); } .bar .live.smp { color:#f0cf7d; background:hsla(38,60%,50%,.22); }
+/* หัวเรื่อง การ์ด ตาราง ปุ่ม */
+.pagehead h1 { display:flex; align-items:center; gap:12px; font-size:26px; color:var(--text-heading); }
+.pagehead h1::before { content:""; width:4px; height:28px; border-radius:2px; background:var(--brand-gold); flex:none; }
+.sec-head h2 { font-size:14px; font-weight:700; letter-spacing:.15px; color:var(--text-heading); }
+.sec-head h2::before { width:3px; height:16px; background:var(--brand-gold); }
+.sec { animation:fadeUp .35s ease-out both; }
+@keyframes fadeUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:none; } }
+@media (prefers-reduced-motion:reduce) { .sec { animation:none; } }
+.panel, .kpis, .cond, .partband, .empty, .rs-tile, .rs-card, .rs-hero, .verdict, .notice { border-radius:14px; }
+.panel, .cond, .partband, .kpis, .rs-card, .rs-hero { box-shadow:var(--shadow); }
+.kpi::before { background:var(--brand-gold); }
+th { background:var(--th-bg); color:var(--muted); font-weight:600; font-size:12px; letter-spacing:.2px; }
+.field input, select, td input.nm, td input.tm { background:var(--bg-input); border-color:var(--line-strong); border-radius:8px; }
+.field input:focus, td input:focus { border-color:var(--accent); outline:2px solid color-mix(in srgb,var(--accent) 35%,transparent); }
+.btn { background:var(--accent); border-color:var(--accent); color:#fff; border-radius:10px; font-weight:600; box-shadow:0 6px 14px -8px var(--accent); }
+.btn.ghost { background:var(--surface); color:var(--fg); border-color:var(--line-strong); box-shadow:none; }
+.btn.ghost:hover { border-color:var(--accent); color:var(--accent); }
+.pill { border-radius:6px; font-size:11px; font-weight:600; padding:2px 9px; background:color-mix(in srgb,currentColor 10%,transparent); }
+.chip { border-radius:10px; background:var(--bg-input); } .rank { border-radius:6px; }
+.stepno { background:var(--brand-navy-700); } :root[data-theme="dark"] .stepno { background:var(--accent); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .stepno { background:var(--accent); } }
+.rs-av { background:var(--brand-navy-700); } .rs-av.robot { background:var(--c1); }
+@media (max-width:960px) { .bar { margin:8px 12px 0; position:static; } }
+</style>
+<div class="app">
+<aside class="side">
+  <div class="brand"><div class="logo"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#06211c" stroke-width="2.2" stroke-linecap="round"><path d="M5 20v-7M12 20V6M19 20v-10"/><path d="M3 9h18" stroke-dasharray="2.5 3" stroke-width="1.6"/></svg></div><div><b>Line Balance</b><small>Man-Machine Studio</small></div></div>
+  <div><div class="navlabel">เครื่องมือ</div>
+  <nav class="nav tabs" role="tablist" aria-label="มุมมอง" style="margin-top:8px">
+    <button class="tab on" id="tabbtn-flow" role="tab" type="button" aria-selected="true"><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="12" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M8.5 6H12a3 3 0 0 1 3 3v.5M8.5 18H12a3 3 0 0 0 3-3v-.5"/></svg><span>สร้างจาก Process Flow<small>แตกงานย่อย จัดคนและสถานี</small></span></button>
+    <button class="tab" id="tabbtn-balance" role="tab" type="button" aria-selected="false"><svg viewBox="0 0 24 24"><path d="M5 20V11M11 20V4M17 20v-6M3 20h18"/></svg><span>Line Balance และ Man-Machine<small>โหลดต่อคน เทียบ Takt</small></span></button>
+    <button class="tab" id="tabbtn-compare" role="tab" type="button" aria-selected="false"><svg viewBox="0 0 24 24"><path d="M7 7h12M15 3l4 4-4 4M17 17H5M9 13l-4 4 4 4"/></svg><span>เทียบ Manual กับ Robot<small>เวลาต่อชิ้นที่ลดได้</small></span></button>
+  </nav></div>
+  <div class="gauge" id="gauge"><span class="gt">Takt vs Cycle ตอนนี้</span>
+    <div class="gr"><span>Takt Time</span><b id="gT">—</b></div>
+    <div class="gtrack"><i id="gF" style="width:0"></i><u></u></div>
+    <div class="gr"><span>Cycle ต่อชิ้น</span><b id="gC">—</b></div><div class="gstate" id="gS">รอข้อมูล</div></div>
+</aside>
+<div class="main">
+<header class="bar">
+  <div class="crumb">พื้นที่ทำงาน <span aria-hidden="true">/</span> <b id="crumb">สร้างจาก Process Flow</b></div>
+  <div class="file-chip" id="fileChip"></div>
+  <span class="live" id="live">รอข้อมูล</span>
+  <label class="btn" for="fileInput">อัปโหลด Excel</label>
+  <input id="fileInput" type="file" accept=".xlsx,.xlsm,.xls" hidden>
+  <button class="btn ghost" id="sampleBtn" type="button">โหลดข้อมูลตัวอย่าง</button>
+  <button class="btn ghost" id="cloudSaveBtn" type="button">บันทึกขึ้น Cloud</button>
+  <button class="btn ghost" id="cloudOpenBtn" type="button">งานที่บันทึกไว้</button>
+  <button class="icbtn" id="themeBtn" type="button" aria-label="สลับโหมดสว่าง/มืด"><svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg></button>
+</header>
+<div class="wrap">
+  <div class="pagehead"><h1 id="pgT">สร้างจาก Process Flow</h1><p id="pgS"></p></div>
+  <p id="msg" role="status" aria-live="polite"></p>
+
+  
+<div class="tabpanel" id="tab-flow">
+    <section class="sec" aria-label="ข้อมูลชิ้นงาน">
+      <div class="partband" id="partBand"></div>
+      <div class="notice" id="flowNotice" hidden></div>
+    </section>
+
+    <section class="sec">
+      <div class="sec-head"><h2>1 · เงื่อนไขการผลิต</h2><span class="note">ใช้คำนวณ Takt Time และจำนวนคน</span></div>
+      <div class="cond">
+        <div class="field"><label for="fp-demand">ยอดผลิตต่อวัน</label><div class="row"><input id="fp-demand" type="number" min="0" step="any" inputmode="decimal"><span class="unit">ชิ้น/วัน</span></div></div>
+        <div class="field"><label for="fp-minutes">เวลาทำงานจริงต่อวัน</label><div class="row"><input id="fp-minutes" type="number" min="0" step="any" inputmode="decimal"><span class="unit">นาที/วัน</span></div></div>
+        <div class="field"><label for="fp-takt">Takt Time</label><div class="row"><input id="fp-takt" type="number" min="0" step="any" inputmode="decimal"><span class="unit">วินาที/ชิ้น</span></div></div>
+        <div class="field"><label for="fp-men">กำหนดจำนวนคนเอง (ไม่บังคับ)</label><div class="row"><input id="fp-men" type="number" min="1" step="1" inputmode="numeric"><span class="unit">คน</span></div></div>
+        <p class="derived" id="flowTakt"></p>
+      </div>
+    </section>
+
+    <section class="sec">
+      <div class="sec-head"><h2>2 · ขั้นตอนใน Process Flow</h2><span class="note">ติ๊กขั้นตอนที่เป็นงานในไลน์ ระบบเลือกให้ตามชื่อขั้นตอน</span></div>
+      <div class="panel scroll"><table id="stepTable"></table></div>
+    </section>
+
+    <section class="sec">
+      <div class="sec-head"><h2>3 · งานย่อยและเวลาที่จับได้</h2><span class="note" id="flowProg"></span></div>
+      <div class="panel scroll"><table id="taskTable"></table></div>
+      <p class="help">ระบบแตกงานย่อยให้จากชื่อขั้นตอน เครื่องจักร และรายการชิ้นส่วน แก้ชื่อ เพิ่ม ลบ หรือสลับลำดับได้ งานของหุ่นยนต์ทำงานคู่ขนานกับคน คลิกช่องเวลาแล้ววางคอลัมน์จาก Excel ได้</p>
+    </section>
+
+    <section class="sec">
+      <div class="sec-head"><h2>4 · ผลที่ระบบจัดให้</h2><span class="file-bar"><button class="btn ghost" id="exportBtn2" type="button">ส่งออก Excel</button><button class="btn" id="toChart" type="button">ดู Man-Machine Chart</button></span></div>
+      <div id="flowResult"></div>
+    </section>
+  </div>
+
+  <div class="tabpanel" id="tab-balance" hidden>
+  <section class="cond" aria-label="เงื่อนไขสายการผลิต">
+    <div class="field"><label for="takt">Takt Time</label><div class="row"><input id="takt" type="number" min="1" step="any" inputmode="decimal"><span class="unit">วินาที / ชิ้น</span></div></div>
+    <div class="field"><label for="pcs">ชิ้นต่อรอบ</label><div class="row"><input id="pcs" type="number" min="1" step="1" inputmode="numeric"><span class="unit">ชิ้น</span></div></div>
+    <div class="field"><label for="cycle">Cycle Time ต่อรอบ</label><div class="row"><input id="cycle" type="number" min="1" step="any" inputmode="decimal"><span class="unit">วินาที</span><button class="linkbtn" id="cycleReset" type="button">ใช้ค่าจากไฟล์</button></div></div>
+    <p class="derived" id="derived"></p>
+    <button class="linkbtn" id="rg21Btn" type="button">ดูตัวอย่าง Process Line RG21</button>
+    <button class="btn ghost" id="exportBtn" type="button">ส่งออก Excel (Process Line + Man-Machine)</button>
+  </section>
+
+  <div class="notice" id="sampleNotice" hidden></div>
+  <div class="verdict none" id="verdict"></div>
+  <div class="kpis" id="kpis"></div>
+
+  <section class="sec">
+    <div class="sec-head"><h2>โหลดงานต่อรอบ (Line Balance)</h2><span class="note" id="loadNote"></span></div>
+    <div class="panel">
+      <div class="legend"><span><span class="ln dash"></span>Cycle Time</span><span><span class="ln"></span>Takt × ชิ้นต่อรอบ</span><span><i style="background:var(--accent)"></i>พนักงาน</span><span><i style="background:var(--c1)"></i>หุ่นยนต์</span><span><i style="background:var(--c4)"></i>Jig</span><span><i style="background:var(--warn)"></i>ใกล้เต็ม</span><span><i style="background:var(--bad)"></i>เกินรอบ</span></div>
+      <div id="loadChart"></div>
+    </div>
+    <div class="panel scroll"><table id="resTable"></table></div>
+    <p class="help">โหลด = ผลรวมเวลางานของคนหรือเครื่องนั้น × จำนวนชิ้นที่ดูแลต่อรอบ (ช่อง ×) ค่า × ถูกอ่านจากแถว Sumary Total ในไฟล์ แก้ได้ในตาราง</p>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head"><h2>Man-Machine Chart</h2><span class="note" id="ganttNote"></span><label class="chk"><input type="checkbox" id="parChk" checked><span>คนและเครื่องทำงานพร้อมกัน (คู่ขนาน)</span></label></div>
+    <div class="panel">
+      <div class="legend" id="ganttLegend"></div>
+      <div class="scroll" id="gantt"></div>
+    </div>
+  </section>
+
+  </div>
+
+  <div class="tabpanel" id="tab-compare" hidden>
+  <section class="sec" id="scSec">
+    <div class="sec-head"><h2>เทียบ Manual กับ Robot</h2><span class="note" id="scNote"></span></div>
+    <div class="notice" id="scSample" hidden><b aria-hidden="true">!</b><span><strong>ข้อมูลตัวอย่าง (ค่าสมมุติ)</strong> เวลาของ Manual และ Robot เป็นตัวเลขสาธิต ยังไม่ใช่เวลาจริง อัปโหลดไฟล์ Man-Machine ที่มีเวลาที่จับได้จริงก่อนนำผลไปตัดสินใจ</span></div>
+    <div class="kpis" id="scKpis"></div>
+    <div class="panel">
+      <div class="legend" id="scLegend"></div>
+      <div id="scChart"></div>
+    </div>
+    <div class="panel scroll"><table id="scTable"></table></div>
+    <p class="help">เวลาต่อชิ้นของสถานีเดียว ไม่รวมการรอระหว่างสถานี แก้เวลาในตารางได้ ผลเทียบคำนวณใหม่ทันที</p>
+  </section>
+  </div>
+
+  <div class="tabpanel" id="tab-balance2" hidden>
+  <section class="sec">
+    <div class="sec-head"><h2>ตารางงาน</h2><span class="note">แก้เวลาในช่องแล้วกราฟและตัวเลขข้างบนคำนวณใหม่ทันที</span></div>
+    <div class="panel scroll"><table id="elemTable"></table></div>
+  </section>
+  </div>
+</div>
+</div>
+</div>
+<div class="tip" id="tip" role="tooltip"></div>
+
+<script>
+/* ---- Excel parser: Process Line sheet -> model ---- */
+function lbClean(v) { return v == null ? '' : String(v).replace(/\s+/g, ' ').trim(); }
+function lbNum(v) {
+  if (typeof v === 'number' && isFinite(v)) return v;
+  if (typeof v === 'string' && /^-?\d+(\.\d+)?$/.test(v.trim())) return parseFloat(v);
+  return null;
+}
+var LB_TIME_RE = /^time\s*\(?\s*sec/i;
+
+function lbParseSheet(aoa) {
+  var s = lbClean, num = lbNum, i, j;
+  var h = -1, tc = -1;
+  for (i = 0; i < Math.min(aoa.length, 40) && h < 0; i++) {
+    for (j = 0; j < (aoa[i] || []).length; j++) {
+      if (LB_TIME_RE.test(s(aoa[i][j]))) { h = i; tc = j; break; }
+    }
+  }
+  if (h < 0) return null;
+
+  // resource columns (Robot, Jig, Man ...)
+  var head = aoa[h] || [], sub = aoa[h + 1] || [];
+  var maxC = Math.max(head.length, sub.length);
+  var cols = [], lastHead = '';
+  for (j = tc + 1; j < maxC; j++) {
+    var hd = s(head[j]), sb = s(sub[j]);
+    if (!hd && !sb) { lastHead = ''; continue; }
+    if (hd) lastHead = hd;
+    var base = hd || lastHead;
+    var kind = /^man/i.test(base) ? 'man' : /robot/i.test(base) ? 'robot' : /jig/i.test(base) ? 'jig' : 'other';
+    var name, tag = '';
+    if (kind === 'man') { name = base; tag = sb; }
+    else if (kind === 'robot') { name = sb ? 'Robot ' + sb : 'Robot'; }
+    else if (kind === 'jig') { name = 'Jig ' + (sb || ''); name = name.trim(); }
+    else { name = sb && hd !== sb ? base + ' ' + sb : base; }
+    cols.push({ col: j, name: name, kind: kind, tag: tag });
+  }
+
+  if (!cols.some(function (cl) { return cl.kind !== 'other'; })) return null;
+
+  // element rows
+  var elements = [], station = '', step = '', cat = '';
+  var stated = null, firstSummary = null, vals;
+  for (i = h + 2; i < aoa.length; i++) {
+    var r = aoa[i] || [];
+    var a = s(r[0]), b = s(r[1]), c = s(r[2]), d = s(r[3]);
+    if (LB_TIME_RE.test(s(r[tc]))) break;
+    if (/^su\w*\s*total/i.test(a)) {
+      var t0 = num(r[tc]);
+      if (firstSummary == null && t0 != null) firstSummary = t0;
+      var st = {}, any = false;
+      cols.forEach(function (cl) { var v = num(r[cl.col]); if (v != null && v > 0) { st[cl.col] = v; any = true; } });
+      if (any) { stated = st; break; }
+      continue;
+    }
+    if (a) station = a;
+    if (b) step = b;
+    if (/^total$/i.test(c)) continue;
+    if (c) cat = c;
+    var t = num(r[tc]);
+    if (!d || d === '-' || t == null) continue;
+    vals = {};
+    cols.forEach(function (cl) { var v = num(r[cl.col]); if (v != null && v > 0) vals[cl.col] = v; });
+    elements.push({ station: station, step: step, cat: cat || 'อื่นๆ', name: d, time: t, vals: vals });
+  }
+  if (!elements.length) return null;
+
+  // resources that actually have work
+  var resources = cols.filter(function (cl) {
+    return elements.some(function (e) { return e.vals[cl.col] > 0; });
+  }).map(function (cl, k) { return { id: 'r' + k, col: cl.col, name: cl.name, kind: cl.kind, tag: cl.tag }; });
+  var colToId = {};
+  resources.forEach(function (rs) { colToId[rs.col] = rs.id; });
+  elements.forEach(function (e) {
+    var nv = {};
+    Object.keys(e.vals).forEach(function (k) { if (colToId[k]) nv[colToId[k]] = e.vals[k]; });
+    e.vals = nv;
+  });
+
+  // multiplier = pieces each resource handles per cycle (stated summary / sum of rows)
+  resources.forEach(function (rs) {
+    var comp = elements.reduce(function (acc, e) { return acc + (e.vals[rs.id] || 0); }, 0);
+    var stv = stated ? stated[rs.col] : null;
+    rs.mult = stv && comp > 0 ? Math.round((stv / comp) * 100) / 100 : 1;
+  });
+
+  // takt / cycle / pcs
+  var takt = null, pcs = null, cycle = null;
+  for (i = 0; i < aoa.length; i++) {
+    var row = aoa[i] || [];
+    for (j = 0; j < row.length; j++) {
+      var txt = s(row[j]);
+      if (!txt) continue;
+      if (takt == null && /^takt\s*time/i.test(txt)) {
+        for (var k = j + 1; k < row.length; k++) { var nv2 = num(row[k]); if (nv2 != null) { takt = nv2; break; } }
+      }
+      var m = /(\d+(?:\.\d+)?)\s*sec\s*\/\s*(\d+)\s*pcs/i.exec(txt);
+      if (m && cycle == null) { cycle = parseFloat(m[1]); pcs = parseInt(m[2], 10); }
+    }
+  }
+  if (cycle == null) {
+    cycle = firstSummary;
+    if (cycle == null) {
+      cycle = 0;
+      resources.forEach(function (rs) {
+        var l = elements.reduce(function (acc, e) { return acc + (e.vals[rs.id] || 0); }, 0) * rs.mult;
+        if (l > cycle) cycle = l;
+      });
+    }
+  }
+  return { elements: elements, resources: resources, takt: takt, pcs: pcs || 1, cycle: cycle };
+}
+
+function lbParseWorkbook(wb, XLSX) {
+  for (var n = 0; n < wb.SheetNames.length; n++) {
+    var ws = wb.Sheets[wb.SheetNames[n]];
+    var aoa = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: null, blankrows: true });
+    var res = lbParseSheet(aoa);
+    if (res) { res.sheet = wb.SheetNames[n]; return res; }
+  }
+  return null;
+}
+/* ---- Excel parser: Man-Machine scenario sheet (Scenario / Process / Time) ---- */
+function lbParseScenarios(aoa) {
+  var s = lbClean, num = lbNum, i, j, h = -1, cs = -1, cp = -1, ct = -1;
+  for (i = 0; i < Math.min(aoa.length, 40) && h < 0; i++) {
+    var row = aoa[i] || [], a1 = -1, p1 = -1, t1 = -1;
+    for (j = 0; j < row.length; j++) {
+      var x = s(row[j]);
+      if (/^scenario$/i.test(x)) a1 = j;
+      else if (/^process$/i.test(x)) p1 = j;
+      else if (/^time/i.test(x) && t1 < 0) t1 = j;
+    }
+    if (a1 >= 0 && p1 >= 0 && t1 >= 0) { h = i; cs = a1; cp = p1; ct = t1; }
+  }
+  if (h < 0) return null;
+  var map = {}, order = [], cur = '';
+  for (i = h + 1; i < aoa.length; i++) {
+    var r = aoa[i] || [];
+    var a = s(r[cs]), p = s(r[cp]), t = num(r[ct]);
+    if (/^total/i.test(p)) continue;
+    if (a) cur = a;
+    if (!p || t == null || !cur) continue;
+    if (!map[cur]) { map[cur] = []; order.push(cur); }
+    map[cur].push({ name: p, time: t });
+  }
+  if (order.length < 2) return null;
+  return { scenarios: order.map(function (n) { return { name: n, steps: map[n] }; }) };
+}
+function lbParseScenarioWorkbook(wb, XLSX) {
+  for (var n = 0; n < wb.SheetNames.length; n++) {
+    var ws = wb.Sheets[wb.SheetNames[n]];
+    var aoa = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: null, blankrows: true });
+    var res = lbParseScenarios(aoa);
+    if (res) { res.sheet = wb.SheetNames[n]; return res; }
+  }
+  return null;
+}
+/* ---- Process Flow parser (two-column NPC flow sheet) ---- */
+function lbTitle(t) { return String(t).toLowerCase().replace(/\b\w/g, function (c) { return c.toUpperCase(); }).replace(/\bFg\b/, 'FG'); }
+function lbUniq(a) { var seen = {}, out = []; a.forEach(function (x) { var k = x.toUpperCase(); if (!seen[k]) { seen[k] = 1; out.push(x); } }); return out; }
+
+function lbClassify(p) {
+  var n = p.name.toUpperCase();
+  if (/HANDLING|TRANSPORT|SUPPLY|DELIVER|MOVE/.test(n)) return 'move';
+  if (/WAREHOUSE|STORAGE|STORE/.test(n)) return 'storage';
+  if (/INSPECT|AUDIT|CHECK/.test(n)) return 'inspection';
+  return 'operation';
+}
+
+function lbParseProcessFlow(aoa) {
+  var s = lbClean, num = lbNum, i, j, r = -1, starts = [];
+  for (i = 0; i < Math.min(aoa.length, 30) && r < 0; i++) {
+    var row = aoa[i] || [], st = [], hasName = false;
+    for (j = 0; j < row.length; j++) {
+      var x = s(row[j]);
+      if (/^proc\.?$/i.test(x)) st.push(j);
+      if (/process\s*name|ชื่อกระบวนการ/i.test(x)) hasName = true;
+    }
+    if (st.length && hasName) { r = i; starts = st; }
+  }
+  if (r < 0) return null;
+  var maxC = 0;
+  aoa.forEach(function (rw) { if (rw && rw.length > maxC) maxC = rw.length; });
+  function findIn(rows, re, a, b) {
+    for (var q = 0; q < rows.length; q++) {
+      var rw = aoa[rows[q]] || [];
+      for (var c = a; c < Math.min(b, rw.length); c++) if (re.test(s(rw[c]))) return c;
+    }
+    return -1;
+  }
+  var near = [r - 2, r - 1, r, r + 1, r + 2].filter(function (v) { return v >= 0 && v < aoa.length; });
+  var blocks = starts.map(function (pc, k) {
+    var end = k + 1 < starts.length ? starts[k + 1] : maxC;
+    return {
+      pc: pc,
+      nc: findIn(near, /process\s*name|ชื่อกระบวนการ/i, pc + 1, end),
+      mc: findIn(near, /machine/i, pc + 1, end),
+      cc: findIn(near, /characteristics/i, pc + 1, end),
+      pdc: findIn([r], /^product$/i, pc + 1, end),
+      rkc: findIn([r], /^rank$/i, pc + 1, end)
+    };
+  });
+  var procs = [], cur = [];
+  for (i = r + 1; i < aoa.length; i++) {
+    var rw2 = aoa[i] || [], stop = false;
+    for (j = 0; j < rw2.length; j++) if (/\(copy\)|symbols\s*:|core\s*team/i.test(s(rw2[j]))) { stop = true; break; }
+    if (stop) break;
+    blocks.forEach(function (b, k) {
+      var no = num(rw2[b.pc]);
+      if (no != null) { cur[k] = { no: no, lines: [], machines: [], chars: [] }; procs.push(cur[k]); }
+      var p = cur[k];
+      if (!p) return;
+      if (b.nc >= 0) { var t = s(rw2[b.nc]); if (t) p.lines.push(t); }
+      if (b.mc >= 0) { var m = s(rw2[b.mc]); if (m) p.machines.push(m); }
+      var pcs = b.cc >= 0 ? s(rw2[b.cc]) : '', pd = b.pdc >= 0 ? s(rw2[b.pdc]) : '', rk = b.rkc >= 0 ? s(rw2[b.rkc]) : '';
+      if (pcs || pd || rk) p.chars.push({ proc: pcs, prod: pd, rank: rk });
+    });
+  }
+  if (procs.length < 2) return null;
+  procs.sort(function (a, b) { return a.no - b.no; });
+  procs.forEach(function (p) {
+    var nm = [], notes = [];
+    p.lines.forEach(function (t) { if (/=|^\d{6,}$|^\d+\s*\.\s/.test(t)) notes.push(t); else nm.push(t); });
+    p.name = nm.join(' ').replace(/\s+/g, ' ').trim() || p.lines[0] || ('Process ' + p.no);
+    p.notes = notes; delete p.lines;
+    p.type = lbClassify(p);
+    p.robot = p.machines.some(function (m) { return /robot/i.test(m); });
+  });
+  var fo = -1;
+  procs.forEach(function (p, k) { if (fo < 0 && p.type === 'operation') fo = k; });
+  if (fo >= 0) for (i = fo; i < procs.length && (procs[i].type === 'operation' || procs[i].type === 'inspection'); i++) procs[i].inline = true;
+
+  var part = {}, labels = [['cust', /^cust\.?\s*:/i], ['model', /^model\s*:/i], ['partNo', /^part\s*no/i], ['partName', /^part\s*name/i], ['rev', /^rev\.?\s*no/i]];
+  for (i = 0; i < r; i++) {
+    var rr = aoa[i] || [];
+    for (j = 0; j < rr.length; j++) {
+      var tx = s(rr[j]);
+      if (!tx) continue;
+      labels.forEach(function (l) {
+        if (!(l[0] in part) && l[1].test(tx)) {
+          var below = aoa[i + 1] ? s(aoa[i + 1][j]) : '';
+          part[l[0]] = below;
+        }
+      });
+    }
+  }
+  return { part: part, processes: procs };
+}
+function lbParseProcessFlowWorkbook(wb, XLSX) {
+  for (var n = 0; n < wb.SheetNames.length; n++) {
+    var ws = wb.Sheets[wb.SheetNames[n]];
+    var aoa = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: null, blankrows: true });
+    var res = lbParseProcessFlow(aoa);
+    if (res) { res.sheet = wb.SheetNames[n]; return res; }
+  }
+  return null;
+}
+
+/* ---- sub-task generator, draft model, auto balancing ---- */
+function lbBom(procs) {
+  for (var i = 0; i < procs.length; i++) {
+    var out = [];
+    procs[i].notes.forEach(function (t) {
+      var m = /^(\d+)\s*\.\s*(.+?)\s*\/\s*(\S+)\s*$/.exec(t);
+      if (m) out.push({ n: +m[1], name: m[2].trim(), id: m[3] });
+    });
+    if (out.length) return out;
+  }
+  return [];
+}
+
+function lbGenElements(o, bom) {
+  var n = o.name.toUpperCase(), ms = o.machines.join(' ').toUpperCase(), E = [];
+  var allChars = o.chars.map(function (c) { return c.proc + ' ' + c.prod; }).join(' ').toUpperCase();
+  var prodChars = lbUniq(o.chars.map(function (c) { return c.prod; }).filter(function (x) { return x && !/QUANTITY|STATUS/i.test(x); }));
+  if (o.type === 'inspection' || /INSPECT|CHECK/.test(n)) {
+    E.push({ cat: 'Set', name: /FIXTURE/.test(ms) ? 'Set part on checking fixture' : 'Set part for inspection', kind: 'man' });
+    (prodChars.length ? prodChars : ['APPEARANCE']).forEach(function (c) { E.push({ cat: 'Check', name: 'Check ' + lbTitle(c), kind: 'man' }); });
+    E.push({ cat: 'Move', name: 'Mark / Take Off', kind: 'man' });
+  } else if (o.robot || /WELD|MAIN ASS|ASSEMBL/.test(n)) {
+    if (bom && bom.length) bom.forEach(function (b) { E.push({ cat: 'Set', name: 'Set ' + lbTitle(b.name) + ' on jig', kind: 'man' }); });
+    else E.push({ cat: 'Set', name: 'Set parts on jig', kind: 'man' });
+    E.push({ cat: 'Weld', name: o.robot ? 'Robot welding' : 'Welding', kind: o.robot ? 'robot' : 'man' });
+    E.push({ cat: 'Move', name: 'Take Off (FG)', kind: 'man' });
+  } else if (/CLEAN|RUST|OIL/.test(n)) {
+    if (/CLEAN/.test(n)) E.push({ cat: "Ass'y", name: /SPATTER/.test(allChars) ? 'Clean part (remove spatter)' : 'Clean part', kind: 'man' });
+    if (/OIL|RUST/.test(n) || /OIL/.test(ms)) E.push({ cat: "Ass'y", name: 'Apply preventive oil', kind: 'man' });
+    E.push({ cat: 'Move', name: 'Take Off', kind: 'man' });
+  } else if (/PACK/.test(n)) {
+    var box = o.machines.filter(function (m) { return /BOX|PALLET|BAG|CASE/i.test(m); })[0];
+    E.push({ cat: "Ass'y", name: 'Pack into ' + (box ? lbTitle(box) : 'box'), kind: 'man' });
+    if (/IDENT|INDENT|TAG|LABEL/.test(allChars)) E.push({ cat: "Ass'y", name: 'Identify (tag / label)', kind: 'man' });
+    E.push({ cat: 'Move', name: 'Move to rack', kind: 'man' });
+  } else if (o.type === 'move') {
+    E.push({ cat: 'Move', name: lbTitle(o.name), kind: 'man' });
+  } else if (o.type === 'storage') {
+    E.push({ cat: 'Move', name: 'Store / pick part', kind: 'man' });
+  } else {
+    E.push({ cat: 'Set', name: 'Set part', kind: 'man' });
+    E.push({ cat: "Ass'y", name: lbTitle(o.name), kind: o.robot ? 'robot' : 'man' });
+    E.push({ cat: 'Move', name: 'Take Off', kind: 'man' });
+  }
+  return E;
+}
+
+function lbAddGenerated(D, o) {
+  lbGenElements(o, D.bom).forEach(function (g) {
+    D.elements.push({ id: D.nextId++, proc: o.no, cat: g.cat, name: g.name, kind: g.kind, time: null });
+  });
+}
+
+function lbInitDraft(pf) {
+  var D = { part: pf.part, bom: lbBom(pf.processes), procs: [], elements: [], nextId: 1, takt: null, demand: '', minutes: '', menFix: '', sheet: pf.sheet || '' };
+  pf.processes.forEach(function (p) {
+    var o = { no: p.no, name: p.name, notes: p.notes, machines: p.machines, chars: p.chars, type: p.type, robot: p.robot, include: !!p.inline };
+    D.procs.push(o);
+    if (o.include) lbAddGenerated(D, o);
+  });
+  return D;
+}
+
+/* Draft -> line-balance model. Man elements are cut into consecutive groups (one man each).
+   Robot elements run in parallel with the men (positioner / jig swap), so they load the Robot only. */
+function lbAutoModel(D) {
+  var warn = [], i;
+  var order = D.procs.filter(function (p) { return p.include; });
+  var els = [];
+  order.forEach(function (p, pi) {
+    var k = 0;
+    D.elements.forEach(function (e) {
+      if (e.proc !== p.no) return;
+      k++;
+      if (e.time > 0) els.push({ e: e, step: p.no + ' ' + p.name, label: (pi + 1) + '.' + k + ' ' + e.name });
+    });
+  });
+  if (!els.length) return { empty: true, warn: warn };
+  var takt = +D.takt > 0 ? +D.takt : 0;
+  var men = els.filter(function (x) { return x.e.kind !== 'robot'; });
+  var rob = els.filter(function (x) { return x.e.kind === 'robot'; });
+  var groups = [];
+  if (men.length) {
+    var times = men.map(function (x) { return x.e.time; });
+    var total = times.reduce(function (a, b) { return a + b; }, 0), mx = Math.max.apply(null, times);
+    var part = function (M) {
+      var g = [[]], sum = 0;
+      men.forEach(function (x) {
+        if (sum + x.e.time > M + 1e-9 && sum > 0) { g.push([]); sum = 0; }
+        g[g.length - 1].push(x); sum += x.e.time;
+      });
+      return g;
+    };
+    var fix = Math.floor(+D.menFix) > 0 ? Math.floor(+D.menFix) : 0;
+    var n = fix || (takt ? part(takt).length : 1);
+    var lo = mx, hi = total;
+    for (i = 0; i < 60; i++) { var mid = (lo + hi) / 2; if (part(mid).length <= n) hi = mid; else lo = mid; }
+    groups = part(hi);
+    if (fix && groups.length < fix) warn.push('งานแบ่งให้คนได้ละเอียดสุด ' + groups.length + ' คน จึงใช้ ' + groups.length + ' คนแทน ' + fix + ' คน');
+  }
+  var resources = [], idOf = new Map();
+  groups.forEach(function (g, k) {
+    var id = 'm' + (k + 1);
+    resources.push({ id: id, name: 'Man ' + (k + 1), kind: 'man', tag: '', mult: 1 });
+    g.forEach(function (x) { idOf.set(x, id); });
+  });
+  var robotLoad = rob.reduce(function (a, x) { return a + x.e.time; }, 0);
+  if (rob.length) resources.push({ id: 'rb', name: 'Robot', kind: 'robot', tag: '', mult: 1 });
+  var stationOf = new Map();
+  groups.forEach(function (g, k) { g.forEach(function (x) { stationOf.set(x, 'Station ' + (k + 1)); }); });
+  var elements = els.map(function (x) {
+    var vals = {}, isRob = x.e.kind === 'robot';
+    vals[isRob ? 'rb' : idOf.get(x)] = x.e.time;
+    return { station: isRob ? 'Robot' : stationOf.get(x), step: x.step, cat: x.e.cat, name: x.label, time: x.e.time, vals: vals };
+  });
+  var cycle = 0, loads = {};
+  elements.forEach(function (e) { Object.keys(e.vals).forEach(function (k) { loads[k] = (loads[k] || 0) + e.vals[k]; }); });
+  Object.keys(loads).forEach(function (k) { if (loads[k] > cycle) cycle = loads[k]; });
+  if (takt) {
+    els.forEach(function (x) { if (x.e.kind !== 'robot' && x.e.time > takt) warn.push('"' + x.label + '" ใช้ ' + x.e.time + ' วินาที เกิน Takt ' + takt + ' วินาที ต้องแตกงานให้ละเอียดขึ้นหรือให้สองคนทำคู่กัน'); });
+    if (robotLoad > takt) warn.push('งานของ Robot รวม ' + robotLoad + ' วินาที เกิน Takt ' + takt + ' วินาที ต้องใช้หุ่นยนต์หรือ Jig อย่างน้อย ' + Math.ceil(robotLoad / takt) + ' ชุดทำงานคู่ขนาน');
+  }
+  return { empty: false, warn: warn, model: { elements: elements, resources: resources, takt: takt || null, pcs: 1, cycle: cycle, auto: true } };
+}
+
+
+</script>
+<script>
+var SAMPLE = {"sheet":"Process Line RG21 Concept 3","elements":[{"station":"Station 1","step":"Step 1","cat":"Set","name":"1.1 Set Part Ornament (RH)","time":10,"vals":{"r3":10,"r4":10,"r5":10,"r6":10}},{"station":"Station 1","step":"Step 1","cat":"Ass'y","name":"1.2 Apply glue Primer on Ornament (RH)","time":10,"vals":{"r3":10,"r4":10,"r5":10,"r6":10}},{"station":"Station 1","step":"Step 1","cat":"Ass'y","name":"1.3 Robot Apply glue Adhesive on Ornament (RH)","time":10,"vals":{"r0":10}},{"station":"Station 1","step":"Step 1","cat":"Move","name":"1.4 Tack Off","time":5,"vals":{"r3":5,"r4":5,"r5":5,"r6":5}},{"station":"Station 2","step":"Step 2","cat":"Set","name":"2.1 Set Side Step CTR (RH)","time":10,"vals":{"r3":10,"r4":10,"r5":10,"r6":10}},{"station":"Station 2","step":"Step 2","cat":"Set","name":"2.2 Set BRK'T FR , CTR , RR (RH)","time":10,"vals":{"r3":10,"r4":10,"r5":10,"r6":10}},{"station":"Station 2","step":"Step 2","cat":"Ass'y","name":"2.3 Ass'y BOLT M8 : 6 Pcs.","time":25,"vals":{"r3":25,"r4":25,"r5":25,"r6":25}},{"station":"Station 2","step":"Step 2","cat":"Ass'y","name":"2.4 Test Torque M8 : 6 Point","time":20,"vals":{"r3":20,"r4":20,"r5":20,"r6":20}},{"station":"Station 2","step":"Step 2","cat":"Move","name":"2.5 Tack Off ( Rotate Jig )","time":5,"vals":{"r1":5,"r2":5}},{"station":"Station 2","step":"Step 3","cat":"Ass'y","name":"3.1 Apply glue Primer on side step (RH)","time":10,"vals":{"r3":10,"r4":10,"r5":10,"r6":10}},{"station":"Station 2","step":"Step 3","cat":"Ass'y","name":"3.2 Ass'y Ornament With Side Step CTR (RH)","time":15,"vals":{"r3":15,"r4":15,"r5":15,"r6":15}},{"station":"Station 2","step":"Step 3","cat":"Ass'y","name":"3.3 Ass'y Collar : 6 Point And Bolt M6 : 6 Point (RH)","time":30,"vals":{"r3":30,"r4":30,"r5":30,"r6":30}},{"station":"Station 2","step":"Step 3","cat":"Ass'y","name":"3.4 Test Torque M6 : 6 Point (RH)","time":20,"vals":{"r3":20,"r4":20,"r5":20,"r6":20}},{"station":"Station 2","step":"Step 3","cat":"Move","name":"3.5 Rotate Jig","time":5,"vals":{"r1":5,"r2":5}},{"station":"Station 2","step":"Step 3","cat":"Move","name":"3.6 Tack Off","time":5,"vals":{"r3":5,"r4":5,"r5":5,"r6":5}},{"station":"Station 2","step":"Step 4","cat":"Check","name":"4.1 Cleaning","time":10,"vals":{"r7":10,"r8":10}},{"station":"Station 2","step":"Step 4","cat":"Check","name":"4.2 Check & Mark","time":50,"vals":{"r7":50,"r8":50}},{"station":"Station 2","step":"Step 4","cat":"Move","name":"4.3 Tack off to Rack","time":20,"vals":{"r7":20,"r8":20}}],"resources":[{"id":"r0","col":6,"name":"Robot","kind":"robot","tag":"","mult":1},{"id":"r1","col":7,"name":"Jig 1","kind":"jig","tag":"","mult":1},{"id":"r2","col":8,"name":"Jig 2","kind":"jig","tag":"","mult":1},{"id":"r3","col":11,"name":"Man 1","kind":"man","tag":"R","mult":1},{"id":"r4","col":12,"name":"Man 2","kind":"man","tag":"L","mult":1},{"id":"r5","col":13,"name":"Man 3","kind":"man","tag":"R","mult":1},{"id":"r6","col":14,"name":"Man 4","kind":"man","tag":"L","mult":1},{"id":"r7","col":15,"name":"Man 5","kind":"man","tag":"R/R","mult":2},{"id":"r8","col":16,"name":"Man 6","kind":"man","tag":"L/L","mult":2}],"takt":100,"pcs":2,"cycle":190};
+var SAMPLE_SC = {"scenarios":[{"name":"Manual","steps":[{"name":"Set Part","time":10},{"name":"Grinding (Manual)","time":480},{"name":"Check","time":210},{"name":"Take Off","time":10},{"name":"Move","time":0}]},{"name":"Robot","steps":[{"name":"Set Part","time":10},{"name":"Robot Grinding","time":220},{"name":"Check","time":0},{"name":"Take Off","time":10},{"name":"Move","time":10}]}],"sheet":"Man-Machine"};
+var SAMPLE_PF = {"part":{"cust":"IEMT","model":"ES37","partNo":"7552731170","partName":"BRACKET; CRANKCASE","rev":"0"},"processes":[{"no":5,"machines":["PACKING","POLY BOX"],"chars":[{"proc":"PRESERVATION TAG","prod":"APPEARANCE","rank":""},{"proc":"","prod":"QUANTITY STATUS","rank":"C"}],"name":"WAREHOUSE PART P/C","notes":["1. BRACKET / 7552731170-SA1","2. PLATE 37 No.2 / 7552731170-2","3. PLATE 37 No.1 / 7552731170-3"],"type":"storage","robot":false},{"no":10,"machines":["FORKLIFT OR LIFTER"],"chars":[{"proc":"SUPPLY","prod":"APPEARANCE","rank":""},{"proc":"","prod":"","rank":"C"}],"name":"SUPPLY TO PROD. LINE","notes":[],"type":"move","robot":false},{"no":15,"machines":["ROBOT WELDING M/C","JIG SUB ASS'Y","POSITIONERS"],"chars":[{"proc":"ROBOT WELDING","prod":"APPEARANCE","rank":""},{"proc":"","prod":"DIMENSION","rank":"B"},{"proc":"","prod":"CONDITION","rank":"SC"}],"name":"MAIN ASS'Y","notes":["1 + 2 + 3 = FG","7552731170"],"type":"operation","robot":true,"inline":true},{"no":20,"machines":["CLEANING TOOL","OIL TANK"],"chars":[{"proc":"CLEANING","prod":"APPEARANCE","rank":""},{"proc":"PREVENTIVE OILING","prod":"DIMENSION","rank":"B"},{"proc":"","prod":"SPATTER","rank":""}],"name":"CLEANING & ANTI RUST PREVENTIVE OIL","notes":[],"type":"operation","robot":false,"inline":true},{"no":25,"machines":["CHECKING FIXTURE","SAMPLE PART","INSPECTION STD."],"chars":[{"proc":"CHECK","prod":"APPEARANCE","rank":""},{"proc":"","prod":"DIMENSION","rank":"B"},{"proc":"","prod":"","rank":"SC"}],"name":"FINAL INSPECTION","notes":[],"type":"inspection","robot":false,"inline":true},{"no":30,"machines":["POLY BOX"],"chars":[{"proc":"QUANTITY","prod":"APPEARANCE","rank":""},{"proc":"INDENTIFY","prod":"","rank":"C"}],"name":"PACKING","notes":[],"type":"operation","robot":false,"inline":true},{"no":35,"machines":["PUSHCART OR","FORKLIFT"],"chars":[{"proc":"TRANSPORT","prod":"APPEARANCE","rank":""},{"proc":"","prod":"","rank":"C"}],"name":"HANDLING TO WAREHOUSE FG","notes":[],"type":"move","robot":false},{"no":40,"machines":["RACK"],"chars":[{"proc":"PRESERVATION TAG","prod":"APPEARANCE","rank":""},{"proc":"","prod":"","rank":"C"}],"name":"WAREHOUSE FG","notes":[],"type":"storage","robot":false},{"no":45,"machines":["PUSHCART OR","FORKLIFT"],"chars":[{"proc":"TRANSPORT","prod":"DROPPING","rank":""},{"proc":"","prod":"","rank":"C"}],"name":"HANDLING TO DELIVERY AREA","notes":[],"type":"move","robot":false},{"no":50,"machines":[],"chars":[{"proc":"PRESERVATION TAG","prod":"APPEARANCE","rank":""},{"proc":"","prod":"","rank":"C"}],"name":"DOCK AUDIT","notes":[],"type":"inspection","robot":false},{"no":55,"machines":["TRUCK"],"chars":[{"proc":"INVOICE SHEET","prod":"APPEARANCE","rank":""},{"proc":"","prod":"","rank":"C"}],"name":"TRANSPORT TO CUSTOMER","notes":[],"type":"move","robot":false},{"no":60,"machines":["CHECKING FIXTURE"],"chars":[{"proc":"MEASURE BY","prod":"APPEARANCE","rank":""},{"proc":"CHECKING FIXTURE","prod":"DIMENSION","rank":"B"}],"name":"AUDIT INSPECTION","notes":[],"type":"inspection","robot":false}],"sheet":"7552731170"};
+var S = null;          // current model
+var FILE = '';         // file label
+var FILE_CYCLE = 0;    // cycle from file
+
+function $(id) { return document.getElementById(id); }
+function esc(t) { return String(t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+function fmt(n, d) { if (n == null || !isFinite(n)) return '—'; d = d == null ? 1 : d; return n.toFixed(d).replace(/\.0+$/, '').replace(/(\.\d*?)0+$/, '$1'); }
+function pct(n) { return fmt(n * 100, 1) + '%'; }
+var KIND_ORDER = { man: 0, robot: 1, jig: 2, other: 3 };
+var KIND_TH = { man: 'พนักงาน', robot: 'หุ่นยนต์', jig: 'Jig', other: 'อื่นๆ' };
+
+function setModel(m, label) {
+  m.resources.sort(function (a, b) { return KIND_ORDER[a.kind] - KIND_ORDER[b.kind]; });
+  S = m; FILE = label; FILE_CYCLE = m.cycle;
+  $('fileChip').innerHTML = '<span class="mono">' + esc(label) + '</span>' + (m.sheet ? '<span class="mut" style="color:var(--muted)">· ชีต ' + esc(m.sheet) + '</span>' : '');
+  $('takt').value = m.takt == null ? '' : m.takt;
+  $('pcs').value = m.pcs;
+  $('cycle').value = m.cycle;
+  renderAll(null);
+}
+
+var MM_PAR = true;
+/* ลำดับเวลา: คู่ขนาน = แต่ละคน/เครื่องมีเส้นเวลาของตัวเอง งานที่ใช้หลายทรัพยากรเริ่มเมื่อทุกตัวว่าง / ต่อเนื่อง = เรียงงานทีละงาน */
+function lbSchedule(E, par) {
+  var t = 0, free = {};
+  return E.map(function (e) {
+    var ids = Object.keys(e.vals).filter(function (k) { return e.vals[k] > 0; }), o;
+    if (!par || !ids.length) { o = { e: e, start: t, end: t + e.time }; t += e.time; return o; }
+    var st = ids.reduce(function (a, k) { return Math.max(a, free[k] || 0); }, 0), mx = 0;
+    ids.forEach(function (k) { free[k] = st + e.vals[k]; mx = Math.max(mx, e.vals[k]); });
+    return { e: e, start: st, end: st + mx };
+  });
+}
+/* แถบ Step: ช่วงเวลาของแต่ละ Step ไม่ซ้อนกัน */
+function bandsOf(m) {
+  var map = {}, list = [];
+  m.sched.forEach(function (o) {
+    var k = o.e.step || '', b = map[k];
+    if (!b) { b = map[k] = { step: k, a: o.start, b: o.end }; list.push(b); } else { b.a = Math.min(b.a, o.start); b.b = Math.max(b.b, o.end); }
+  });
+  list.sort(function (x, y) { return x.a - y.a; });
+  var out = [], prev = 0;
+  list.forEach(function (b) { var a = Math.max(b.a, prev); if (b.b > a) { out.push({ step: b.step, a: a, b: b.b }); prev = b.b; } });
+  return out;
+}
+function compute() {
+  var E = S.elements, R = S.resources, cycle = +S.cycle || 0, pcs = Math.max(1, +S.pcs || 1), takt = +S.takt || 0;
+  var loads = {}, m = { perPiece: cycle / pcs, cycle: cycle, pcs: pcs, takt: takt };
+  R.forEach(function (r) { loads[r.id] = E.reduce(function (a, e) { return a + (e.vals[r.id] || 0); }, 0) * r.mult; });
+  m.loads = loads;
+  var men = R.filter(function (r) { return r.kind === 'man'; });
+  var manSum = men.reduce(function (a, r) { return a + loads[r.id]; }, 0);
+  var manMax = men.reduce(function (a, r) { return Math.max(a, loads[r.id]); }, 0);
+  m.men = men.length; m.manSum = manSum;
+  m.balEff = men.length && manMax ? manSum / (men.length * manMax) : null;
+  m.laborUtil = men.length && cycle ? manSum / (men.length * cycle) : null;
+  m.laborPerPc = men.length ? manSum / pcs : null;
+  var maxLoad = 0; R.forEach(function (r) { if (loads[r.id] > maxLoad) maxLoad = loads[r.id]; });
+  m.maxLoad = maxLoad;
+  m.bottle = R.filter(function (r) { return maxLoad > 0 && Math.abs(loads[r.id] - maxLoad) < 1e-9; });
+  m.capacity = m.perPiece ? 3600 / m.perPiece : null;
+  m.required = takt ? 3600 / takt : null;
+  m.sched = lbSchedule(E, MM_PAR);
+  m.total = m.sched.reduce(function (a, o) { return Math.max(a, o.end); }, 0);
+  return m;
+}
+
+function status(load, cycle) {
+  if (cycle && load > cycle + 1e-9) return { cls: 'bad', ico: '▲', txt: 'เกินรอบ' };
+  if (cycle && load >= cycle * 0.95) return { cls: 'warn', ico: '●', txt: 'ใกล้เต็ม' };
+  return { cls: 'good', ico: '✓', txt: 'ปกติ' };
+}
+
+/* ---------- verdict + kpis ---------- */
+function renderVerdict(m) {
+  var el = $('verdict');
+  $('derived').innerHTML = 'Cycle Time ต่อชิ้น <b class="mono">' + fmt(m.perPiece) + '</b> วินาที';
+  var over = S.resources.filter(function (r) { return m.loads[r.id] > m.cycle + 1e-9; });
+  var overTxt = over.length ? ' · เกินรอบ: ' + over.map(function (r) { return esc(r.name); }).join(', ') : '';
+  if (!m.takt) {
+    el.className = 'verdict none';
+    el.innerHTML = '<div class="ico">?</div><div><div class="head">ใส่ Takt Time เพื่อเทียบกับ Cycle Time</div><div class="detail">Cycle Time ต่อชิ้นตอนนี้ ' + fmt(m.perPiece) + ' วินาที' + overTxt + '</div></div>';
+    return;
+  }
+  var diff = m.takt - m.perPiece;
+  if (diff >= 0 && !over.length) {
+    el.className = 'verdict good';
+    el.innerHTML = '<div class="ico">✓</div><div><div class="head">ทันตาม Takt Time</div><div class="detail">Cycle Time ' + fmt(m.perPiece) + ' วินาที/ชิ้น เร็วกว่า Takt Time ' + fmt(m.takt) + ' วินาที อยู่ ' + fmt(diff) + ' วินาที (' + pct(diff / m.takt) + ')</div></div>';
+  } else if (diff >= 0) {
+    el.className = 'verdict bad';
+    el.innerHTML = '<div class="ico">▲</div><div><div class="head">Cycle Time ทัน Takt แต่มีงานเกินรอบ</div><div class="detail">Cycle Time ' + fmt(m.perPiece) + ' วินาที/ชิ้น ต่ำกว่า Takt Time ' + fmt(m.takt) + ' วินาที' + overTxt + '</div></div>';
+  } else {
+    el.className = 'verdict bad';
+    el.innerHTML = '<div class="ico">▲</div><div><div class="head">ไม่ทัน Takt Time</div><div class="detail">Cycle Time ' + fmt(m.perPiece) + ' วินาที/ชิ้น ช้ากว่า Takt Time ' + fmt(m.takt) + ' วินาที อยู่ ' + fmt(-diff) + ' วินาที (' + pct(-diff / m.takt) + ')' + overTxt + '</div></div>';
+  }
+}
+
+function renderKpi(m) {
+  var bn = m.bottle.length ? m.bottle.map(function (r) { return r.name; }).join(', ') : '—';
+  var k = [
+    ['กำลังผลิตสูงสุด', m.capacity ? fmt(m.capacity) + ' <span style="font-size:13px;font-weight:500">ชิ้น/ชม.</span>' : '—', m.required ? 'ที่ต้องการ ' + fmt(m.required) + ' ชิ้น/ชม. (Takt ' + fmt(m.takt) + ' วินาที)' : 'กรอก Takt Time เพื่อเทียบ'],
+    ['Balance efficiency', m.balEff == null ? '—' : pct(m.balEff), 'เฉพาะพนักงาน ' + m.men + ' คน · Σ โหลด ÷ (คน × โหลดสูงสุด)'],
+    ['Labor utilization', m.laborUtil == null ? '—' : pct(m.laborUtil), 'Σ โหลด ÷ (คน × Cycle Time)'],
+    ['คอขวด', esc(bn), m.maxLoad ? fmt(m.maxLoad) + ' วินาที จาก Cycle ' + fmt(m.cycle) + ' (' + pct(m.cycle ? m.maxLoad / m.cycle : 0) + ')' : ''],
+    ['แรงงานต่อชิ้น', m.laborPerPc == null ? '—' : fmt(m.laborPerPc) + ' <span style="font-size:13px;font-weight:500">วินาที-คน</span>', 'Σ โหลดพนักงาน ÷ ' + m.pcs + ' ชิ้น']
+  ];
+  $('kpis').innerHTML = k.map(function (x) { return '<div class="kpi"><span class="k">' + x[0] + '</span><span class="v">' + x[1] + '</span><span class="s">' + x[2] + '</span></div>'; }).join('');
+}
+
+/* ---------- load chart ---------- */
+function renderLoadChart(m) {
+  var R = S.resources, W = 760, gut = 104, right = 64, rowH = 30, top = 34;
+  var taktCyc = m.takt * m.pcs;
+  var xmax = Math.max(m.cycle, taktCyc, m.maxLoad) * 1.06 || 10;
+  var H = top + R.length * rowH + 22, pw = W - gut - right;
+  function X(v) { return gut + (v / xmax) * pw; }
+  var g = '', i, step = xmax > 150 ? 50 : xmax > 60 ? 20 : 10;
+  for (var tv = 0; tv <= xmax; tv += step) g += '<line x1="' + X(tv) + '" x2="' + X(tv) + '" y1="' + top + '" y2="' + (H - 22) + '" stroke="var(--line)" stroke-width="1"/><text class="num mut" x="' + X(tv) + '" y="' + (H - 6) + '" text-anchor="middle" style="font-size:11px">' + tv + '</text>';
+  var lines = [{ v: m.cycle, t: 'Cycle ' + fmt(m.cycle), dash: true }];
+  if (taktCyc) lines.push({ v: taktCyc, t: 'Takt×' + m.pcs + ' ' + fmt(taktCyc), dash: false });
+  lines.sort(function (a, b) { return a.v - b.v; });
+  var bars = '';
+  R.forEach(function (r, k) {
+    var y = top + k * rowH, ld = m.loads[r.id], st = status(ld, m.cycle);
+    var col = st.cls === 'bad' ? 'var(--bad)' : st.cls === 'warn' ? 'var(--warn)' : { man: 'var(--accent)', robot: 'var(--c1)', jig: 'var(--c4)' }[r.kind] || 'var(--bar)';
+    var tip = esc(r.name) + (r.tag ? ' (' + esc(r.tag) + ')' : '') + ' · โหลด ' + fmt(ld) + ' วินาที · ' + pct(m.cycle ? ld / m.cycle : 0) + ' ของ Cycle';
+    bars += '<text class="strong" x="' + (gut - 10) + '" y="' + (y + rowH / 2 + 4) + '" text-anchor="end">' + esc(r.name) + (r.tag ? '<tspan class="mut" dx="5" style="font-size:11px">' + esc(r.tag) + '</tspan>' : '') + '</text>';
+    bars += '<rect x="' + gut + '" y="' + (y + 4) + '" width="' + Math.max(2, X(m.cycle) - gut) + '" height="20" rx="10" fill="var(--fg)" opacity=".07"/>';
+    bars += '<rect data-tip="' + tip + '" x="' + gut + '" y="' + (y + 4) + '" width="' + Math.max(8, X(ld) - gut) + '" height="20" rx="10" fill="' + col + '"/>';
+    bars += '<rect data-tip="' + tip + '" x="' + gut + '" y="' + y + '" width="' + (pw + right - 4) + '" height="' + rowH + '" fill="transparent"/>';
+    bars += '<text class="num strong" x="' + (X(ld) + 7) + '" y="' + (y + rowH / 2 + 4) + '" style="font-size:12px">' + fmt(ld) + '</text>';
+  });
+  var refs = '';
+  lines.forEach(function (ln, idx) {
+    var x = X(ln.v), anchor = idx === 0 && lines.length > 1 ? 'end' : 'start', dx = anchor === 'end' ? -5 : 5;
+    refs += '<line x1="' + x + '" x2="' + x + '" y1="' + (top - 8) + '" y2="' + (H - 22) + '" stroke="' + (ln.dash ? 'var(--fg2)' : 'var(--fg)') + '" stroke-width="' + (ln.dash ? 1.5 : 2) + '"' + (ln.dash ? ' stroke-dasharray="5 4"' : '') + '/>';
+    refs += '<text class="num strong" x="' + (x + dx) + '" y="' + (top - 14) + '" text-anchor="' + anchor + '" style="font-size:11.5px">' + ln.t + '</text>';
+  });
+  $('loadChart').innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" role="img" aria-label="โหลดงานต่อรอบของแต่ละคนและเครื่อง เทียบกับ Cycle Time และ Takt Time">' + g + bars + refs + '</svg>';
+  $('loadNote').textContent = 'หน่วย: วินาทีต่อรอบ (' + m.pcs + ' ชิ้น)';
+}
+
+function renderResTable(m) {
+  var h = '<thead><tr><th>คน / เครื่อง</th><th>ประเภท</th><th class="r">โหลดต่อรอบ (s)</th><th class="r">× ชิ้น</th><th class="r">Utilization</th><th class="r">ว่างต่อรอบ (s)</th><th>สถานะ</th></tr></thead><tbody>';
+  S.resources.forEach(function (r) {
+    h += '<tr><td><b>' + esc(r.name) + '</b>' + (r.tag ? ' <span style="color:var(--muted)">' + esc(r.tag) + '</span>' : '') + '</td><td>' + KIND_TH[r.kind] + '</td>' +
+      '<td class="r mono" id="rl-' + r.id + '"></td>' +
+      '<td class="r"><input class="mult" id="mult-' + r.id + '" data-rid="' + r.id + '" type="number" min="0" step="any" value="' + r.mult + '" aria-label="จำนวนชิ้นต่อรอบของ ' + esc(r.name) + '"></td>' +
+      '<td class="r mono" id="ru-' + r.id + '"></td><td class="r mono" id="ri-' + r.id + '"></td><td id="rs-' + r.id + '"></td></tr>';
+  });
+  $('resTable').innerHTML = h + '</tbody>';
+  patchRes(m);
+}
+function patchRes(m) {
+  S.resources.forEach(function (r) {
+    var ld = m.loads[r.id], st = status(ld, m.cycle);
+    var a = $('rl-' + r.id); if (a) a.textContent = fmt(ld);
+    a = $('ru-' + r.id); if (a) a.textContent = pct(m.cycle ? ld / m.cycle : 0);
+    a = $('ri-' + r.id); if (a) a.textContent = fmt(m.cycle - ld);
+    a = $('rs-' + r.id); if (a) a.innerHTML = '<span class="pill ' + st.cls + '"><span aria-hidden="true">' + st.ico + '</span>' + st.txt + '</span>';
+  });
+}
+
+/* ---------- gantt ---------- */
+function catIndex() {
+  var seen = [], map = {};
+  S.elements.forEach(function (e) { if (!(e.cat in map)) { map[e.cat] = Math.min(seen.length, 4) + 1; seen.push(e.cat); } });
+  return { map: map, list: seen };
+}
+function elId(name) { var m = /^\s*(\d+(?:\.\d+)*)/.exec(name); return m ? m[1] : ''; }
+
+function renderGantt(m) {
+  var R = S.resources, ci = catIndex(), gut = 96, pps = 5.4, rowH = 28, top = 52;
+  var axisMax = Math.ceil(Math.max(m.total, m.cycle) / 10) * 10 + 10;
+  var W = gut + axisMax * pps + 20, H = top + R.length * rowH + 8;
+  function X(v) { return gut + v * pps; }
+  var s = '', t;
+  for (t = 0; t <= axisMax; t += 10) {
+    s += '<line x1="' + X(t) + '" x2="' + X(t) + '" y1="' + (top - 8) + '" y2="' + (H - 4) + '" stroke="var(--line)"/><text class="num mut" x="' + X(t) + '" y="' + (top - 14) + '" text-anchor="middle" style="font-size:10.5px">' + t + '</text>';
+  }
+  // step bands
+  var bands = bandsOf(m);
+  bands.forEach(function (b) {
+    s += '<line x1="' + (X(b.a) + 1) + '" x2="' + (X(b.b) - 1) + '" y1="22" y2="22" stroke="var(--line-strong)" stroke-width="2"/>';
+    if ((b.b - b.a) * pps > 44) s += '<text class="mut" x="' + (X(b.a) + 2) + '" y="16" style="font-size:11px">' + esc(b.step) + '</text>';
+  });
+  R.forEach(function (r, k) {
+    var y = top + k * rowH;
+    if (k % 2 === 0) s += '<rect x="' + gut + '" y="' + y + '" width="' + (W - 12 - gut) + '" height="' + rowH + '" fill="var(--fg)" opacity=".04"/>';
+    s += '<line x1="' + gut + '" x2="' + (W - 12) + '" y1="' + (y + rowH) + '" y2="' + (y + rowH) + '" stroke="var(--line)"/>';
+    s += '<text class="strong" x="' + (gut - 10) + '" y="' + (y + rowH / 2 + 4) + '" text-anchor="end">' + esc(r.name) + (r.tag ? '<tspan class="mut" dx="5" style="font-size:11px">' + esc(r.tag) + '</tspan>' : '') + '</text>';
+    m.sched.forEach(function (o) {
+      var v = o.e.vals[r.id]; if (!(v > 0)) return;
+      var ix = ci.map[o.e.cat], w = v * pps - 2, x = X(o.start) + 1, id = elId(o.e.name);
+      var tip = esc(o.e.name) + ' · ' + esc(r.name) + ' ' + fmt(v) + ' วินาที · วินาทีที่ ' + fmt(o.start) + '–' + fmt(o.start + v);
+      s += '<rect data-tip="' + tip + '" x="' + x + '" y="' + (y + 4) + '" width="' + Math.max(w, 2) + '" height="' + (rowH - 8) + '" rx="5" stroke="color-mix(in srgb,var(--fg) 20%,transparent)" stroke-width=".6" fill="var(--c' + ix + ')"/>';
+      if (w >= 22 && id) s += '<text class="num" x="' + (x + w / 2) + '" y="' + (y + rowH / 2 + 4) + '" text-anchor="middle" style="fill:var(--on' + ix + ');font-size:10.5px;pointer-events:none">' + id + '</text>';
+    });
+  });
+  if (m.cycle) {
+    var cx = X(m.cycle);
+    s += '<line x1="' + cx + '" x2="' + cx + '" y1="26" y2="' + (H - 4) + '" stroke="var(--fg)" stroke-width="1.5" stroke-dasharray="5 4"/><text class="num strong" x="' + (cx + 5) + '" y="' + (H - 10 - 0) + '" style="font-size:11px;paint-order:stroke;stroke:var(--surface);stroke-width:3px">Cycle ' + fmt(m.cycle) + '</text>';
+  }
+  $('gantt').innerHTML = '<svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Man-Machine Chart ตามเวลา วินาทีที่ 0 ถึง ' + axisMax + '">' + s + '</svg>';
+  $('ganttNote').textContent = MM_PAR ? 'แต่ละคนและเครื่องมีเส้นเวลาของตัวเอง เริ่มวินาทีที่ 0 พร้อมกัน เส้นประคือ Cycle Time' : 'เรียงงานทีละงานตามลำดับในไฟล์ เส้นประคือ Cycle Time';
+  $('ganttLegend').innerHTML = ci.list.map(function (c) { return '<span><i style="background:var(--c' + ci.map[c] + ')"></i>' + esc(c) + '</span>'; }).join('') + '<span class="mut" style="color:var(--muted)">ตัวเลขในแท่ง = ลำดับงานในไฟล์ (เช่น 1.1)</span>';
+}
+
+/* ---------- element table ---------- */
+function renderElemTable(m) {
+  var ci = catIndex(), R = S.resources;
+  var h = '<thead><tr><th>Step</th><th>หมวด</th><th>งาน</th><th class="r">เวลา (s)</th>';
+  R.forEach(function (r) { h += '<th class="r">' + esc(r.name) + (r.tag ? '<br><span style="color:var(--muted)">' + esc(r.tag) + '</span>' : '') + '</th>'; });
+  h += '</tr></thead><tbody>';
+  var last = null;
+  S.elements.forEach(function (e, i) {
+    var first = e.step !== last; last = e.step;
+    h += '<tr' + (first && i ? ' class="stepstart"' : '') + '><td>' + (first ? '<b>' + esc(e.step) + '</b>' : '') + '</td><td><span class="swatch" style="background:var(--c' + ci.map[e.cat] + ')"></span>' + esc(e.cat) + '</td><td class="wrapcell">' + esc(e.name) + '</td>' +
+      '<td class="r"><input data-e="' + i + '" data-f="time" id="t-' + i + '" type="number" min="0" step="any" value="' + e.time + '" aria-label="เวลา ' + esc(e.name) + '"></td>';
+    R.forEach(function (r) {
+      var v = e.vals[r.id];
+      h += '<td class="r"><input data-e="' + i + '" data-f="' + r.id + '" id="c-' + i + '-' + r.id + '" type="number" min="0" step="any" value="' + (v == null ? '' : v) + '" aria-label="' + esc(r.name) + ' ' + esc(e.name) + '"></td>';
+    });
+    h += '</tr>';
+  });
+  h += '</tbody><tfoot><tr><td colspan="3">รวมต่อชิ้น</td><td class="r mono" id="et-time"></td>';
+  R.forEach(function (r) { h += '<td class="r mono" id="et-' + r.id + '"></td>'; });
+  $('elemTable').innerHTML = h + '</tr></tfoot>';
+  patchElem(m);
+}
+function patchElem(m) {
+  var a = $('et-time'); if (a) a.textContent = fmt(m.total);
+  S.resources.forEach(function (r) {
+    var sum = S.elements.reduce(function (acc, e) { return acc + (e.vals[r.id] || 0); }, 0);
+    var c = $('et-' + r.id); if (c) c.textContent = fmt(sum);
+  });
+}
+
+function renderAll(activeBox) {
+  var m = compute();
+  renderVerdict(m); renderKpi(m); renderLoadChart(m); renderGantt(m);
+  if (activeBox === 'res') patchRes(m); else renderResTable(m);
+  if (activeBox === 'elem') patchElem(m); else renderElemTable(m);
+}
+
+/* ---------- scenario compare (Manual vs Robot) ---------- */
+var SC = null;
+function normProc(n) {
+  var k = n.toLowerCase().replace(/\(?\b(manual|robot)\b\)?/g, '').replace(/\s+/g, ' ').trim();
+  return k || n.toLowerCase();
+}
+function setScenarios(sc) {
+  SC = sc;
+  if ($('scSample')) $('scSample').hidden = !sc.sample;
+  $('scNote').textContent = 'ชีต ' + sc.sheet + ' · ฐานเทียบคือ ' + sc.scenarios[0].name;
+  renderSc(null);
+}
+function scModel() {
+  var rows = [], idx = {}, colorOf = {};
+  var sc = SC.scenarios.map(function (s) {
+    var t = 0, seen = {};
+    var segs = s.steps.map(function (p, pi) {
+      var nk = normProc(p.name); seen[nk] = (seen[nk] || 0) + 1;
+      var key = nk + '#' + seen[nk];
+      if (!(key in idx)) { idx[key] = rows.length; rows.push({ key: key, label: p.name }); }
+      if (!(nk in colorOf)) colorOf[nk] = Math.min(Object.keys(colorOf).length, 4) + 1;
+      var o = { p: p, pi: pi, key: key, nk: nk, start: t, end: t + p.time };
+      t += p.time; return o;
+    });
+    return { s: s, segs: segs, total: t };
+  });
+  return { sc: sc, rows: rows, colorOf: colorOf };
+}
+function renderSc(activeBox) {
+  var M = scModel(), base = M.sc[0];
+  var k = M.sc.map(function (x) {
+    return ['เวลาต่อชิ้น · ' + esc(x.s.name), fmt(x.total) + ' <span style="font-size:13px;font-weight:500">วินาที</span>', x.total ? fmt(3600 / x.total) + ' ชิ้น/ชม. ต่อสถานี' : ''];
+  });
+  M.sc.slice(1).forEach(function (x) {
+    var sv = base.total - x.total;
+    k.push(['ประหยัดเวลา · ' + esc(x.s.name), (sv >= 0 ? '' : '+') + fmt(Math.abs(sv)) + ' <span style="font-size:13px;font-weight:500">วินาที</span>', base.total ? (sv >= 0 ? 'ลดลง ' : 'เพิ่มขึ้น ') + pct(Math.abs(sv) / base.total) + ' จาก ' + esc(base.s.name) : '']);
+    k.push(['เร็วขึ้น · ' + esc(x.s.name), x.total ? fmt(base.total / x.total, 2) + '<span style="font-size:13px;font-weight:500"> เท่า</span>' : '—', 'กำลังผลิตเพิ่มจาก ' + fmt(3600 / base.total) + ' เป็น ' + fmt(3600 / x.total) + ' ชิ้น/ชม.']);
+  });
+  $('scKpis').innerHTML = k.map(function (x) { return '<div class="kpi"><span class="k">' + x[0] + '</span><span class="v">' + x[1] + '</span><span class="s">' + x[2] + '</span></div>'; }).join('');
+
+  var W = 760, gut = 84, right = 16, rowH = 56, top = 30, pw = W - gut - right;
+  var maxT = Math.max.apply(null, M.sc.map(function (x) { return x.total; })) || 10;
+  var step = maxT > 400 ? 100 : maxT > 150 ? 50 : 20, axisMax = Math.ceil(maxT / step) * step;
+  function X(v) { return gut + (v / axisMax) * pw; }
+  var H = top + M.sc.length * rowH + 24, s = '', t;
+  for (t = 0; t <= axisMax; t += step) s += '<line x1="' + X(t) + '" x2="' + X(t) + '" y1="' + (top - 6) + '" y2="' + (H - 22) + '" stroke="var(--line)"/><text class="num mut" x="' + X(t) + '" y="' + (H - 6) + '" text-anchor="middle" style="font-size:11px">' + t + '</text>';
+  M.sc.forEach(function (x, si) {
+    var y = top + si * rowH;
+    s += '<text class="strong" x="' + (gut - 10) + '" y="' + (y + 22) + '" text-anchor="end" style="font-weight:600">' + esc(x.s.name) + '</text><text class="num mut" x="' + (gut - 10) + '" y="' + (y + 38) + '" text-anchor="end" style="font-size:11px">' + fmt(x.total) + ' s</text>';
+    x.segs.forEach(function (g) {
+      if (!(g.p.time > 0)) return;
+      var ix = M.colorOf[g.nk], x0 = X(g.start), w = X(g.end) - x0 - 2;
+      var tip = esc(g.p.name) + ' · ' + esc(x.s.name) + ' ' + fmt(g.p.time) + ' วินาที · วินาทีที่ ' + fmt(g.start) + '–' + fmt(g.end);
+      s += '<rect data-tip="' + tip + '" x="' + (x0 + 1) + '" y="' + (y + 8) + '" width="' + Math.max(w, 2) + '" height="34" rx="3" fill="var(--c' + ix + ')"/>';
+      var lab = w >= 120 ? esc(g.p.name) + ' ' + fmt(g.p.time) : w >= 30 ? fmt(g.p.time) : '';
+      if (lab) s += '<text class="num" x="' + (x0 + 1 + w / 2) + '" y="' + (y + 29) + '" text-anchor="middle" style="fill:var(--on' + ix + ');font-size:11.5px;pointer-events:none">' + lab + '</text>';
+    });
+    if (si > 0 && base.total > x.total) {
+      var a = X(x.total), b = X(base.total);
+      s += '<rect x="' + (a + 1) + '" y="' + (y + 8) + '" width="' + (b - a - 2) + '" height="34" rx="3" fill="none" stroke="var(--muted)" stroke-dasharray="4 3"/>';
+      if (b - a > 110) s += '<text class="num strong" x="' + ((a + b) / 2) + '" y="' + (y + 29) + '" text-anchor="middle" style="font-size:11.5px">−' + fmt(base.total - x.total) + ' s (' + pct((base.total - x.total) / base.total) + ')</text>';
+    }
+  });
+  $('scChart').innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" role="img" aria-label="เทียบเวลาต่อชิ้นของแต่ละสถานการณ์ หน่วยวินาที">' + s + '</svg>';
+  var seenL = {}, leg = '';
+  M.sc.forEach(function (x) { x.segs.forEach(function (g) { if (!seenL[g.nk]) { seenL[g.nk] = 1; leg += '<span><i style="background:var(--c' + M.colorOf[g.nk] + ')"></i>' + esc(g.nk.replace(/\b\w/g, function (c) { return c.toUpperCase(); })) + '</span>'; } }); });
+  $('scLegend').innerHTML = leg + '<span style="color:var(--muted)">เส้นประ = เวลาที่ประหยัดได้</span>';
+  if (activeBox === 'sc') patchSc(M); else renderScTable(M);
+}
+function renderScTable(M) {
+  var h = '<thead><tr><th>งาน</th>';
+  M.sc.forEach(function (x) { h += '<th class="r">' + esc(x.s.name) + ' (s)</th>'; });
+  M.sc.slice(1).forEach(function (x) { h += '<th class="r">ต่างจาก ' + esc(M.sc[0].s.name) + ' (s)</th>'; });
+  h += '</tr></thead><tbody>';
+  M.rows.forEach(function (r, ri) {
+    h += '<tr><td>' + esc(r.key.replace(/#\d+$/, '').replace(/\b\w/g, function (c) { return c.toUpperCase(); })) + '</td>';
+    M.sc.forEach(function (x, si) {
+      var g = x.segs.filter(function (q) { return q.key === r.key; })[0];
+      h += g ? '<td class="r"><input data-sc="' + si + '" data-pi="' + g.pi + '" id="sc-' + si + '-' + g.pi + '" type="number" min="0" step="any" value="' + g.p.time + '" aria-label="' + esc(x.s.name) + ' ' + esc(g.p.name) + '"></td>' : '<td class="r" style="color:var(--muted)">—</td>';
+    });
+    M.sc.slice(1).forEach(function (x, j) { h += '<td class="r mono" id="scr-' + ri + '-' + (j + 1) + '"></td>'; });
+    h += '</tr>';
+  });
+  h += '</tbody><tfoot><tr><td>รวมต่อชิ้น</td>';
+  M.sc.forEach(function (x, si) { h += '<td class="r mono" id="sct-' + si + '"></td>'; });
+  M.sc.slice(1).forEach(function (x, j) { h += '<td class="r mono" id="scd-' + (j + 1) + '"></td>'; });
+  $('scTable').innerHTML = h + '</tr></tfoot>';
+  patchSc(M);
+}
+function patchSc(M) {
+  function put(id, v) { var el = $(id); if (el) el.textContent = v; }
+  function sg(v) { return (v > 0 ? '+' : v < 0 ? '−' : '') + fmt(Math.abs(v)); }
+  M.sc.forEach(function (x, si) { put('sct-' + si, fmt(x.total)); });
+  M.sc.slice(1).forEach(function (x, j) { put('scd-' + (j + 1), sg(x.total - M.sc[0].total)); });
+  M.rows.forEach(function (r, ri) {
+    var tb = (M.sc[0].segs.filter(function (q) { return q.key === r.key; })[0] || { p: { time: 0 } }).p.time;
+    M.sc.slice(1).forEach(function (x, j) {
+      var g = x.segs.filter(function (q) { return q.key === r.key; })[0];
+      put('scr-' + ri + '-' + (j + 1), sg((g ? g.p.time : 0) - tb));
+    });
+  });
+}
+
+/* ---------- tabs ---------- */
+var TAB_PANELS = { flow: ['tab-flow'], balance: ['tab-balance', 'tab-balance2'], compare: ['tab-compare'] };
+function showTab(tok) {
+  if (!TAB_PANELS[tok]) tok = 'flow';
+  Object.keys(TAB_PANELS).forEach(function (k) {
+    TAB_PANELS[k].forEach(function (id) { $(id).hidden = k !== tok; });
+    var b = $('tabbtn-' + k); b.setAttribute('aria-selected', k === tok ? 'true' : 'false'); b.classList.toggle('on', k === tok);
+  });
+}
+Object.keys(TAB_PANELS).forEach(function (k) { $('tabbtn-' + k).addEventListener('click', function () { showTab(k); }); });
+
+/* ---------- Process Flow builder (draft D -> auto balance -> model S) ---------- */
+var D = null, flTimer = null;
+var PT_TH = { operation: 'งานผลิต', move: 'ขนส่ง', storage: 'คลัง', inspection: 'ตรวจสอบ' };
+var EX_T = [5, 5, 5, 60, 5, 20, 15, 5, 8, 15, 20, 5, 25, 10, 5];
+var CATS = ['Set', "Ass'y", 'Check', 'Weld', 'Move'];
+
+function elById(id) { for (var i = 0; i < D.elements.length; i++) if (D.elements[i].id === id) return D.elements[i]; return null; }
+function incProcs() { return D.procs.filter(function (p) { return p.include; }); }
+function flLabels() {
+  var map = {};
+  incProcs().forEach(function (p, pi) { var k = 0; D.elements.forEach(function (e) { if (e.proc === p.no) { k++; map[e.id] = (pi + 1) + '.' + k; } }); });
+  return map;
+}
+function flCounts() {
+  var inc = {}, tot = 0, done = 0;
+  incProcs().forEach(function (p) { inc[p.no] = 1; });
+  D.elements.forEach(function (e) { if (inc[e.proc]) { tot++; if (e.time > 0) done++; } });
+  return { tot: tot, done: done };
+}
+/* ข้อมูลตัวอย่าง: นับเฉพาะค่าที่ระบบใส่ให้และผู้ใช้ยังไม่ได้แก้ */
+function flSample() {
+  if (!D) return { any: false, n: 0, cond: false };
+  var inc = {}, n = 0;
+  incProcs().forEach(function (p) { inc[p.no] = 1; });
+  D.elements.forEach(function (e) { if (inc[e.proc] && e.ex && e.time > 0) n++; });
+  var cond = !!D.exTakt;
+  return { any: n > 0 || cond, n: n, cond: cond };
+}
+function flSampleText() {
+  var s = flSample(); if (!s.any) return '';
+  var p = [];
+  if (s.n) p.push('เวลางาน ' + s.n + ' งาน');
+  if (s.cond) p.push('Takt Time / ยอดผลิต');
+  return 'ค่าสมมุติ: ' + p.join(' และ ') + ' ยังไม่ใช่ค่าจริง ต้องใส่เวลาจริงที่จับได้ก่อนนำผลไปตัดสินใจ';
+}
+function updateSampleNotice() {
+  var nb = $('flowNotice'), t = flSampleText();
+  if (!D || !t) { nb.hidden = true; return; }
+  nb.hidden = false;
+  nb.innerHTML = '<b aria-hidden="true">!</b><span><strong>ข้อมูลตัวอย่าง</strong>' + (D.part && D.part.partName ? ' จากไฟล์ Process Flow ของ ' + esc(D.part.partName) : '') + ' · ' + esc(t) + '<button class="linkbtn" type="button" data-fa="clearex">ล้างค่าตัวอย่างแล้วกรอกเอง</button></span>';
+}
+function flTaktFromInputs() { var d = +D.demand, m = +D.minutes; return d > 0 && m > 0 ? m * 60 / d : null; }
+
+function setFlow(pf, label, example) {
+  D = lbInitDraft(JSON.parse(JSON.stringify(pf)));
+  D.label = label; D.example = !!example;
+  if (example) {
+    D.elements.forEach(function (e, i) { if (i < EX_T.length) { e.time = EX_T[i]; e.ex = true; } });
+    D.demand = 270; D.minutes = 450; D.takt = 100; D.exTakt = true;
+  }
+  renderFlow(); flowUpdate(); pushNow();
+}
+
+function renderFlow() {
+  var P = D.part, items = [['ลูกค้า', P.cust], ['Model', P.model], ['Part No.', P.partNo], ['Part Name', P.partName], ['Rev.', P.rev]].filter(function (x) { return x[1]; });
+  $('partBand').innerHTML = items.map(function (x) { return '<div><span class="eyebrow">' + x[0] + '</span><span class="pv' + (x[0] === 'Part No.' ? ' mono' : '') + '">' + esc(x[1]) + '</span></div>'; }).join('');
+  updateSampleNotice();
+  $('fp-demand').value = D.demand === '' ? '' : D.demand;
+  $('fp-minutes').value = D.minutes === '' ? '' : D.minutes;
+  $('fp-takt').value = D.takt || '';
+  $('fp-men').value = D.menFix || '';
+  renderProcs(); renderTasks();
+}
+
+function renderProcs() {
+  var h = '<thead><tr><th class="r">No.</th><th>ชื่อกระบวนการ</th><th>เครื่อง / Jig / อุปกรณ์</th><th>ลักษณะที่ตรวจ</th><th>ประเภท</th><th>อยู่ในไลน์</th></tr></thead><tbody>';
+  D.procs.forEach(function (p, i) {
+    var texts = [], ranks = [];
+    p.chars.forEach(function (c) {
+      [c.proc, c.prod].forEach(function (x) { if (x && texts.indexOf(x) < 0) texts.push(x); });
+      if (c.rank && ranks.indexOf(c.rank) < 0) ranks.push(c.rank);
+    });
+    h += '<tr' + (p.include ? '' : ' class="dim"') + '><td class="r mono">' + esc(p.no) + '</td>' +
+      '<td class="wrapcell"><b>' + esc(p.name) + '</b>' + (p.robot ? ' <span class="pill acc">Robot</span>' : '') +
+      (p.notes.length ? '<div class="muted small">' + p.notes.map(esc).join('<br>') + '</div>' : '') + '</td>' +
+      '<td class="wrapcell">' + (p.machines.length ? p.machines.map(esc).join('<br>') : '<span class="muted">—</span>') + '</td>' +
+      '<td class="wrapcell">' + texts.map(function (t) { return '<span class="chip">' + esc(t) + '</span>'; }).join('') + ranks.map(function (r) { return '<span class="rank' + (r === 'SC' ? ' sc' : '') + '">' + esc(r) + '</span>'; }).join('') + '</td>' +
+      '<td>' + (PT_TH[p.type] || esc(p.type)) + '</td>' +
+      '<td><label class="chk"><input type="checkbox" id="fi-' + i + '" data-fi="' + i + '"' + (p.include ? ' checked' : '') + ' aria-label="ขั้นตอน ' + esc(p.no) + ' ' + esc(p.name) + ' อยู่ในไลน์"><span>' + (p.include ? 'ในไลน์' : 'นอกไลน์') + '</span></label></td></tr>';
+  });
+  $('stepTable').innerHTML = h + '</tbody>';
+}
+
+function renderTasks() {
+  var lab = flLabels(), any = false;
+  var h = '<thead><tr><th>ลำดับ</th><th>หมวด</th><th>งาน</th><th>ผู้ทำ</th><th class="r">เวลา (วินาที)</th><th></th></tr></thead>';
+  D.procs.forEach(function (p, pi) {
+    if (!p.include) return;
+    any = true;
+    h += '<tbody><tr class="stephead"><td colspan="6"><span class="stepno mono">' + esc(p.no) + '</span><b>' + esc(p.name) + '</b><span class="stsum mono">รวม ' + fmt(D.elements.reduce(function (a, e) { return e.proc === p.no ? a + (+e.time || 0) : a; }, 0)) + ' s</span>' +
+      '<span class="acts"><button class="linkbtn" type="button" data-fa="add" data-pi="' + pi + '">+ เพิ่มงาน</button><button class="linkbtn" type="button" data-fa="reset" data-pi="' + pi + '">สร้างงานย่อยใหม่</button></span></td></tr>';
+    D.elements.forEach(function (e) {
+      if (e.proc !== p.no) return;
+      var nm = esc(e.name);
+      h += '<tr' + (e.kind === 'robot' ? ' class="rob"' : '') + '><td class="mono">' + lab[e.id] + '</td>' +
+        '<td><select data-ft="cat" data-cat="' + esc(e.cat) + '" data-id="' + e.id + '" id="fc-' + e.id + '" aria-label="หมวดของ ' + nm + '">' + CATS.map(function (c) { return '<option value="' + c + '"' + (c === e.cat ? ' selected' : '') + '>' + c + '</option>'; }).join('') + '</select></td>' +
+        '<td><input class="nm" data-ft="name" data-id="' + e.id + '" id="fn-' + e.id + '" value="' + nm + '" aria-label="ชื่องาน ' + lab[e.id] + '"></td>' +
+        '<td><select data-ft="kind" data-id="' + e.id + '" id="fk-' + e.id + '" aria-label="ผู้ทำงาน ' + nm + '"><option value="man"' + (e.kind === 'man' ? ' selected' : '') + '>คน</option><option value="robot"' + (e.kind === 'robot' ? ' selected' : '') + '>หุ่นยนต์ / เครื่องอัตโนมัติ</option></select></td>' +
+        '<td class="r"><input class="tm" data-ft="time" data-id="' + e.id + '" id="ft-' + e.id + '" type="number" min="0" step="any" inputmode="decimal" placeholder="—" value="' + (e.time == null ? '' : e.time) + '" aria-label="เวลา ' + nm + '"></td>' +
+        '<td class="r nowrap"><button class="iconbtn" type="button" data-fa="up" data-id="' + e.id + '" aria-label="เลื่อนขึ้น ' + nm + '">↑</button> <button class="iconbtn" type="button" data-fa="down" data-id="' + e.id + '" aria-label="เลื่อนลง ' + nm + '">↓</button> <button class="iconbtn" type="button" data-fa="del" data-id="' + e.id + '" aria-label="ลบ ' + nm + '">✕</button></td></tr>';
+    });
+    h += '</tbody>';
+  });
+  if (!any) h += '<tbody><tr><td colspan="6" class="help">ยังไม่มีขั้นตอนที่ติ๊กเป็นงานในไลน์</td></tr></tbody>';
+  $('taskTable').innerHTML = h;
+}
+
+function updateProg() { var c = flCounts(); $('flowProg').textContent = 'กรอกเวลาแล้ว ' + c.done + ' จาก ' + c.tot + ' งาน'; }
+function updateTaktText() {
+  var t = flTaktFromInputs(), el = $('flowTakt');
+  if (t && D.takt && Math.abs(D.takt - t) < 0.06) el.innerHTML = 'Takt Time = ' + fmt(+D.minutes) + ' นาที × 60 ÷ ' + fmt(+D.demand) + ' ชิ้น = <b class="mono">' + fmt(D.takt) + '</b> วินาที/ชิ้น';
+  else if (D.takt) el.innerHTML = 'ใช้ Takt Time <b class="mono">' + fmt(D.takt) + '</b> วินาที/ชิ้น ตามที่กรอก';
+  else el.textContent = 'กรอกยอดผลิตและเวลาทำงาน หรือกรอก Takt Time โดยตรง ถ้าไม่กรอก ระบบจัดให้คนเดียวทำทุกงาน';
+}
+
+function flowUpdate() {
+  D.res = lbAutoModel(D);
+  renderFlowResult(D.res); updateProg(); updateTaktText(); updateSampleNotice();
+  clearTimeout(flTimer); flTimer = setTimeout(pushNow, 250);
+}
+function pushNow() {
+  clearTimeout(flTimer);
+  if (!D) return;
+  var r = D.res || lbAutoModel(D);
+  if (r.empty) return;
+  var sm = flSample(), cc = flCounts(), parts = [];
+  if (sm.any) parts.push('ข้อมูลตัวอย่าง — ' + flSampleText());
+  if (cc.done < cc.tot) parts.push('ยังไม่ได้ใส่เวลา ' + (cc.tot - cc.done) + ' งาน (ไม่นับในผลนี้)');
+  r.model.sample = sm.any; r.model.flagTxt = parts.join(' | ');
+  setModel(r.model, 'Process Flow ' + (D.part.partNo || '') + (sm.any ? ' (ตัวอย่าง)' : '') + ' · จัดอัตโนมัติ');
+}
+
+function rsCats(els) {
+  var map = {}, list = [];
+  els.forEach(function (e) { if (!(e.cat in map)) { map[e.cat] = Math.min(list.length, 4) + 1; list.push(e.cat); } });
+  return { map: map, list: list };
+}
+function rsBare(n) { return String(n).replace(/^\s*\d+(?:\.\d+)*\s*/, ''); }
+
+function renderFlowResult(res) {
+  var el = $('flowResult'), btn = $('toChart'), c = flCounts();
+  if (res.empty) {
+    btn.disabled = true;
+    el.innerHTML = '<div class="empty">กรอกเวลาของงานย่อยในหัวข้อ 3 อย่างน้อยหนึ่งงาน ระบบจะจัดคนและสถานีให้ทันที</div>';
+    return;
+  }
+  btn.disabled = false;
+  var m = res.model, T = m.takt, R = m.resources, loads = {}, h = '';
+  m.elements.forEach(function (e) { Object.keys(e.vals).forEach(function (k) { loads[k] = (loads[k] || 0) + e.vals[k]; }); });
+  var men = R.filter(function (r) { return r.kind === 'man'; }), robots = R.filter(function (r) { return r.kind === 'robot'; });
+  var manSum = men.reduce(function (a, r) { return a + loads[r.id]; }, 0);
+  var manMax = men.reduce(function (a, r) { return Math.max(a, loads[r.id]); }, 0);
+  var eff = men.length && manMax ? manSum / (men.length * manMax) : null;
+  var minMen = T ? Math.max(1, Math.ceil(manSum / T - 1e-9)) : null;
+  var bott = R.slice().sort(function (a, b) { return loads[b.id] - loads[a.id]; })[0];
+  var over = T && m.cycle > T + 1e-9;
+  var smp = flSample().any;
+  var vcls = !T ? 'none' : over ? 'bad' : 'good', vico = !T ? '?' : over ? '▲' : '✓';
+  var vhead = !T ? 'ใส่ Takt Time หรือจำนวนคนเพื่อให้ระบบจัดสมดุล' : over ? 'จัดแล้วยังไม่ทัน Takt Time' : 'จัดได้ ' + men.length + ' คน' + (robots.length ? ' และหุ่นยนต์ ' + robots.length + ' ชุด' : '') + ' ทันตาม Takt Time';
+  var vdet = T ? 'Cycle Time สูงสุด ' + fmt(m.cycle) + ' วินาที (' + esc(bott.name) + ') เทียบ Takt Time ' + fmt(T) + ' วินาที' + (over ? ' เกิน ' + fmt(m.cycle - T) + ' วินาที' : ' เหลือ ' + fmt(T - m.cycle) + ' วินาที') : 'ตอนนี้ Cycle Time สูงสุด ' + fmt(m.cycle) + ' วินาที';
+
+  /* มาตรวัด Cycle เทียบ Takt */
+  var meter = '<div class="rs-meter"><div class="rs-mt"><span>Cycle Time สูงสุด</span><b class="mono">' + fmt(m.cycle) + ' <small>วินาที</small></b></div>';
+  if (T) {
+    var sc2 = Math.max(T, m.cycle) * 1.15, fp = m.cycle / sc2 * 100, mp = T / sc2 * 100;
+    meter += '<div class="rs-track" role="img" aria-label="Cycle Time ' + fmt(m.cycle) + ' วินาที เทียบ Takt Time ' + fmt(T) + ' วินาที"><i class="' + (over ? 'over' : '') + '" style="width:' + fp + '%"></i><u style="left:' + mp + '%"><em>Takt ' + fmt(T) + '</em></u></div>' +
+      '<div class="rs-ml"><span>0</span><span>' + (over ? 'เกิน Takt ' + fmt(m.cycle - T) + ' วินาที' : 'เหลือ ' + fmt(T - m.cycle) + ' วินาที') + '</span></div>';
+  } else meter += '<div class="rs-ml" style="margin-top:10px"><span>ใส่ Takt Time เพื่อเทียบ</span></div>';
+  meter += '</div>';
+
+  h += '<div class="rs' + (smp ? ' smp' : '') + '">';
+  if (smp) h += '<div class="rs-sample"><span class="rs-badge">ตัวอย่าง</span><span>' + esc(flSampleText()) + '</span></div>';
+  h += '<div class="rs-hero ' + (smp ? 'smp' : vcls) + '"><div class="rs-ttl"><div class="rs-ico" aria-hidden="true">' + (smp ? '!' : vico) + '</div><div><div class="rs-head">' + (smp ? 'ตัวอย่างเท่านั้น · ' : '') + vhead + '</div><div class="rs-det">' + vdet + '</div></div></div>' + meter + '</div>';
+  if (c.done < c.tot) h += '<div class="notice"><b aria-hidden="true">!</b><span>ยังไม่มีเวลา ' + (c.tot - c.done) + ' งาน งานเหล่านี้ยังไม่ถูกนำมาคำนวณ</span></div>';
+  (res.warn || []).forEach(function (w) { h += '<div class="notice"><b aria-hidden="true">!</b><span>' + esc(w) + '</span></div>'; });
+
+  var U = ' style="font-size:13px;font-weight:500"';
+  var k = [
+    ['Takt Time', T ? fmt(T) + ' <span' + U + '>วินาที/ชิ้น</span>' : '—', T ? 'ต้องการ ' + fmt(3600 / T) + ' ชิ้น/ชม.' : '', 'var(--c4)'],
+    ['พนักงานที่ใช้', men.length + ' <span' + U + '>คน</span>', minMen ? 'ขั้นต่ำตามทฤษฎี ' + minMen + ' คน (Σ เวลาคน ÷ Takt)' : 'Σ เวลาคน ' + fmt(manSum) + ' วินาที', 'var(--accent)'],
+    ['หุ่นยนต์ / เครื่อง', robots.length ? robots.length + ' <span' + U + '>ชุด</span>' : '—', robots.length ? 'โหลด ' + fmt(loads[robots[0].id]) + ' วินาที ต่อรอบ' : 'ไม่มีงานของเครื่อง', 'var(--c1)'],
+    ['Balance efficiency', eff == null ? '—' : pct(eff), 'เฉพาะพนักงาน · Σ โหลด ÷ (คน × โหลดสูงสุด)', 'var(--c3)'],
+    ['กำลังผลิตสูงสุด', m.cycle ? fmt(3600 / m.cycle) + ' <span' + U + '>ชิ้น/ชม.</span>' : '—', 'คอขวด ' + esc(bott.name) + ' ' + fmt(loads[bott.id]) + ' วินาที', 'var(--c2)']
+  ];
+  h += '<div class="rs-tiles">' + k.map(function (x) { return '<div class="rs-tile" style="--t:' + x[3] + '"><span class="k">' + x[0] + '</span><span class="v">' + x[1] + '</span><span class="s">' + x[2] + '</span></div>'; }).join('') + '</div>';
+
+  /* การ์ดของแต่ละคน/เครื่อง: แท่งโหลดแบ่งสีตามหมวดงาน */
+  var ref = T || m.cycle, maxLd = R.reduce(function (a, r) { return Math.max(a, loads[r.id]); }, 0), scale = Math.max(ref, maxLd) * 1.06;
+  var ci = rsCats(m.elements);
+  h += '<div class="rs-legend"><b>งานแต่ละคน</b>' + ci.list.map(function (cat) { return '<span><i style="background:var(--c' + ci.map[cat] + ')"></i>' + esc(cat) + '</span>'; }).join('') + '<span class="muted">ความกว้างของแท่ง = เวลา · เส้นดำ = ' + (T ? 'Takt Time' : 'Cycle Time สูงสุด') + '</span></div>';
+  h += '<div class="rs-cards">';
+  R.forEach(function (r) {
+    var ld = loads[r.id], st = status(ld, ref), tasks = m.elements.filter(function (e) { return e.vals[r.id] > 0; });
+    var av = r.kind === 'robot' ? 'R' : 'M' + ((r.name.match(/\d+/) || [''])[0]);
+    h += '<article class="rs-card' + (ld > ref + 1e-9 ? ' over' : '') + '"><div class="rs-ch"><span class="rs-av ' + r.kind + '" aria-hidden="true">' + esc(av) + '</span><div class="who"><b>' + esc(r.name) + '</b><small>' + (r.kind === 'robot' ? 'หุ่นยนต์ / เครื่อง' : 'พนักงาน') + ' · ' + tasks.length + ' งาน</small></div><span class="pill ' + st.cls + '"><span aria-hidden="true">' + st.ico + '</span>' + st.txt + '</span></div>' +
+      '<div class="rs-big"><b>' + fmt(ld) + '</b><span>วินาที / รอบ</span><span class="mono">· ' + pct(ref ? ld / ref : 0) + ' ของ ' + (T ? 'Takt' : 'Cycle') + '</span></div>' +
+      '<div class="rs-seg" role="img" aria-label="โหลด ' + fmt(ld) + ' วินาที เทียบ ' + (T ? 'Takt' : 'Cycle') + ' ' + fmt(ref) + ' วินาที">' +
+      tasks.map(function (e) { var v = e.vals[r.id]; return '<span class="sg" data-tip="' + esc(e.name) + ' · ' + fmt(v) + ' วินาที" style="width:' + (v / scale * 100) + '%;background:var(--c' + ci.map[e.cat] + ')"></span>'; }).join('') +
+      '<i class="mk" style="left:' + (ref / scale * 100) + '%"></i></div>' +
+      '<ul class="rs-tasks">' + tasks.map(function (e) {
+        var id = elId(e.name);
+        return '<li><span class="dot" style="background:var(--c' + ci.map[e.cat] + ')"></span><span>' + (id ? '<span class="id">' + esc(id) + '</span>' : '') + esc(rsBare(e.name)) + '</span><span class="tm">' + fmt(e.vals[r.id]) + ' s</span></li>';
+      }).join('') + '</ul></article>';
+  });
+  h += '</div><p class="help">คนหนึ่งคนรับงานต่อเนื่องตามลำดับในตาราง ระบบแบ่งกลุ่มให้โหลดใกล้เคียงกันที่สุดภายใต้จำนวนคนที่ต้องใช้ ผลนี้ส่งไปที่แท็บ Line Balance และ Man-Machine แล้ว ไฟล์ Excel ที่ส่งออกมีตาราง Man-Machine แกนเวลาเป็นชีตที่สอง</p></div>';
+  el.innerHTML = h;
+}
+
+/* flow events */
+document.addEventListener('change', function (ev) {
+  var t = ev.target; if (!D || !t.dataset) return;
+  if (t.dataset.fi != null) {
+    var p = D.procs[+t.dataset.fi]; p.include = t.checked;
+    if (p.include && !D.elements.some(function (e) { return e.proc === p.no; })) lbAddGenerated(D, p);
+    renderProcs(); renderTasks(); flowUpdate();
+  } else if (t.dataset.ft === 'cat' || t.dataset.ft === 'kind') {
+    var e = elById(+t.dataset.id); if (e) { e[t.dataset.ft] = t.value; flowUpdate(); }
+  }
+});
+document.addEventListener('input', function (ev) {
+  var t = ev.target; if (!D || !t.dataset) return;
+  if (t.dataset.ft === 'time') {
+    var e = elById(+t.dataset.id), v = parseFloat(t.value);
+    if (e) { e.time = isFinite(v) && v >= 0 ? v : null; e.ex = false; flowUpdate(); }
+  } else if (t.dataset.ft === 'name') {
+    var e2 = elById(+t.dataset.id); if (e2) { e2.name = t.value; flowUpdate(); }
+  }
+});
+document.addEventListener('click', function (ev) {
+  var b = ev.target.closest ? ev.target.closest('[data-fa]') : null; if (!b || !D) return;
+  var a = b.dataset.fa;
+  if (a === 'clearex') {
+    D.elements.forEach(function (e) { if (e.ex) { e.time = null; e.ex = false; } });
+    D.exTakt = false; D.takt = null; D.demand = ''; D.minutes = '';
+    renderFlow(); flowUpdate(); return;
+  }
+  if (a === 'add') {
+    var p = D.procs[+b.dataset.pi];
+    D.elements.push({ id: D.nextId++, proc: p.no, cat: "Ass'y", name: 'งานใหม่', kind: 'man', time: null });
+  } else if (a === 'reset') {
+    var p2 = D.procs[+b.dataset.pi];
+    D.elements = D.elements.filter(function (e) { return e.proc !== p2.no; });
+    lbAddGenerated(D, p2);
+  } else {
+    var id = +b.dataset.id, idx = -1;
+    D.elements.forEach(function (e, k) { if (e.id === id) idx = k; });
+    if (idx < 0) return;
+    if (a === 'del') D.elements.splice(idx, 1);
+    else {
+      var dir = a === 'up' ? -1 : 1, j = idx + dir;
+      while (j >= 0 && j < D.elements.length && D.elements[j].proc !== D.elements[idx].proc) j += dir;
+      if (j < 0 || j >= D.elements.length) return;
+      var tmp = D.elements[idx]; D.elements[idx] = D.elements[j]; D.elements[j] = tmp;
+    }
+  }
+  renderTasks(); flowUpdate();
+});
+document.addEventListener('paste', function (ev) {
+  var t = ev.target; if (!D || !t.dataset || t.dataset.ft !== 'time') return;
+  var txt = ((ev.clipboardData || window.clipboardData).getData('text') || '').trim();
+  if (!/[\r\n\t]/.test(txt)) return;
+  ev.preventDefault();
+  var vals = txt.split(/[\r\n\t]+/).map(parseFloat), flat = [];
+  incProcs().forEach(function (p) { D.elements.forEach(function (e) { if (e.proc === p.no) flat.push(e); }); });
+  var at = 0; flat.forEach(function (e, i) { if (e.id === +t.dataset.id) at = i; });
+  vals.forEach(function (v, i) { var e = flat[at + i]; if (e && isFinite(v) && v >= 0) { e.time = v; e.ex = false; } });
+  renderTasks(); flowUpdate();
+});
+['fp-demand', 'fp-minutes'].forEach(function (id) {
+  $(id).addEventListener('input', function () {
+    if (!D) return;
+    var v = parseFloat(this.value);
+    D[id === 'fp-demand' ? 'demand' : 'minutes'] = isFinite(v) && v > 0 ? v : '';
+    var t = flTaktFromInputs();
+    if (t) { D.takt = Math.round(t * 10) / 10; D.exTakt = false; $('fp-takt').value = D.takt; }
+    flowUpdate();
+  });
+});
+$('fp-takt').addEventListener('input', function () { if (!D) return; var v = parseFloat(this.value); D.takt = isFinite(v) && v > 0 ? v : null; D.exTakt = false; flowUpdate(); });
+$('fp-men').addEventListener('input', function () { if (!D) return; var v = parseInt(this.value, 10); D.menFix = isFinite(v) && v > 0 ? v : ''; flowUpdate(); });
+$('toChart').addEventListener('click', function () { if (!D) return; pushNow(); showTab('balance'); });
+$('rg21Btn').addEventListener('click', function () {
+  var mm = JSON.parse(JSON.stringify(SAMPLE));
+  mm.sample = true; mm.flagTxt = 'ข้อมูลตัวอย่าง — ไฟล์ตัวอย่าง RG21 ไม่ใช่เวลาที่จับได้จริงของงานคุณ ต้องใส่หรืออัปโหลดเวลาจริงก่อนนำผลไปตัดสินใจ';
+  setModel(mm, 'Process Line Rg21.xlsx (ตัวอย่าง)');
+});
+/* ---------- export: Excel ในรูปแบบ Process Line RG21 ---------- */
+function plSafe(t, n) { return String(t || '').replace(/[\\\/:*?"<>|\[\]]+/g, '-').replace(/\s+/g, ' ').trim().slice(0, n); }
+function plAoa(m) {
+  var ORD = { robot: 0, jig: 1, other: 2, man: 3 }, TC = 4;
+  var R = S.resources.slice().sort(function (a, b) { return ORD[a.kind] - ORD[b.kind]; });
+  var cols = [], c = TC + 2, prev = null, gi = {};
+  R.forEach(function (r) { if (prev && r.kind === 'man' && prev !== 'man') c++; prev = r.kind; cols.push({ r: r, c: c++ }); });
+  var W = c;
+  function row() { var a = []; for (var i = 0; i < W; i++) a.push(null); return a; }
+  function rnd(v) { return Math.round(v * 100) / 100; }
+  var aoa = [], cycle = +S.cycle || 0, pcs = Math.max(1, +S.pcs || 1);
+  var t0 = row(); t0[0] = S.sheet || 'Process Line'; aoa.push(t0);
+  var t1 = row(); t1[0] = 'Takt Time'; t1[1] = +S.takt > 0 ? +S.takt : null; aoa.push(t1);
+  var t2 = row(); t2[0] = 'Cycle Time'; t2[1] = rnd(cycle) + ' sec / ' + pcs + ' pcs'; aoa.push(t2);
+  var fl = row(); fl[0] = S.flagTxt ? '⚠ ' + S.flagTxt : null; aoa.push(fl);
+  var h1 = row(), h2 = row();
+  ['Station', 'Step', 'Category', 'Process', 'Time (Sec)'].forEach(function (t, i) { h1[i] = t; });
+  var nk = {}; R.forEach(function (r) { nk[r.kind] = (nk[r.kind] || 0) + 1; });
+  cols.forEach(function (x) {
+    var r = x.r, k = r.kind, s; gi[k] = (gi[k] || 0) + 1;
+    if (k === 'man') { h1[x.c] = /^man/i.test(r.name) ? r.name : 'Man ' + r.name; h2[x.c] = r.tag || null; }
+    else if (k === 'robot') { if (gi[k] === 1) h1[x.c] = 'Robot'; s = r.name.replace(/^robot\s*/i, ''); h2[x.c] = s || (nk[k] > 1 ? String(gi[k]) : null); }
+    else if (k === 'jig') { if (gi[k] === 1) h1[x.c] = 'Jig'; h2[x.c] = r.name.replace(/^jig\s*/i, '') || String(gi[k]); }
+    else h1[x.c] = r.name;
+  });
+  aoa.push(h1); aoa.push(h2);
+  var lastSt = null, lastSp = null, acc = null;
+  function flush() {
+    if (!acc) return;
+    var t = row(); t[2] = 'Total'; t[4] = rnd(acc.t);
+    cols.forEach(function (x) { if (acc.v[x.r.id] > 0) t[x.c] = rnd(acc.v[x.r.id]); });
+    aoa.push(t); acc = null;
+  }
+  S.elements.forEach(function (e) {
+    if (acc && (e.step || '') !== lastSp) flush();
+    var rw = row();
+    if ((e.station || '') !== lastSt) { lastSt = e.station || ''; rw[0] = lastSt || null; }
+    if ((e.step || '') !== lastSp) { lastSp = e.step || ''; rw[1] = lastSp || null; }
+    rw[2] = e.cat; rw[3] = e.name; rw[4] = e.time;
+    acc = acc || { t: 0, v: {} }; acc.t += e.time;
+    cols.forEach(function (x) { var v = e.vals[x.r.id]; if (v > 0) { rw[x.c] = v; acc.v[x.r.id] = (acc.v[x.r.id] || 0) + v; } });
+    aoa.push(rw);
+  });
+  flush();
+  var sm = row(), pc = row(); sm[0] = 'Sumary Total'; sm[4] = cycle > 0 ? rnd(cycle) : null; pc[0] = '% of Cycle';
+  cols.forEach(function (x) { var l = m.loads[x.r.id]; if (l > 0) { sm[x.c] = rnd(l); if (cycle > 0) pc[x.c] = l / cycle; } });
+  aoa.push(sm); aoa.push(pc);
+  return { aoa: aoa, cols: cols, W: W };
+}
+function plBuild(m) {
+  var p = plAoa(m), ws = XLSX.utils.aoa_to_sheet(p.aoa), w = [{ wch: 12 }, { wch: 14 }, { wch: 10 }, { wch: 48 }, { wch: 11 }, { wch: 3 }], i;
+  for (i = 6; i < p.W; i++) w.push({ wch: 9 });
+  ws['!cols'] = w;
+  p.cols.forEach(function (x) { var ref = XLSX.utils.encode_cell({ r: p.aoa.length - 1, c: x.c }); if (ws[ref]) ws[ref].z = '0.0%'; });
+  return ws;
+}
+async function plSave(blob, name) {
+  var dl = null;
+  try { if (window.claude && window.claude.use) dl = await window.claude.use('downloads'); } catch (e) { dl = null; }
+  if (dl) {
+    try { await dl.save({ filename: name, data: blob }); msg('ส่งออก ' + name + ' แล้ว'); }
+    catch (e) { if (e && e.code === 'declined') msg('ยกเลิกการบันทึกไฟล์'); else msg('บันทึกไฟล์ไม่สำเร็จ: ' + ((e && e.message) || e), true); }
+    return;
+  }
+  var url = URL.createObjectURL(blob), a = document.createElement('a');
+  a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+  msg('ส่งออก ' + name + ' แล้ว');
+}
+/* ---------- ตาราง Man-Machine แกนเวลา (ชีตที่ 2 ของไฟล์ส่งออก) ---------- */
+function mmCatFill(t) { t = String(t || ''); return /^set/i.test(t) ? 'FFD966' : /^ass/i.test(t) ? '92D050' : /^check/i.test(t) ? '9DC3E6' : /^weld/i.test(t) ? 'F4B183' : /^move/i.test(t) ? 'D9D9D9' : 'E7E6E6'; }
+function mmGeom(m) {
+  var cycle = +S.cycle || 0, pcs = Math.max(1, +S.pcs || 1), takt = +S.takt || 0;
+  var span = Math.max(m.total, cycle, takt * pcs, 10), UN = [1, 2, 5, 10, 20, 50], u = 50, k;
+  for (k = 0; k < UN.length; k++) if (Math.ceil(span / UN[k]) <= 130) { u = UN[k]; break; }
+  return { u: u, N: Math.ceil(span / u) + 1, cycle: cycle, pcs: pcs, takt: takt };
+}
+/* วางแท่งงานของแต่ละคน/เครื่องลงช่องเวลา (1 ช่อง = u วินาที) ไม่ให้ทับกัน */
+function mmPlace(m, R, g) {
+  var last = {}, out = [];
+  m.sched.forEach(function (o) {
+    R.forEach(function (r) {
+      var v = o.e.vals[r.id]; if (!(v > 0)) return;
+      var c1 = Math.round(o.start / g.u), c2 = Math.round((o.start + v) / g.u) - 1;
+      if (last[r.id] != null && c1 <= last[r.id]) c1 = last[r.id] + 1;
+      if (c1 > g.N - 1) c1 = g.N - 1;
+      if (c2 < c1) c2 = c1;
+      if (c2 > g.N - 1) c2 = g.N - 1;
+      last[r.id] = c2; out.push({ r: r, o: o, v: v, c1: c1, c2: c2 });
+    });
+  });
+  return out;
+}
+function mmSorted() { var ORD = { robot: 0, jig: 1, other: 2, man: 3 }; return S.resources.slice().sort(function (a, b) { return ORD[a.kind] - ORD[b.kind]; }); }
+function mmName(r) { return r.name + (r.tag ? ' ' + r.tag : ''); }
+
+function mmSheet(wb, m) {
+  var R = mmSorted(), g = mmGeom(m), u = g.u, N = g.N, C0 = 2, CL = C0 + N - 1, CLoad = CL + 2, CPct = CL + 3, TXTC = Math.max(CL + 3, 42), R0 = 7;
+  var KF = { robot: '00B0F0', jig: 'FFE699', man: 'E2EFDA', other: 'E7E6E6' }, HD = 'E7E6E6', c, i;
+  var GR = { style: 'thin', color: { argb: 'FFD9D9D9' } }, DKL = { style: 'thin', color: { argb: 'FF595959' } };
+  var DK = { left: DKL, right: DKL, top: DKL, bottom: DKL };
+  var ws = wb.addWorksheet('Man-Machine Chart', { views: [{ showGridLines: false, state: 'frozen', xSplit: 1, ySplit: 6 }], pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 } });
+  function cell(r, cc, v, o) {
+    o = o || {}; var x = ws.getCell(r, cc);
+    if (v != null) x.value = v;
+    x.font = o.color ? { name: 'Aptos Narrow', size: o.sz || 11, bold: !!o.b, color: { argb: o.color } } : { name: 'Aptos Narrow', size: o.sz || 11, bold: !!o.b };
+    x.alignment = { horizontal: o.al || 'center', vertical: 'middle', wrapText: !o.shrink, shrinkToFit: !!o.shrink };
+    if (o.fill) x.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + o.fill } };
+    if (o.bd) x.border = o.bd;
+    return x;
+  }
+  function mg(r1, c1, r2, c2) { if (r2 > r1 || c2 > c1) ws.mergeCells(r1, c1, r2, c2); }
+
+  /* หัวเรื่อง + หมายเหตุข้อมูลตัวอย่าง */
+  cell(1, 1, 'Man-Machine Chart · ' + (S.sheet || 'Process Line'), { b: true, sz: 16, al: 'left' }); mg(1, 1, 1, 14); ws.getRow(1).height = 28;
+  if (S.flagTxt) { cell(2, 1, '⚠ ' + S.flagTxt, { b: true, al: 'left', fill: 'FFF2CC', color: 'FFC00000' }); mg(2, 1, 2, Math.max(CL, 20)); ws.getRow(2).height = 32; }
+  cell(3, 1, 'Takt Time ' + (g.takt ? fmt(g.takt) + ' วินาที/ชิ้น' : '—') + ' · Cycle Time ' + fmt(g.cycle) + ' วินาที / ' + g.pcs + ' ชิ้น · 1 ช่อง = ' + u + ' วินาที' + (MM_PAR ? ' · แต่ละคน/เครื่องทำงานพร้อมกัน (คู่ขนาน) เริ่มวินาทีที่ 0' : ' · เรียงงานทีละงานตามลำดับในตาราง Process Line'), { al: 'left', sz: 10 }); mg(3, 1, 3, TXTC);
+
+  /* แถบ Step (แถว 5) และแกนเวลา (แถว 6) */
+  cell(5, 1, 'Step', { b: true, fill: HD, bd: DK }); cell(6, 1, 'ผู้ทำ / เวลา (วินาที)', { b: true, fill: HD, bd: DK }); ws.getRow(5).height = 30;
+  for (c = 0; c < N; c++) { cell(5, C0 + c, null, { fill: 'F2F2F2', bd: { left: GR, right: GR, top: GR, bottom: GR } }); cell(6, C0 + c, null, { fill: 'F2F2F2', bd: { left: GR, right: GR, top: GR, bottom: GR } }); }
+  var bands = bandsOf(m), lastB = -1;
+  bands.forEach(function (b) {
+    var c1 = Math.round(b.a / u), c2 = Math.round(b.b / u) - 1;
+    if (c1 <= lastB) c1 = lastB + 1; if (c1 > N - 1) return; if (c2 < c1) c2 = c1; if (c2 > N - 1) c2 = N - 1;
+    lastB = c2; cell(5, C0 + c1, b.step, { b: true, sz: 9, fill: HD, bd: DK }); mg(5, C0 + c1, 5, C0 + c2);
+  });
+  var tc = Math.max(10, u) / u;
+  for (i = 0; i < N; i += tc) { cell(6, C0 + i, i * u, { b: true, sz: 9, al: 'left', fill: 'F2F2F2', bd: DK }); mg(6, C0 + i, 6, Math.min(N - 1, i + tc - 1) + C0); }
+  cell(6, CLoad, 'Load (s)', { b: true, fill: HD, bd: DK }); cell(6, CPct, '% Cycle', { b: true, fill: HD, bd: DK });
+
+  /* แถวของแต่ละคน/เครื่อง + เส้น Cycle (ประดำ) และ Takt × ชิ้น (แดง) */
+  var cc = Math.round(g.cycle / u), tt = g.takt ? Math.round(g.takt * g.pcs / u) : -1, idx = {};
+  R.forEach(function (r, ri) {
+    var rr = R0 + ri; idx[r.id] = ri; ws.getRow(rr).height = 24;
+    cell(rr, 1, mmName(r), { b: true, al: 'left', fill: KF[r.kind], bd: DK });
+    for (c = 0; c < N; c++) {
+      var lf = g.cycle && c === cc ? { style: 'mediumDashed', color: { argb: 'FF000000' } } : c === tt ? { style: 'medium', color: { argb: 'FFC00000' } } : GR;
+      cell(rr, C0 + c, null, { bd: { left: lf, right: GR, top: GR, bottom: GR } });
+    }
+    var l = m.loads[r.id] || 0;
+    cell(rr, CLoad, Math.round(l * 100) / 100, { bd: DK });
+    cell(rr, CPct, g.cycle ? l / g.cycle : null, { bd: DK }).numFmt = '0%';
+  });
+  mmPlace(m, R, g).forEach(function (b) {
+    var rr = R0 + idx[b.r.id], cs = C0 + b.c1, ce = C0 + b.c2;
+    cell(rr, cs, elId(b.o.e.name) || null, { sz: 9, b: true, fill: mmCatFill(b.o.e.cat), bd: DK, shrink: true }); mg(rr, cs, rr, ce);
+  });
+
+  /* ป้ายเส้น Cycle / Takt และคำอธิบาย */
+  var lr = R0 + R.length + 1;
+  if (g.cycle) { var a1 = C0 + Math.min(cc, N - 1); cell(lr, a1, 'Cycle ' + fmt(g.cycle) + ' s', { b: true, sz: 10, al: 'left' }); mg(lr, a1, lr, a1 + 7); }
+  if (g.takt) { var a2 = C0 + Math.min(tt, N - 1); cell(lr + 1, a2, 'Takt × ' + g.pcs + ' = ' + fmt(g.takt * g.pcs) + ' s', { b: true, sz: 10, al: 'left', color: 'FFC00000' }); mg(lr + 1, a2, lr + 1, a2 + 7); }
+  var lg = lr + 3, cats = [];
+  m.sched.forEach(function (o) { if (cats.indexOf(o.e.cat) < 0) cats.push(o.e.cat); });
+  cell(lg, 1, 'สีของแท่ง = หมวดงาน', { b: true, al: 'left' }); lg++;
+  cats.forEach(function (ct) { cell(lg++, 1, ct, { fill: mmCatFill(ct), bd: DK }); });
+  lg++; cell(lg, 1, 'รหัสงานในแท่ง', { b: true, al: 'left' }); lg++;
+  m.sched.forEach(function (o, k) {
+    var who = R.filter(function (r) { return o.e.vals[r.id] > 0; }).map(mmName).join(', ');
+    cell(lg, 1, (elId(o.e.name) || (k + 1)) + '   ' + rsBare(o.e.name) + '   [' + o.e.cat + ' · ' + fmt(o.e.time) + ' s · วินาทีที่ ' + fmt(o.start) + '–' + fmt(o.end) + ' · ' + who + ']', { al: 'left', sz: 10, nb: true });
+    mg(lg, 1, lg, TXTC); lg++;
+  });
+  ws.getColumn(1).width = 24;
+  for (c = 0; c < N; c++) ws.getColumn(C0 + c).width = 3.3;
+  ws.getColumn(CL + 1).width = 2; ws.getColumn(CLoad).width = 10; ws.getColumn(CPct).width = 9;
+  return ws;
+}
+/* สำรอง (SheetJS) ถ้าโหลด ExcelJS ไม่ได้: ตารางตัวอักษรบนแกนเวลา */
+function mmAoa(m) {
+  var R = mmSorted(), g = mmGeom(m), rows = [], grid = {}, hd = ['ผู้ทำ / เวลา (วินาที)'], c;
+  rows.push(['Man-Machine Chart']);
+  rows.push([S.flagTxt ? '⚠ ' + S.flagTxt : null]);
+  rows.push(['Takt Time', g.takt || null, 'Cycle Time', g.cycle, '1 ช่อง = ' + g.u + ' วินาที']);
+  rows.push([]);
+  for (c = 0; c < g.N; c++) hd.push(c * g.u);
+  hd.push(null, 'Load (s)'); rows.push(hd);
+  R.forEach(function (r) { var a = []; for (c = 0; c < g.N; c++) a.push(null); grid[r.id] = a; });
+  mmPlace(m, R, g).forEach(function (b) { for (c = b.c1; c <= b.c2; c++) grid[b.r.id][c] = elId(b.o.e.name) || '■'; });
+  R.forEach(function (r) { rows.push([mmName(r)].concat(grid[r.id], [null, Math.round((m.loads[r.id] || 0) * 100) / 100])); });
+  return rows;
+}
+
+/* ---------- export แบบ Process Line RG21 (ExcelJS: สี เส้นขอบ merge สูตร) ---------- */
+function plXlsx(m) {
+  var ORD = { robot: 0, jig: 1, other: 2, man: 3 };
+  var R = S.resources.slice().sort(function (a, b) { return ORD[a.kind] - ORD[b.kind]; });
+  var FC = 7, LC = Math.max(FC + R.length - 1, FC), cols = R.map(function (r, i) { return { r: r, c: FC + i }; });
+  var TH = { style: 'thin' }, BORD = { left: TH, right: TH, top: TH, bottom: TH };
+  var wb = new ExcelJS.Workbook(), ws = wb.addWorksheet(plSafe(S.sheet || 'Process Line', 31) || 'Process Line', { views: [{ showGridLines: false }] });
+  var KF = { robot: '00B0F0', jig: 'FFE699', man: 'E2EFDA', other: 'E7E6E6' }, HD = 'E7E6E6', R0 = 5, r, c;
+  function fillOf(h) { return { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + h } }; }
+  function put(r, c, v, o) {
+    o = o || {}; var x = ws.getCell(r, c);
+    if (v != null) x.value = v;
+    x.font = { name: 'Aptos Narrow', size: o.sz || 11, bold: !!o.b };
+    x.alignment = { horizontal: o.al || 'center', vertical: 'middle', wrapText: true };
+    if (o.fill) x.fill = fillOf(o.fill);
+    if (!o.nb) x.border = BORD;
+    return x;
+  }
+  function mg(r1, c1, r2, c2) { if (r2 > r1 || c2 > c1) ws.mergeCells(r1, c1, r2, c2); }
+  function colName(n) { var s = ''; while (n > 0) { s = String.fromCharCode(65 + (n - 1) % 26) + s; n = Math.floor((n - 1) / 26); } return s; }
+  function catFill(t) { t = String(t || ''); return /^set/i.test(t) ? 'FFFF00' : /^ass|^check/i.test(t) ? '92D050' : /^move/i.test(t) ? 'BDD7EE' : 'D9D9D9'; }
+  var rows = [], cur = null;
+  S.elements.forEach(function (e) {
+    var sp = e.step || '';
+    if (cur && cur.step !== sp) { rows.push({ k: 't', from: cur.from }); cur = null; }
+    if (!cur) cur = { step: sp, from: rows.length };
+    rows.push({ k: 'e', e: e });
+  });
+  if (cur) rows.push({ k: 't', from: cur.from });
+  var sumR = R0 + rows.length, cycle = +S.cycle || 0, pcs = Math.max(1, +S.pcs || 1);
+  /* ตารางพื้นฐาน: เส้นขอบทุกช่อง และสีคอลัมน์ตามประเภท */
+  for (r = R0; r <= sumR; r++) { ws.getRow(r).height = 17.25; for (c = 1; c <= LC; c++) put(r, c, null); }
+  cols.forEach(function (x) { for (r = 3; r <= sumR; r++) ws.getCell(r, x.c).fill = fillOf(KF[x.r.kind]); });
+  /* หัวตาราง */
+  put(1, 2, S.sheet || 'Process Line', { b: true, sz: 16, nb: true }); mg(1, 2, 1, 6);
+  ws.getRow(1).height = 28.2; ws.getRow(3).height = 23.25;
+  if (S.flagTxt) { var fx = put(2, 2, '⚠ ' + S.flagTxt, { b: true, al: 'left', nb: true, fill: 'FFF2CC' }); fx.font = { name: 'Aptos Narrow', size: 11, bold: true, color: { argb: 'FFC00000' } }; mg(2, 2, 2, Math.max(LC, 12)); ws.getRow(2).height = 32; }
+  [['Station', 1], ['Step', 2], ['Process', 3], [null, 4], [null, 5], ['Time (Sec)', 6]].forEach(function (a) { put(3, a[1], a[0], { b: true, fill: HD }); put(4, a[1], null, { b: true, fill: HD }); });
+  mg(3, 1, 4, 1); mg(3, 2, 4, 2); mg(3, 3, 4, 5); mg(3, 6, 4, 6);
+  ['robot', 'jig'].forEach(function (k) {
+    var g = cols.filter(function (x) { return x.r.kind === k; }); if (!g.length) return;
+    g.forEach(function (x, i) {
+      put(3, x.c, i ? null : (k === 'jig' ? "Jig Ass'y" : 'Robot'), { b: true, fill: KF[k] });
+      put(4, x.c, g.length > 1 || k === 'jig' ? (x.r.name.replace(k === 'jig' ? /^jig\s*/i : /^robot\s*/i, '') || String(i + 1)) : null, { b: true, fill: KF[k] });
+    });
+    if (g.length > 1) mg(3, g[0].c, 3, g[g.length - 1].c); else if (k === 'robot') mg(3, g[0].c, 4, g[0].c);
+  });
+  cols.filter(function (x) { return x.r.kind === 'man' || x.r.kind === 'other'; }).forEach(function (x) {
+    var man = x.r.kind === 'man';
+    put(3, x.c, man ? (/^man/i.test(x.r.name) ? x.r.name : 'Man ' + x.r.name) : x.r.name, { b: true, fill: KF[x.r.kind] });
+    put(4, x.c, man ? (x.r.tag || null) : null, { b: true, fill: KF[x.r.kind] });
+    if (!man) mg(3, x.c, 4, x.c);
+  });
+  /* แถวงานและแถว Total ต่อ Step */
+  var tot = [];
+  rows.forEach(function (o, i) {
+    var rr = R0 + i, e = o.e, t = 0, j;
+    if (o.k === 'e') {
+      put(rr, 3, e.cat, { fill: catFill(e.cat) }); put(rr, 4, e.name, { al: 'left' }); mg(rr, 4, rr, 5); put(rr, 6, e.time);
+      cols.forEach(function (x) { var v = e.vals[x.r.id]; if (v > 0) put(rr, x.c, v); });
+    } else {
+      for (j = o.from; j < i; j++) t += rows[j].e.time;
+      put(rr, 3, 'Total', { b: true, fill: HD }); mg(rr, 3, rr, 5);
+      put(rr, 6, { formula: 'SUM(F' + (R0 + o.from) + ':F' + (rr - 1) + ')', result: t }, { b: true, fill: HD });
+      tot.push({ r: rr, t: t });
+    }
+  });
+  /* merge Station / Step / หมวดงาน */
+  function runs(col, keyOf) {
+    var st = -1, key = null;
+    function close(end) { if (st >= 0) { put(R0 + st, col, key || null); mg(R0 + st, col, R0 + end, col); } }
+    rows.forEach(function (o, i) { if (o.k !== 'e') return; var k = keyOf(o.e); if (st < 0 || k !== key) { close(i - 1); st = i; key = k; } });
+    close(rows.length - 1);
+  }
+  runs(1, function (e) { return e.station || ''; }); runs(2, function (e) { return e.step || ''; });
+  var cs = -1;
+  rows.forEach(function (o, i) {
+    if (o.k !== 'e') return;
+    var nx = rows[i + 1], same = nx && nx.k === 'e' && (nx.e.cat || '') === (o.e.cat || '') && (nx.e.step || '') === (o.e.step || '');
+    if (cs < 0) cs = i;
+    if (!same) { mg(R0 + cs, 3, R0 + i, 3); cs = -1; }
+  });
+  /* Sumary Total: เวลารวม และโหลดของแต่ละคน/เครื่อง (× ชิ้นต่อรอบ) */
+  put(sumR, 1, 'Sumary Total', { b: true }); mg(sumR, 1, sumR, 5);
+  put(sumR, 6, tot.length ? { formula: tot.map(function (x) { return 'F' + x.r; }).join('+'), result: tot.reduce(function (a, x) { return a + x.t; }, 0) } : 0, { b: true, sz: 12, fill: 'FFFF00' });
+  cols.forEach(function (x) { var L = colName(x.c); put(sumR, x.c, { formula: 'SUM(' + L + R0 + ':' + L + (sumR - 1) + ')' + (x.r.mult !== 1 ? '*' + x.r.mult : ''), result: m.loads[x.r.id] }); });
+  /* ท้ายตาราง: Cycle / Takt */
+  var fr = sumR + 2;
+  put(fr, 1, 'Cycle Time : ' + fmt(cycle) + ' Sec/ ' + pcs + ' Pcs  ( 1 PCs : ' + fmt(cycle / pcs) + ' Sec. )', { b: true, al: 'left', nb: true }); mg(fr, 1, fr, 6);
+  put(fr + 1, 5, 'Takt Time', { al: 'left', nb: true }); put(fr + 1, 6, +S.takt > 0 ? +S.takt : null, { nb: true });
+  put(fr + 2, 5, 'Cycle Time ', { al: 'left', nb: true }); put(fr + 2, 6, cycle / pcs, { nb: true });
+  [9, 9, 8, 27, 23, 9].forEach(function (w, i) { ws.getColumn(i + 1).width = w; });
+  cols.forEach(function (x) { ws.getColumn(x.c).width = 8; });
+  mmSheet(wb, m);
+  return wb;
+}
+function exportXlsx() {
+  if (!S || !S.elements.length) { msg('ยังไม่มีข้อมูลให้ส่งออก', true); return; }
+  var MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+  var nm = 'Process Line - ' + (plSafe(S.sheet || FILE, 60) || 'export') + (S.sample ? ' (ตัวอย่าง-ค่าสมมุติ)' : '') + '.xlsx';
+  if (typeof ExcelJS !== 'undefined') {
+    plXlsx(compute()).xlsx.writeBuffer().then(function (buf) { plSave(new Blob([buf], { type: MIME }), nm); }, function (e) { msg('สร้างไฟล์ไม่สำเร็จ: ' + ((e && e.message) || e), true); });
+    return;
+  }
+  if (typeof XLSX === 'undefined') { msg('โหลดตัวเขียน Excel ไม่สำเร็จ ลองรีเฟรชหน้านี้อีกครั้ง', true); return; }
+  var wb = XLSX.utils.book_new();
+  var mc = compute();
+  XLSX.utils.book_append_sheet(wb, plBuild(mc), plSafe(S.sheet || 'Process Line', 31) || 'Process Line');
+  var mws = XLSX.utils.aoa_to_sheet(mmAoa(mc)); mws['!cols'] = [{ wch: 18 }]; XLSX.utils.book_append_sheet(wb, mws, 'Man-Machine Chart');
+  plSave(new Blob([XLSX.write(wb, { type: 'array', bookType: 'xlsx' })], { type: MIME }), nm);
+}
+$('exportBtn').addEventListener('click', exportXlsx);
+$('parChk').addEventListener('change', function () { MM_PAR = this.checked; renderAll(null); });
+$('exportBtn2').addEventListener('click', function () {
+  var r = D && (D.res || lbAutoModel(D));
+  if (!r || r.empty) { msg('กรอกเวลาของงานย่อยอย่างน้อยหนึ่งงานก่อน แล้วค่อยส่งออก', true); return; }
+  pushNow(); exportXlsx();
+});
+
+
+/* ---------- events ---------- */
+function msg(t, err) { var el = $('msg'); el.textContent = t || ''; el.className = err ? 'err' : ''; }
+
+['takt', 'pcs', 'cycle'].forEach(function (id) {
+  $(id).addEventListener('input', function () {
+    var v = parseFloat(this.value);
+    S[id] = isFinite(v) && v > 0 ? v : (id === 'takt' ? null : id === 'pcs' ? 1 : 0);
+    renderAll('cond');
+  });
+});
+$('cycleReset').addEventListener('click', function () { $('cycle').value = FILE_CYCLE; S.cycle = FILE_CYCLE; renderAll(null); });
+
+document.addEventListener('input', function (ev) {
+  var t = ev.target;
+  if (t.classList && t.classList.contains('mult')) {
+    var r = S.resources.filter(function (x) { return x.id === t.dataset.rid; })[0];
+    var v = parseFloat(t.value); r.mult = isFinite(v) && v >= 0 ? v : 0;
+    renderAll('res');
+  } else if (t.dataset && t.dataset.sc != null) {
+    var nn = parseFloat(t.value);
+    SC.scenarios[+t.dataset.sc].steps[+t.dataset.pi].time = isFinite(nn) && nn >= 0 ? nn : 0;
+    renderSc('sc');
+  } else if (t.dataset && t.dataset.e != null) {
+    var e = S.elements[+t.dataset.e], f = t.dataset.f, n = parseFloat(t.value);
+    n = isFinite(n) && n >= 0 ? n : 0;
+    if (f === 'time') e.time = n; else if (n > 0) e.vals[f] = n; else delete e.vals[f];
+    renderAll('elem');
+  }
+});
+
+function handleFile(file) {
+  if (!file) return;
+  if (typeof XLSX === 'undefined') { msg('โหลดตัวอ่าน Excel ไม่สำเร็จ ลองรีเฟรชหน้านี้อีกครั้ง', true); return; }
+  var rd = new FileReader();
+  rd.onload = function () {
+    try {
+      var wb = XLSX.read(rd.result, { type: 'array' });
+      var pf = lbParseProcessFlowWorkbook(wb, XLSX), res = lbParseWorkbook(wb, XLSX), sc = lbParseScenarioWorkbook(wb, XLSX), got = [];
+      if (!pf && !res && !sc) { msg('ไม่พบตารางที่อ่านได้ในไฟล์นี้ ต้องเป็น Process Flow (หัวคอลัมน์ PROC. / PROCESS NAME), ตาราง Process Line (หัวคอลัมน์ "Time (Sec)" และ Man / Robot / Jig) หรือตาราง Man-Machine (หัวคอลัมน์ Scenario / Process / Time)', true); return; }
+      if (pf) { setFlow(pf, file.name, false); got.push('Process Flow'); }
+      if (res) { setModel(res, file.name); got.push('Line Balance'); }
+      if (sc) { setScenarios(sc); got.push('เทียบ Manual กับ Robot'); }
+      showTab(pf ? 'flow' : res ? 'balance' : 'compare');
+      msg('อ่าน ' + file.name + ' แล้ว: ' + got.join(' และ '));
+    } catch (err) { msg('อ่านไฟล์ไม่ได้: ' + err.message, true); }
+  };
+  rd.readAsArrayBuffer(file);
+}
+$('fileInput').addEventListener('change', function () { handleFile(this.files[0]); this.value = ''; });
+$('sampleBtn').addEventListener('click', function () { msg(''); setScenarios(sampleSc()); setFlow(SAMPLE_PF, 'Process Flow ES37 (ตัวอย่าง)', true); showTab('flow'); });
+function sampleSc() { var s = JSON.parse(JSON.stringify(SAMPLE_SC)); s.sample = true; return s; }
+var dragN = 0;
+window.addEventListener('dragenter', function (e) { e.preventDefault(); dragN++; document.body.classList.add('drag'); });
+window.addEventListener('dragleave', function () { dragN = Math.max(0, dragN - 1); if (!dragN) document.body.classList.remove('drag'); });
+window.addEventListener('dragover', function (e) { e.preventDefault(); });
+window.addEventListener('drop', function (e) { e.preventDefault(); dragN = 0; document.body.classList.remove('drag'); handleFile(e.dataTransfer && e.dataTransfer.files[0]); });
+
+/* tooltip */
+var tip = $('tip');
+function showTip(e) {
+  var t = e.target.closest ? e.target.closest('[data-tip]') : null;
+  if (!t) { tip.classList.remove('on'); return; }
+  tip.innerHTML = t.getAttribute('data-tip');
+  var x = e.clientX + 14, y = e.clientY + 14, w = tip.offsetWidth;
+  if (x + w > window.innerWidth - 8) x = e.clientX - w - 14;
+  tip.style.left = Math.max(8, x) + 'px'; tip.style.top = y + 'px';
+  tip.classList.add('on');
+}
+document.addEventListener('pointermove', showTip);
+document.addEventListener('pointerdown', showTip);
+document.addEventListener('pointerleave', function () { tip.classList.remove('on'); });
+
+document.addEventListener('change', function (ev) {
+  var t = ev.target; if (!t.dataset) return;
+  if (t.dataset.ft === 'cat') t.dataset.cat = t.value;
+  else if (t.dataset.ft === 'kind') { var tr = t.closest('tr'); if (tr) tr.classList.toggle('rob', t.value === 'robot'); }
+});
+/* ---------- shell: หัวเรื่องแท็บ, เกจ Takt vs Cycle, สลับธีม ---------- */
+var PG = { flow: ['สร้างจาก Process Flow', 'ใส่เวลางานย่อย แล้วระบบจัดคนและสถานีให้ตาม Takt Time'], balance: ['Line Balance และ Man-Machine', 'ดูโหลดของแต่ละคนและเครื่อง เทียบกับ Cycle Time และ Takt Time'], compare: ['เทียบ Manual กับ Robot', 'เวลาต่อชิ้นของสถานีเดียว เห็นว่าหุ่นยนต์ช่วยลดเวลาได้เท่าไร'] };
+var _showTab = showTab;
+showTab = function (tok) { _showTab(tok); if (!PG[tok]) tok = 'flow'; $('pgT').textContent = $('crumb').textContent = PG[tok][0]; $('pgS').textContent = PG[tok][1]; };
+function liveChip() {
+  if (!S) return;
+  var m = compute(), lv = $('live'), g = $('gauge'), t = +m.takt || 0, pp = m.perPiece || 0, d = t - pp;
+  $('gT').textContent = t ? fmt(t) + ' s' : '—'; $('gC').textContent = pp ? fmt(pp) + ' s' : '—';
+  $('gF').style.width = t && pp ? Math.min(100, pp / (t * 1.3) * 100) + '%' : '0';
+  var ok = t && d >= 0, none = !t || !pp;
+  g.classList.toggle('bad', !none && !ok);
+  $('gS').textContent = none ? 'ใส่ Takt Time เพื่อเทียบ' : ok ? 'ทันตาม Takt · เหลือ ' + fmt(d) + ' s' : 'ไม่ทัน Takt · ช้า ' + fmt(-d) + ' s';
+  lv.className = 'live' + (none ? '' : ok ? ' good' : ' bad'); lv.textContent = $('gS').textContent;
+  if (S.sample) { $('gS').textContent = 'ตัวอย่าง · ' + $('gS').textContent; lv.className = 'live smp'; lv.textContent = $('gS').textContent; }
+  var sn = $('sampleNotice');
+  if (sn) { sn.hidden = !S.flagTxt; if (S.flagTxt) sn.innerHTML = '<b aria-hidden="true">!</b><span>' + esc(S.flagTxt) + '</span>'; }
+}
+var _renderAll = renderAll;
+renderAll = function (a) { _renderAll(a); liveChip(); };
+$('themeBtn').addEventListener('click', function () {
+  var r = document.documentElement, cur = r.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  r.dataset.theme = cur === 'dark' ? 'light' : 'dark';
+});
+setScenarios(sampleSc());
+setFlow(SAMPLE_PF, 'Process Flow ES37 (ตัวอย่าง)', true);
+try { showTab((location.hash || '').replace('#', '')); } catch (e) { showTab('flow'); }
+</script>
+
+<style>
+#cloudDlg { border: 1px solid var(--line-strong); border-radius: 10px; background: var(--surface); color: var(--fg); padding: 0; width: min(520px, calc(100vw - 24px)); }
+#cloudDlg::backdrop { background: rgba(0, 0, 0, .4); }
+.cd { padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+.cd h2 { font-size: 16px; }
+.cd-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.cd input[type=text], .cd input[type=email], .cd input[type=password] { flex: 1; min-width: 0; width: 100%; padding: 8px 10px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--bg); text-align: left; }
+.cd .hint { font-size: 12.5px; color: var(--fg2); }
+.cd-list { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 8px; max-height: 280px; overflow: auto; }
+.cd-item { display: flex; gap: 10px; align-items: center; padding: 9px 12px; border-top: 1px solid var(--line); }
+.cd-item:first-child { border-top: 0; }
+.cd-item .nm { flex: 1; min-width: 0; overflow-wrap: anywhere; font-weight: 500; }
+.cd-item .dt { display: block; font-size: 12px; color: var(--muted); font-weight: 400; }
+.cd-empty { padding: 14px 12px; color: var(--muted); font-size: 13px; }
+.cd-msg { font-size: 13px; min-height: 1.3em; }
+.cd-msg.err { color: var(--bad-text); }
+.cd .btn.sm { padding: 5px 10px; font-size: 13px; }
+.cd .btn.danger { color: var(--bad-text); border-color: var(--bad); }
+</style>
+<dialog id="cloudDlg" aria-labelledby="cdTitle">
+  <div class="cd">
+    <div class="cd-row" style="justify-content:space-between"><h2 id="cdTitle">งานที่บันทึกบน Cloud</h2><button class="btn ghost sm" id="cdClose" type="button">ปิด</button></div>
+
+    <div id="cdNoCfg" hidden><p class="hint">ยังไม่ได้ตั้งค่า Supabase ให้ใส่ URL และ anon key ในไฟล์ <span class="mono">config.js</span> แล้วรีเฟรชหน้านี้</p></div>
+
+    <div id="cdLogin" hidden>
+      <div class="cd-row" style="flex-direction:column;align-items:stretch">
+        <input id="cdEmail" type="email" placeholder="อีเมล" autocomplete="email">
+        <input id="cdPass" type="password" placeholder="รหัสผ่าน (อย่างน้อย 6 ตัว)" autocomplete="current-password">
+        <div class="cd-row"><button class="btn" id="cdSignIn" type="button">เข้าสู่ระบบ</button><button class="btn ghost" id="cdSignUp" type="button">สมัครบัญชีใหม่</button></div>
+      </div>
+    </div>
+
+    <div id="cdMain" hidden>
+      <div class="cd-row" style="justify-content:space-between"><span class="hint">เข้าสู่ระบบเป็น <b id="cdUser"></b></span><button class="btn ghost sm" id="cdSignOut" type="button">ออกจากระบบ</button></div>
+      <div class="cd-row" style="margin-top:12px"><input id="cdName" type="text" placeholder="ตั้งชื่องาน เช่น ES37 Line A" maxlength="120"><button class="btn" id="cdSave" type="button">บันทึก</button></div>
+      <p class="hint" style="margin-top:6px">ถ้าใช้ชื่อเดิม ระบบจะบันทึกทับงานเก่า</p>
+      <div class="cd-list" id="cdList" style="margin-top:12px"></div>
+    </div>
+
+    <p class="cd-msg" id="cdMsg" role="status" aria-live="polite"></p>
+  </div>
+</dialog>
+<script>
+/* ---------- Cloud: บันทึก/เปิดงานผ่าน Supabase (ตาราง line_balance_projects) ---------- */
+(function () {
+  var cfg = window.LB_CONFIG || {}, dlg = $('cloudDlg'), sb = null, user = null, TBL = 'line_balance_projects';
+  var cfgOk = !!(cfg.url && cfg.anonKey && !/YOUR-/i.test(cfg.url + cfg.anonKey) && window.supabase);
+  if (cfgOk) { try { sb = window.supabase.createClient(cfg.url, cfg.anonKey); } catch (e) { sb = null; } }
+
+  function cm(t, err) { var el = $('cdMsg'); el.textContent = t || ''; el.className = 'cd-msg' + (err ? ' err' : ''); }
+  function view() {
+    var m = !sb ? 'nocfg' : user ? 'main' : 'login';
+    $('cdNoCfg').hidden = m !== 'nocfg'; $('cdLogin').hidden = m !== 'login'; $('cdMain').hidden = m !== 'main';
+    if (m === 'main') { $('cdUser').textContent = user.email || ''; loadList(); }
+  }
+  function openDlg(focusName) {
+    cm('');
+    if (focusName && !$('cdName').value) $('cdName').value = (D && D.part && (D.part.partName || D.part.partNo)) || '';
+    if (!dlg.open) dlg.showModal();
+    view();
+    if (focusName && user) $('cdName').focus();
+  }
+
+  if (sb) {
+    sb.auth.getSession().then(function (r) { user = r.data && r.data.session ? r.data.session.user : null; });
+    sb.auth.onAuthStateChange(function (ev, sess) { user = sess ? sess.user : null; if (dlg.open) view(); });
+  }
+
+  /* เก็บสถานะที่ผู้ใช้กรอกไว้: Process Flow (D), ตาราง Manual vs Robot (SC), และโมเดลที่มาจากไฟล์ Excel (S) */
+  function snapshot() {
+    var tabEl = document.querySelector('.tab.on');
+    var fromFile = !!S && String(FILE).indexOf('จัดอัตโนมัติ') < 0;
+    var flow = D ? JSON.parse(JSON.stringify(D, function (k, v) { return k === 'res' ? undefined : v; })) : null;
+    return {
+      v: 1, tab: tabEl ? tabEl.id.replace('tabbtn-', '') : 'flow', file: FILE, fromFile: fromFile,
+      model: fromFile ? JSON.parse(JSON.stringify(S)) : null, flow: flow, sc: SC ? JSON.parse(JSON.stringify(SC)) : null
+    };
+  }
+  function restore(s) {
+    if (!s || s.v !== 1) throw new Error('รูปแบบข้อมูลไม่ถูกต้อง');
+    if (s.sc) setScenarios(s.sc);
+    if (s.flow) { D = s.flow; renderFlow(); flowUpdate(); }
+    if (s.fromFile && s.model) { clearTimeout(flTimer); setModel(s.model, s.file || 'งานที่บันทึกไว้'); }
+    showTab(s.tab || 'flow');
+  }
+
+  function fmtDate(iso) { try { return new Date(iso).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' }); } catch (e) { return ''; } }
+  function loadList() {
+    var box = $('cdList'); box.innerHTML = '<div class="cd-empty">กำลังโหลด…</div>';
+    sb.from(TBL).select('id,name,updated_at').order('updated_at', { ascending: false }).then(function (r) {
+      if (r.error) { box.innerHTML = ''; cm('โหลดรายการไม่สำเร็จ: ' + r.error.message, true); return; }
+      if (!r.data.length) { box.innerHTML = '<div class="cd-empty">ยังไม่มีงานที่บันทึกไว้</div>'; return; }
+      box.innerHTML = r.data.map(function (p) {
+        return '<div class="cd-item"><span class="nm">' + esc(p.name) + '<span class="dt">' + esc(fmtDate(p.updated_at)) + '</span></span>' +
+          '<button class="btn sm" data-cd="open" data-id="' + esc(p.id) + '" type="button">เปิด</button>' +
+          '<button class="btn ghost sm danger" data-cd="del" data-id="' + esc(p.id) + '" type="button">ลบ</button></div>';
+      }).join('');
+    });
+  }
+
+  $('cloudSaveBtn').addEventListener('click', function () { openDlg(true); });
+  $('cloudOpenBtn').addEventListener('click', function () { openDlg(false); });
+  $('cdClose').addEventListener('click', function () { dlg.close(); });
+  dlg.addEventListener('click', function (e) { if (e.target === dlg) dlg.close(); });
+
+  function auth(kind) {
+    var email = $('cdEmail').value.trim(), pass = $('cdPass').value;
+    if (!email || pass.length < 6) { cm('ใส่อีเมลและรหัสผ่านอย่างน้อย 6 ตัว', true); return; }
+    cm('กำลังดำเนินการ…');
+    var p = kind === 'in' ? sb.auth.signInWithPassword({ email: email, password: pass }) : sb.auth.signUp({ email: email, password: pass });
+    p.then(function (r) {
+      if (r.error) { cm(r.error.message, true); return; }
+      if (kind === 'up' && !(r.data && r.data.session)) { cm('สมัครแล้ว ตรวจอีเมลเพื่อกดยืนยัน จากนั้นกลับมาเข้าสู่ระบบ'); return; }
+      user = r.data.session.user; $('cdPass').value = ''; cm(''); view();
+    });
+  }
+  $('cdSignIn').addEventListener('click', function () { auth('in'); });
+  $('cdSignUp').addEventListener('click', function () { auth('up'); });
+  $('cdPass').addEventListener('keydown', function (e) { if (e.key === 'Enter') auth('in'); });
+  $('cdSignOut').addEventListener('click', function () { sb.auth.signOut().then(function () { user = null; cm(''); view(); }); });
+
+  $('cdSave').addEventListener('click', function () {
+    var name = $('cdName').value.trim();
+    if (!name) { cm('ตั้งชื่องานก่อนบันทึก', true); $('cdName').focus(); return; }
+    if (!D && !S) { cm('ยังไม่มีข้อมูลให้บันทึก', true); return; }
+    var snap; try { snap = snapshot(); } catch (e) { cm('เตรียมข้อมูลไม่สำเร็จ: ' + e.message, true); return; }
+    cm('กำลังบันทึก…');
+    sb.from(TBL).upsert({ user_id: user.id, name: name, data: snap, updated_at: new Date().toISOString() }, { onConflict: 'user_id,name' }).then(function (r) {
+      if (r.error) { cm('บันทึกไม่สำเร็จ: ' + r.error.message, true); return; }
+      cm('บันทึก “' + name + '” แล้ว'); loadList();
+    });
+  });
+
+  $('cdList').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-cd]'); if (!b) return;
+    var id = b.dataset.id;
+    if (b.dataset.cd === 'open') {
+      cm('กำลังเปิด…');
+      sb.from(TBL).select('name,data').eq('id', id).single().then(function (r) {
+        if (r.error) { cm('เปิดไม่สำเร็จ: ' + r.error.message, true); return; }
+        try { restore(r.data.data); dlg.close(); msg('เปิดงาน “' + r.data.name + '” จาก Cloud แล้ว'); }
+        catch (err) { cm('เปิดไม่สำเร็จ: ' + err.message, true); }
+      });
+    } else if (b.dataset.cd === 'del') {
+      if (!confirm('ลบงานนี้ถาวร?')) return;
+      sb.from(TBL).delete().eq('id', id).then(function (r) {
+        if (r.error) { cm('ลบไม่สำเร็จ: ' + r.error.message, true); return; }
+        cm('ลบแล้ว'); loadList();
+      });
+    }
+  });
+
+  window.__lbCloud = { snapshot: snapshot, restore: restore };
+})();
+</script>
+
+</body></html>
