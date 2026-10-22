@@ -434,6 +434,7 @@ th { background:var(--th-bg); color:var(--muted); font-weight:600; font-size:12p
   <div class="pagehead"><h1 id="pgT">สร้างจาก Process Flow</h1><p id="pgS"></p></div>
   <p id="msg" role="status" aria-live="polite"></p>
   <div class="errbox" id="errBox" role="alert" hidden></div>
+  <div class="notice" id="presBar" role="status" aria-live="polite" hidden><b aria-hidden="true">i</b><span id="presTxt"></span><button class="linkbtn" id="presReload" type="button" hidden>โหลดเวอร์ชันล่าสุด</button></div>
   <div class="notice" id="viewerNotice" hidden><b aria-hidden="true">i</b><span><strong>โหมดดูอย่างเดียว</strong> บัญชีนี้เปิดดู คำนวณ ลองสมมติ และส่งออก Excel ได้ แต่แก้ไขข้อมูล บันทึก และลบงานไม่ได้ ถ้าต้องการสิทธิ์แก้ไข ให้ผู้ดูแลระบบปรับสิทธิ์ให้</span></div>
 
   <section class="welcome" id="welcome" aria-label="เริ่มต้นใช้งาน">
@@ -483,7 +484,7 @@ th { background:var(--th-bg); color:var(--muted); font-weight:600; font-size:12p
     </section>
 
     <section class="sec">
-      <div class="sec-head"><h2>4 · ผลที่ระบบจัดให้</h2><span class="file-bar"><button class="btn ghost" id="exportBtn2" type="button">ส่งออก Excel</button><button class="btn" id="toChart" type="button">ดู Man-Machine Chart</button></span></div>
+      <div class="sec-head"><h2>4 · ผลที่ระบบจัดให้</h2><span class="file-bar"><button class="btn ghost" id="exportBtn2" type="button">ส่งออก Excel</button><button class="btn ghost" id="rptBtn2" type="button">รายงาน PDF / รูป</button><button class="btn" id="toChart" type="button">ดู Man-Machine Chart</button></span></div>
       <div id="flowResult"></div>
     </section>
   </div>
@@ -496,6 +497,7 @@ th { background:var(--th-bg); color:var(--muted); font-weight:600; font-size:12p
     <p class="derived" id="derived"></p>
     <button class="linkbtn" id="rg21Btn" type="button">ดูตัวอย่าง Process Line RG21</button>
     <button class="btn ghost" id="exportBtn" type="button">ส่งออก Excel (Process Line + Man-Machine)</button>
+    <button class="btn ghost" id="rptBtn" type="button">ส่งออกรายงาน PDF / รูป</button>
   </section>
 
   <div class="notice" id="sampleNotice" hidden></div>
@@ -2119,8 +2121,8 @@ try { showTab((location.hash || '').replace('#', '')); } catch (e) { showTab('fl
 </script>
 
 <style>
-#cloudDlg { border: 1px solid var(--line-strong); border-radius: 10px; background: var(--surface); color: var(--fg); padding: 0; width: min(520px, calc(100vw - 24px)); }
-#cloudDlg::backdrop { background: rgba(0, 0, 0, .4); }
+#cloudDlg, #rptDlg { border: 1px solid var(--line-strong); border-radius: 10px; background: var(--surface); color: var(--fg); padding: 0; width: min(520px, calc(100vw - 24px)); }
+#cloudDlg::backdrop, #rptDlg::backdrop { background: rgba(0, 0, 0, .4); }
 .cd { padding: 18px; display: flex; flex-direction: column; gap: 14px; }
 .cd h2 { font-size: 16px; }
 .cd-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
@@ -2174,6 +2176,19 @@ body.viewer .tabpanel td input, body.viewer .tabpanel .field input { opacity: .8
 .gate-card p { color: var(--fg2); }
 .gate-card input { width: 100%; padding: 10px 12px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--bg); text-align: left; }
 .gate-card .btn { justify-content: center; padding: 10px 14px; }
+#lbReport { display: none; --bg:#fff; --surface:#fff; --fg:#14201d; --fg2:#4b5653; --muted:#7d8683; --line:#dcddd6; --line-strong:#c3c4bc; --accent:#11594f; --good:#0a8a0a; --good-text:#006300; --warn:#b97a00; --warn-text:#7a5200; --bad:#c43434; --bad-text:#a52a2a; --text-heading:#14201d; color:#14201d; background:#fff; padding:16px 20px; font-size:12px; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+#lbReport.cap { display:block; position:fixed; left:-10000px; top:0; width:1123px; }
+#lbReport .rp-h { display:flex; align-items:center; gap:16px; border-bottom:3px solid var(--accent); padding-bottom:10px; margin-bottom:10px; }
+#lbReport .rp-logo { max-height:56px; max-width:180px; object-fit:contain; }
+#lbReport .rp-t { flex:1; } #lbReport .rp-co { font-weight:600; color:var(--fg2); } #lbReport h1 { font-size:22px; } #lbReport .rp-job { font-size:15px; font-weight:600; }
+#lbReport .rp-m { display:grid; grid-template-columns:auto auto; gap:2px 12px; margin:0; } #lbReport .rp-m dt { color:var(--muted); } #lbReport .rp-m dd { margin:0; font-weight:600; }
+#lbReport .rp-part { display:flex; flex-wrap:wrap; gap:4px 20px; margin-bottom:10px; }
+#lbReport h2 { font-size:14px; margin:12px 0 6px; }
+#lbReport .verdict { margin-bottom:8px; padding:10px 14px; } #lbReport .verdict.good { background:#e4f2e4; } #lbReport .verdict.bad { background:#f8e5e5; } #lbReport .verdict.none { background:#f2f2ee; }
+#lbReport .rp-sec { break-inside:avoid; } #lbReport .rp-pb { break-before:page; } #lbReport .scroll { overflow:visible; }
+#lbReport .rp-f { margin-top:12px; padding-top:6px; border-top:1px solid var(--line); color:var(--muted); font-size:11px; display:flex; justify-content:space-between; gap:12px; }
+@page { size:A4 landscape; margin:10mm; }
+@media print { body.rpt-print > *:not(#lbReport) { display:none !important; } body.rpt-print #lbReport { display:block; padding:0; } }
 </style>
 <div id="lbGate" role="dialog" aria-modal="true" aria-label="เข้าสู่ระบบ">
   <form class="gate-card" id="gForm" onsubmit="return false">
@@ -2204,6 +2219,20 @@ body.viewer .tabpanel td input, body.viewer .tabpanel .field input { opacity: .8
     </div>
 
     <p class="cd-msg" id="cdMsg" role="status" aria-live="polite"></p>
+  </div>
+</dialog>
+<div id="lbReport" aria-hidden="true"></div>
+<dialog id="rptDlg" aria-labelledby="rptTitle">
+  <div class="cd">
+    <div class="cd-row" style="justify-content:space-between"><h2 id="rptTitle">ส่งออกรายงาน (PDF / รูป)</h2><button class="btn ghost sm" id="rptClose" type="button">ปิด</button></div>
+    <p class="hint">รายงานพร้อมติดบอร์ดหรือส่งลูกค้า ใช้ข้อมูลของงานที่เปิดอยู่ตอนนี้ ค่าที่กรอกด้านล่างจำไว้ในเครื่องนี้</p>
+    <input id="rCo" type="text" placeholder="ชื่อบริษัท" maxlength="80">
+    <div class="cd-row"><input id="rBy" type="text" placeholder="ผู้จัดทำ" maxlength="60"><input id="rChk" type="text" placeholder="ผู้ตรวจสอบ / อนุมัติ (ไม่บังคับ)" maxlength="60"></div>
+    <input id="rNote" type="text" placeholder="หมายเหตุท้ายรายงาน (ไม่บังคับ)" maxlength="200">
+    <div class="cd-row"><label class="btn ghost sm" for="rLogo">เลือกโลโก้บริษัท</label><input id="rLogo" type="file" accept="image/*" hidden><img id="rLogoPrev" alt="โลโก้" style="max-height:36px" hidden><button class="btn ghost sm" id="rLogoDel" type="button" hidden>เอาโลโก้ออก</button></div>
+    <div class="cd-row"><button class="btn" id="rPdf" type="button">พิมพ์ / บันทึกเป็น PDF</button><button class="btn ghost" id="rPng" type="button">บันทึกเป็นรูป PNG</button></div>
+    <p class="hint">PDF: ในหน้าต่างพิมพ์เลือกปลายทางเป็น “บันทึกเป็น PDF” (กระดาษ A4 แนวนอน)</p>
+    <p class="cd-msg" id="rptMsg" role="status" aria-live="polite"></p>
   </div>
 </dialog>
 <script>
@@ -2405,12 +2434,12 @@ body.viewer .tabpanel td input, body.viewer .tabpanel .field input { opacity: .8
       if (r.error) { saveFail(r.error.message); return; }
       if (editSeq === mySeq) dirty = false;
       failed = false; retryUI();
-      stat('บันทึกอัตโนมัติแล้ว ' + hhmm()); if (Date.now() - lastVer > 300000) addVersion('auto');
+      stat('บันทึกอัตโนมัติแล้ว ' + hhmm()); pSaid(); if (Date.now() - lastVer > 300000) addVersion('auto');
     });
   }
   function schedule() {
     if (!sb || !user || !canEdit() || !auto || quiet > Date.now()) return;
-    dirty = true; editSeq++;
+    dirty = true; editSeq++; pTouch();
     clearTimeout(saveT); saveT = setTimeout(function () { doSave(); }, 2000);
     stat(online() ? 'รอบันทึก…' : 'ออฟไลน์ · ยังไม่ได้บันทึก', !online());
   }
@@ -2438,7 +2467,7 @@ body.viewer .tabpanel td input, body.viewer .tabpanel .field input { opacity: .8
     cm('กำลังบันทึก…');
     sb.from(TBL).upsert(rowOf(name, snap), { onConflict: 'name' }).then(function (r) {
       if (r.error) { cm('บันทึกไม่สำเร็จ: ' + r.error.message, true); return; }
-      cur = name; dirty = false; failed = false; retryUI(); cm('บันทึก “' + name + '” แล้ว'); loadList(); view();
+      cur = name; dirty = false; failed = false; retryUI(); pSaid(); cm('บันทึก “' + name + '” แล้ว'); loadList(); view();
     });
   });
 
@@ -2570,7 +2599,142 @@ body.viewer .tabpanel td input, body.viewer .tabpanel .field input { opacity: .8
   }
   try { insight(); } catch (e) {} pushHist();
 
-  window.__lbCloud = { snapshot: snapshot, restore: restore, jump: jump, insight: insight };
+  /* ---------- Realtime: ใครเปิด/แก้งานนี้อยู่ (Supabase Realtime Presence + Broadcast ไม่ต้องสร้างตารางเพิ่ม) ---------- */
+  var pc = null, pcName = null, pEdit = false, pLast = 0, pEditT = null, pSaved = null;
+  function hash(s) { var h = 5381; s = String(s); for (var i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return (h >>> 0).toString(36); }
+  function pMeta() { return { name: shortName(user.email), editing: pEdit }; }
+  function pOthers() {
+    var st = pc ? pc.presenceState() : {}, out = [];
+    Object.keys(st).forEach(function (k) { if (k !== user.id && st[k].length) out.push(st[k][st[k].length - 1]); });
+    return out;
+  }
+  function pRender() {
+    var o = pOthers(), ed = o.filter(function (x) { return x.editing; }), vw = o.filter(function (x) { return !x.editing; }), t = [];
+    function nm(a) { return a.map(function (x) { return esc(x.name); }).join(', '); }
+    if (ed.length) t.push('<strong>' + nm(ed) + '</strong> กำลังแก้งานนี้อยู่' + (canEdit() ? ' · ถ้าบันทึกพร้อมกันอาจทับกัน' : ''));
+    if (vw.length) t.push(nm(vw) + ' เปิดงานนี้อยู่');
+    if (pSaved) t.push(esc(pSaved.by) + ' เพิ่งบันทึกเมื่อ ' + esc(pSaved.at));
+    $('presBar').hidden = !t.length; $('presTxt').innerHTML = t.join(' · ');
+    $('presBar').querySelector('b').textContent = ed.length ? '!' : 'i'; $('presReload').hidden = !pSaved;
+  }
+  function pJoin(name) {
+    if (pc) { sb.removeChannel(pc); pc = null; }
+    pcName = name; pSaved = null; pRender();
+    if (!name || !user) return;
+    var ch = sb.channel('lbjob:' + hash(name), { config: { presence: { key: user.id } } });
+    ch.on('presence', { event: 'sync' }, pRender)
+      .on('broadcast', { event: 'saved' }, function (m) { pSaved = { by: m.payload.by, at: m.payload.at }; pRender(); })
+      .subscribe(function (s) { if (s === 'SUBSCRIBED') ch.track(pMeta()); });
+    pc = ch;
+  }
+  function pTouch() {
+    if (!pc) return;
+    if (!pEdit || Date.now() - pLast > 8000) { pEdit = true; pLast = Date.now(); pc.track(pMeta()); }
+    clearTimeout(pEditT); pEditT = setTimeout(function () { pEdit = false; pLast = 0; if (pc) pc.track(pMeta()); }, 15000);
+  }
+  function pSaid() { if (pc) pc.send({ type: 'broadcast', event: 'saved', payload: { by: shortName(user.email), at: hhmm() } }); }
+  $('presReload').addEventListener('click', function () {
+    if (!cur) return;
+    if (dirty && !confirm('มีสิ่งที่คุณแก้ไว้และยังไม่ได้บันทึก โหลดเวอร์ชันล่าสุดจะทับสิ่งนั้น ต้องการโหลดไหม?')) return;
+    sb.from(TBL).select('data').eq('name', cur).single().then(function (r) {
+      if (r.error) { msg('โหลดไม่สำเร็จ: ' + r.error.message, true); return; }
+      try { restore(r.data.data); dirty = false; pSaved = null; pRender(); msg('โหลดเวอร์ชันล่าสุดแล้ว'); } catch (e) { msg('โหลดไม่สำเร็จ: ' + e.message, true); }
+    });
+  });
+  if (sb) setInterval(function () { if (user && cur !== pcName) pJoin(cur); }, 1500);
+
+  window.__lbCloud = { snapshot: snapshot, restore: restore, jump: jump, insight: insight, info: function () { return { user: user ? shortName(user.email) : '', job: cur }; } };
+})();
+</script>
+
+<script>
+/* ---------- ส่งออกรายงาน PDF / รูป PNG ---------- */
+(function () {
+  var K = 'lbRpt', st = {}, dlg = $('rptDlg'), rep = $('lbReport'), job = '';
+  try { st = JSON.parse(localStorage.getItem(K) || '{}') || {}; } catch (e) {}
+  function keep() { try { localStorage.setItem(K, JSON.stringify(st)); } catch (e) {} }
+  function rm(t, err) { var el = $('rptMsg'); el.textContent = t || ''; el.className = 'cd-msg' + (err ? ' err' : ''); }
+  function logo() { var im = $('rLogoPrev'); im.hidden = $('rLogoDel').hidden = !st.logo; if (st.logo) im.src = st.logo; }
+  function openDlg() {
+    if (typeof S === 'undefined' || !S) { msg('ยังไม่มีข้อมูลให้ส่งออก เปิดงานหรือกรอกเวลาก่อน', true); return; }
+    var I = window.__lbCloud ? window.__lbCloud.info() : {};
+    $('rCo').value = st.co || ''; $('rBy').value = st.by || I.user || ''; $('rChk').value = st.chk || ''; $('rNote').value = st.note || '';
+    rm(''); logo(); dlg.showModal();
+  }
+  ['rptBtn', 'rptBtn2'].forEach(function (id) { $(id).addEventListener('click', openDlg); });
+  $('rptClose').addEventListener('click', function () { dlg.close(); });
+  [['rCo', 'co'], ['rBy', 'by'], ['rChk', 'chk'], ['rNote', 'note']].forEach(function (p) { $(p[0]).addEventListener('input', function () { st[p[1]] = this.value; keep(); }); });
+  $('rLogoDel').addEventListener('click', function () { delete st.logo; keep(); logo(); });
+  $('rLogo').addEventListener('change', function () {
+    var f = this.files[0]; this.value = ''; if (!f) return;
+    var r = new FileReader();
+    r.onload = function () {
+      var im = new Image();
+      im.onload = function () {
+        var s = Math.min(1, 360 / im.width, 140 / im.height), c = document.createElement('canvas');
+        c.width = Math.max(1, Math.round(im.width * s)); c.height = Math.max(1, Math.round(im.height * s));
+        c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
+        st.logo = c.toDataURL('image/png'); keep(); logo();
+      };
+      im.onerror = function () { rm('อ่านไฟล์รูปไม่ได้', true); };
+      im.src = r.result;
+    };
+    r.readAsDataURL(f);
+  });
+
+  /* สร้างหน้ารายงานจากสิ่งที่แสดงอยู่ (โหมดสว่างเสมอ ไม่ขึ้นกับธีมของหน้าจอ) */
+  function build() {
+    var m = compute(), P = (typeof D !== 'undefined' && D && D.part) || {}, I = window.__lbCloud ? window.__lbCloud.info() : {};
+    job = I.job || P.partName || String(FILE || 'Line Balance');
+    var meta = [['ลูกค้า', P.cust], ['Model', P.model], ['Part No.', P.partNo], ['Part Name', P.partName], ['Rev.', P.rev]].filter(function (x) { return x[1]; });
+    var date = new Date().toLocaleDateString('th-TH', { dateStyle: 'long' }), v = $('verdict'), lc = $('loadChart');
+    rep.innerHTML =
+      '<div class="rp-h">' + (st.logo ? '<img class="rp-logo" alt="" src="' + st.logo + '">' : '') +
+      '<div class="rp-t">' + (st.co ? '<div class="rp-co">' + esc(st.co) + '</div>' : '') + '<h1>Line Balance Report</h1><div class="rp-job">' + esc(job) + '</div></div>' +
+      '<dl class="rp-m"><dt>วันที่</dt><dd>' + esc(date) + '</dd><dt>ผู้จัดทำ</dt><dd>' + esc(st.by || '—') + '</dd>' + (st.chk ? '<dt>ผู้ตรวจสอบ</dt><dd>' + esc(st.chk) + '</dd>' : '') + '</dl></div>' +
+      (meta.length ? '<div class="rp-part">' + meta.map(function (x) { return '<span><b>' + x[0] + ':</b> ' + esc(x[1]) + '</span>'; }).join('') + '</div>' : '') +
+      '<div class="rp-sec"><div class="' + v.className + '">' + v.innerHTML + '</div><div class="kpis">' + $('kpis').innerHTML + '</div></div>' +
+      '<div class="rp-sec"><h2>โหลดงานต่อรอบ (Line Balance) · ' + esc($('loadNote').textContent) + '</h2>' + (lc.previousElementSibling ? lc.previousElementSibling.outerHTML : '') + lc.innerHTML + '</div>' +
+      '<div class="rp-pb"><h2>Man-Machine Chart · ' + esc($('ganttNote').textContent) + '</h2>' + $('ganttLegend').outerHTML + '<div id="rpGantt">' + $('gantt').innerHTML + '</div></div>' +
+      (st.note ? '<p style="margin-top:10px">' + esc(st.note) + '</p>' : '') +
+      '<div class="rp-f"><span>สร้างจาก Line Balance Chart</span><span>Takt ' + fmt(m.takt) + ' s · Cycle/ชิ้น ' + fmt(m.perPiece) + ' s · ' + esc(date) + '</span></div>';
+    rep.querySelectorAll('[id]').forEach(function (el) { el.removeAttribute('id'); });
+    return true;
+  }
+  function fname() { return (plSafe(job, 50) || 'line-balance') + '-' + new Date().toISOString().slice(0, 10); }
+
+  $('rPdf').addEventListener('click', function () {
+    build(); var t = document.title; document.title = fname();
+    document.body.classList.add('rpt-print');
+    function done() { document.body.classList.remove('rpt-print'); document.title = t; window.removeEventListener('afterprint', done); }
+    window.addEventListener('afterprint', done); dlg.close();
+    setTimeout(function () { window.print(); }, 80);
+  });
+
+  /* PNG: โหลด html2canvas เฉพาะตอนกด แล้วแปลงสี/ฟอนต์ของกราฟ SVG ให้เป็นค่าจริงก่อนถ่าย (กราฟใช้ CSS variable ซึ่งหายเมื่อแปลงเป็นรูป) */
+  function loadH2C() {
+    if (window.html2canvas) return Promise.resolve();
+    return new Promise(function (ok, no) {
+      var s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+      s.onload = ok; s.onerror = function () { no(new Error('โหลดตัวสร้างรูปไม่สำเร็จ ตรวจอินเทอร์เน็ต')); }; document.head.appendChild(s);
+    });
+  }
+  function flat() {
+    var cs = getComputedStyle(rep);
+    function sub(v) { return v.replace(/var\((--[\w-]+)\)/g, function (_, n) { return cs.getPropertyValue(n).trim() || '#000'; }); }
+    rep.querySelectorAll('svg *').forEach(function (el) {
+      ['fill', 'stroke', 'style'].forEach(function (a) { var v = el.getAttribute(a); if (v && v.indexOf('var(') >= 0) el.setAttribute(a, sub(v)); });
+      if (/^(text|tspan)$/i.test(el.tagName)) { var c = getComputedStyle(el); el.style.fontFamily = c.fontFamily; el.style.fontSize = c.fontSize; el.style.fontWeight = c.fontWeight; el.style.fill = c.fill; }
+    });
+  }
+  $('rPng').addEventListener('click', function () {
+    build(); rm('กำลังสร้างรูป…'); rep.classList.add('cap'); flat();
+    loadH2C().then(function () { return html2canvas(rep, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false }); })
+      .then(function (c) { return new Promise(function (r) { c.toBlob(r, 'image/png'); }); })
+      .then(function (b) { rep.classList.remove('cap'); if (!b) throw new Error('สร้างไฟล์รูปไม่ได้'); return plSave(b, fname() + '.png'); })
+      .then(function () { rm('บันทึกรูปแล้ว'); })
+      .catch(function (e) { rep.classList.remove('cap'); rm('สร้างรูปไม่สำเร็จ: ' + e.message + ' · ลองใช้ PDF แทน', true); });
+  });
 })();
 </script>
 
