@@ -422,6 +422,7 @@ th { background:var(--th-bg); color:var(--muted); font-weight:600; font-size:12p
   <label class="btn" for="fileInput">อัปโหลด Excel</label>
   <input id="fileInput" type="file" accept=".xlsx,.xlsm,.xls" hidden>
   <button class="btn ghost" id="sampleBtn" type="button">โหลดข้อมูลตัวอย่าง</button>
+  <button class="icbtn" id="undoBtn" type="button" aria-label="ย้อนกลับ (Ctrl+Z)" title="ย้อนกลับ (Ctrl+Z)" disabled>↶</button><button class="icbtn" id="redoBtn" type="button" aria-label="ทำซ้ำ (Ctrl+Y)" title="ทำซ้ำ (Ctrl+Y)" disabled>↷</button>
   <button class="btn ghost" id="cloudSaveBtn" type="button">บันทึกขึ้น Cloud</button>
   <button class="btn ghost" id="cloudOpenBtn" type="button">งานที่บันทึกไว้</button>
   <span class="live" id="cloudStat" hidden></span>
@@ -1986,6 +1987,16 @@ try { showTab((location.hash || '').replace('#', '')); } catch (e) { showTab('fl
 .cd-msg.err { color: var(--bad-text); }
 .cd .btn.sm { padding: 5px 10px; font-size: 13px; }
 .cd .btn.danger { color: var(--bad-text); border-color: var(--bad); }
+.insight { border: 1px solid var(--line); border-radius: 8px; background: var(--surface); padding: 14px 16px; display: grid; gap: 12px; }
+.in-h { font-weight: 600; font-size: 15px; } .in-d { color: var(--fg2); margin-top: 2px; }
+.wi { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; padding-top: 12px; border-top: 1px solid var(--line); }
+.wi select { padding: 5px 8px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--bg); }
+.wi-r { display: flex; gap: 10px; align-items: center; flex: 1; min-width: 180px; } .wi-r input { flex: 1; accent-color: var(--accent); }
+.wi-res { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px 16px; font-size: 13px; }
+.wi-res span { color: var(--muted); display: block; } .wi-res .ok { color: var(--good-text); } .wi-res .no { color: var(--bad-text); }
+.icbtn:disabled { opacity: .35; cursor: default; }
+#gF { transition: width .4s ease; }
+@media (prefers-reduced-motion: reduce) { #gF { transition: none; } }
 #lbGate { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 16px; background: var(--bg); }
 .gate-card { width: min(380px, 100%); display: flex; flex-direction: column; gap: 12px; padding: 24px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
 .gate-card h1 { font-size: 22px; }
@@ -2013,6 +2024,8 @@ try { showTab((location.hash || '').replace('#', '')); } catch (e) { showTab('fl
       <div class="cd-row" style="justify-content:space-between"><span class="hint">เข้าสู่ระบบเป็น <b id="cdUser"></b></span><button class="btn ghost sm" id="cdSignOut" type="button">ออกจากระบบ</button></div>
       <label class="hint" style="display:flex;gap:8px;align-items:center;margin-top:12px"><input type="checkbox" id="cdAuto"> บันทึกอัตโนมัติทุกครั้งที่แก้ไข</label>
       <p class="hint" id="cdCur" style="margin-top:4px"></p>
+      <div class="cd-row" style="margin-top:10px"><button class="btn ghost sm" id="cdMark" type="button">บันทึกจุดย้อนกลับตอนนี้</button></div>
+      <div id="cdVerBox" hidden style="margin-top:12px"><p class="hint" style="margin-bottom:6px">ประวัติของงานนี้ (กู้คืนได้)</p><div class="cd-list" id="cdVer"></div></div>
       <div class="cd-row" style="margin-top:12px"><input id="cdName" type="text" placeholder="ตั้งชื่องาน เช่น ES37 Line A" maxlength="120"><button class="btn" id="cdSave" type="button">บันทึกเป็นชื่อนี้</button></div>
       <p class="hint" style="margin-top:6px">ทุกบัญชีเห็นงานชุดเดียวกัน ถ้าใช้ชื่อเดิมระบบจะบันทึกทับงานเก่า</p>
       <div class="cd-list" id="cdList" style="margin-top:12px"></div>
@@ -2059,7 +2072,7 @@ try { showTab((location.hash || '').replace('#', '')); } catch (e) { showTab('fl
     if (m === 'main' && user) {
       $('cdUser').textContent = shortName(user.email); $('cdAuto').checked = auto;
       $('cdCur').textContent = cur ? 'งานที่เปิดอยู่: ' + cur : 'ยังไม่มีงานที่เปิดอยู่ ระบบจะสร้างงานใหม่ให้เองเมื่อมีการแก้ไข';
-      loadList();
+      loadList(); loadVers();
     }
   }
   function openDlg(focusName) {
@@ -2087,9 +2100,9 @@ try { showTab((location.hash || '').replace('#', '')); } catch (e) { showTab('fl
       model: fromFile ? JSON.parse(JSON.stringify(S)) : null, flow: flow, sc: SC ? JSON.parse(JSON.stringify(SC)) : null
     };
   }
-  function restore(s) {
+  function restore(s, keep) {
     if (!s || s.v !== 1) throw new Error('รูปแบบข้อมูลไม่ถูกต้อง');
-    quiet = Date.now() + 4000; clearTimeout(saveT);
+    if (!keep) { quiet = Date.now() + 4000; clearTimeout(saveT); }
     if (s.sc) setScenarios(s.sc);
     if (s.flow) { D = s.flow; renderFlow(); flowUpdate(); }
     if (s.fromFile && s.model) { clearTimeout(flTimer); setModel(s.model, s.file || 'งานที่บันทึกไว้'); }
@@ -2122,7 +2135,7 @@ try { showTab((location.hash || '').replace('#', '')); } catch (e) { showTab('fl
     var snap; try { snap = snapshot(); } catch (e) { return; }
     var name = cur; stat('กำลังบันทึก…');
     sb.from(TBL).upsert({ name: name, data: snap, updated_at: new Date().toISOString(), updated_by: shortName(user.email) }, { onConflict: 'name' }).then(function (r) {
-      if (r.error) stat('บันทึกอัตโนมัติไม่สำเร็จ', true); else stat('บันทึกอัตโนมัติแล้ว ' + hhmm());
+      if (r.error) stat('บันทึกอัตโนมัติไม่สำเร็จ', true); else { stat('บันทึกอัตโนมัติแล้ว ' + hhmm()); if (Date.now() - lastVer > 300000) addVersion('auto'); }
     });
   }
   function schedule() {
@@ -2131,7 +2144,7 @@ try { showTab((location.hash || '').replace('#', '')); } catch (e) { showTab('fl
   }
   ['renderAll', 'flowUpdate', 'renderSc'].forEach(function (n) {
     var f = window[n];
-    if (typeof f === 'function') window[n] = function () { var r = f.apply(this, arguments); schedule(); return r; };
+    if (typeof f === 'function') window[n] = function () { var r = f.apply(this, arguments); try { insight(); } catch (e) {} pushHist(); schedule(); return r; };
   });
   $('fileInput').addEventListener('change', function () { cur = null; });
   $('sampleBtn').addEventListener('click', function () { cur = null; quiet = Date.now() + 4000; clearTimeout(saveT); });
@@ -2175,7 +2188,101 @@ try { showTab((location.hash || '').replace('#', '')); } catch (e) { showTab('fl
     }
   });
 
-  window.__lbCloud = { snapshot: snapshot, restore: restore };
+  /* ---------- Undo / Redo (Ctrl+Z / Ctrl+Y) ---------- */
+  var hist = [], hi = -1, histBusy = 0, histT = null;
+  function histSync() { $('undoBtn').disabled = hi <= 0; $('redoBtn').disabled = hi >= hist.length - 1; }
+  function pushHist() {
+    if (histBusy > Date.now()) return;
+    clearTimeout(histT);
+    histT = setTimeout(function () {
+      var j; try { j = JSON.stringify(snapshot()); } catch (e) { return; }
+      if (hist[hi] === j) return;
+      hist = hist.slice(0, hi + 1); hist.push(j); if (hist.length > 60) hist.shift(); hi = hist.length - 1; histSync();
+    }, 500);
+  }
+  function jump(d) {
+    var n = hi + d; if (n < 0 || n >= hist.length) return;
+    clearTimeout(histT); hi = n; histBusy = Date.now() + 1500;
+    try { restore(JSON.parse(hist[hi]), true); } catch (e) {} histSync();
+  }
+  $('undoBtn').addEventListener('click', function () { jump(-1); });
+  $('redoBtn').addEventListener('click', function () { jump(1); });
+  document.addEventListener('keydown', function (e) {
+    if (!(e.ctrlKey || e.metaKey) || /^(input|textarea|select)$/i.test((e.target || {}).tagName || '')) return;
+    var k = String(e.key).toLowerCase();
+    if (k === 'z') { e.preventDefault(); jump(e.shiftKey ? 1 : -1); } else if (k === 'y') { e.preventDefault(); jump(1); }
+  });
+
+  /* ---------- ประวัติเวอร์ชัน (ตาราง line_balance_versions) ---------- */
+  var VT = 'line_balance_versions', lastVer = 0, NOTE = { manual: 'จุดย้อนกลับ', 'before-restore': 'ก่อนกู้คืน' };
+  function addVersion(why, cb) {
+    if (!sb || !user || !cur) return;
+    var snap; try { snap = snapshot(); } catch (e) { return; }
+    lastVer = Date.now();
+    sb.from(VT).insert({ project_name: cur, data: snap, saved_by: shortName(user.email), note: why || null }).then(function (r) {
+      if (cb) cb(r.error); if (!r.error && dlg.open) loadVers();
+    });
+  }
+  function loadVers() {
+    var box = $('cdVerBox'), l = $('cdVer');
+    if (!sb || !user || !cur) { box.hidden = true; return; }
+    box.hidden = false; l.innerHTML = '<div class="cd-empty">กำลังโหลด…</div>';
+    sb.from(VT).select('id,saved_at,saved_by,note').eq('project_name', cur).order('saved_at', { ascending: false }).limit(15).then(function (r) {
+      if (r.error || !r.data.length) { l.innerHTML = '<div class="cd-empty">ยังไม่มีประวัติ</div>'; return; }
+      l.innerHTML = r.data.map(function (v) {
+        return '<div class="cd-item"><span class="nm">' + esc(fmtDate(v.saved_at)) + '<span class="dt">' + esc((v.saved_by || '') + (NOTE[v.note] ? ' · ' + NOTE[v.note] : '')) + '</span></span><button class="btn sm" data-v="' + esc(v.id) + '" type="button">กู้คืน</button></div>';
+      }).join('');
+    });
+  }
+  $('cdMark').addEventListener('click', function () {
+    if (!cur) { cm('ยังไม่มีงานที่เปิดอยู่', true); return; }
+    addVersion('manual', function (err) { cm(err ? 'บันทึกจุดย้อนกลับไม่สำเร็จ: ' + err.message : 'บันทึกจุดย้อนกลับแล้ว', !!err); });
+  });
+  $('cdVer').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-v]'); if (!b || !confirm('กู้คืนเวอร์ชันนี้? ระบบจะเก็บเวอร์ชันปัจจุบันไว้ให้ก่อน')) return;
+    cm('กำลังกู้คืน…'); addVersion('before-restore');
+    sb.from(VT).select('data').eq('id', b.dataset.v).single().then(function (r) {
+      if (r.error) { cm('กู้คืนไม่สำเร็จ: ' + r.error.message, true); return; }
+      try { restore(r.data.data, true); cm('กู้คืนแล้ว'); msg('กู้คืนเวอร์ชันแล้ว'); } catch (err) { cm('กู้คืนไม่สำเร็จ: ' + err.message, true); }
+    });
+  });
+
+  /* ---------- คอขวด + ลองสมมติ (What-if) ---------- */
+  var wi = { t: 'bottle', pct: 0 }, ib = null;
+  function mkInsight() {
+    ib = document.createElement('section'); ib.className = 'insight'; ib.id = 'lbInsight'; ib.hidden = true;
+    ib.innerHTML = '<div><div class="in-h" id="inH"></div><div class="in-d" id="inD"></div></div><div class="wi"><b>ลองสมมติ</b>' +
+      '<label>ลดเวลางานของ <select id="wiT"><option value="bottle">คอขวดตอนนี้</option><option value="man">พนักงานทุกคน</option><option value="all">ทุกทรัพยากร</option></select></label>' +
+      '<label class="wi-r"><input type="range" id="wiP" min="0" max="40" step="1" value="0" aria-label="เปอร์เซ็นต์ที่ลด"><output id="wiO" class="mono">0%</output></label></div><div class="wi-res" id="wiRes"></div>';
+    $('kpis').insertAdjacentElement('afterend', ib);
+    $('wiT').addEventListener('change', function () { wi.t = this.value; insight(); });
+    $('wiP').addEventListener('input', function () { wi.pct = +this.value; $('wiO').textContent = wi.pct + '%'; insight(); });
+  }
+  function insight() {
+    if (!S) return; if (!ib) mkInsight();
+    var m = compute(); if (!m.maxLoad) { ib.hidden = true; return; } ib.hidden = false;
+    var R = S.resources, L = m.loads, pp = m.perPiece, tk = m.takt, pcs = m.pcs, men = R.filter(function (r) { return r.kind === 'man'; });
+    var sorted = R.filter(function (r) { return L[r.id] > 0; }).sort(function (a, b) { return L[b.id] - L[a.id]; });
+    var bn = m.bottle.map(function (r) { return r.name; }).join(', '), sec = sorted.length > m.bottle.length ? sorted[m.bottle.length] : null;
+    var room = sec ? m.maxLoad - L[sec.id] : null, gap = tk ? pp - tk : null, d;
+    if (gap != null && gap > 0) d = 'ช้ากว่า Takt ' + fmt(gap) + ' s/ชิ้น ต้องลดเวลาที่ ' + esc(bn) + ' อย่างน้อย ' + fmt(gap * pcs) + ' s' + (room != null && gap * pcs > room + 1e-9 ? ' แต่ลดได้แค่ ' + fmt(room) + ' s ก่อนที่คอขวดจะย้ายไป ' + esc(sec.name) + ' ต้องปรับทั้งสองจุด' : '');
+    else if (gap != null) d = 'ทัน Takt เหลือ ' + fmt(-gap) + ' s/ชิ้น' + (room != null ? ' · ลดที่ ' + esc(bn) + ' ได้อีก ' + fmt(room) + ' s ก่อนที่คอขวดจะย้ายไป ' + esc(sec.name) : '');
+    else d = 'ใส่ Takt Time เพื่อดูว่าต้องลดเท่าไร';
+    $('inH').innerHTML = 'คอขวด: ' + esc(bn) + ' (' + fmt(m.maxLoad) + ' s)'; $('inD').innerHTML = d;
+    var p = wi.pct / 100, hit = {}, L2 = {}, mx = 0, ms = 0, mm = 0;
+    (wi.t === 'bottle' ? m.bottle : wi.t === 'man' ? men : R).forEach(function (r) { hit[r.id] = 1; });
+    R.forEach(function (r) { L2[r.id] = L[r.id] * (hit[r.id] ? 1 - p : 1); mx = Math.max(mx, L2[r.id]); });
+    men.forEach(function (r) { ms += L2[r.id]; mm = Math.max(mm, L2[r.id]); });
+    var pp2 = pp * mx / m.maxLoad, be2 = men.length && mm ? ms / (men.length * mm) : null, ok = tk ? pp2 <= tk + 1e-9 : null;
+    $('wiRes').innerHTML = !p ? '<div><span>เลื่อนแถบเพื่อดูผลถ้าลดเวลางาน</span></div>' :
+      '<div><span>Cycle ต่อชิ้น</span><b>' + fmt(pp) + ' → ' + fmt(pp2) + ' s</b></div>' +
+      '<div><span>กำลังผลิตต่อชั่วโมง</span><b>' + fmt(3600 / pp, 0) + ' → ' + fmt(3600 / pp2, 0) + ' ชิ้น</b></div>' +
+      (m.balEff != null && be2 != null ? '<div><span>Balance Efficiency</span><b>' + pct(m.balEff) + ' → ' + pct(be2) + '</b></div>' : '') +
+      (ok == null ? '' : '<div><span>เทียบ Takt</span><b class="' + (ok ? 'ok' : 'no') + '">' + (ok ? 'ทัน Takt เหลือ ' + fmt(tk - pp2) + ' s' : 'ยังไม่ทัน ช้า ' + fmt(pp2 - tk) + ' s') + '</b></div>');
+  }
+  try { insight(); } catch (e) {} pushHist();
+
+  window.__lbCloud = { snapshot: snapshot, restore: restore, jump: jump, insight: insight };
 })();
 </script>
 

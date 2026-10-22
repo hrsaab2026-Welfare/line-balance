@@ -16,3 +16,4 @@
 - `config.js` Supabase URL + anon key (anon key ใส่ใน repo public ได้ ห้ามใส่ service_role)
 - `supabase/schema.sql` ตารางเก็บงาน (ติดตั้งใหม่) ทุกบัญชีเห็นงานชุดเดียวกัน
 - `supabase/shared.sql` ปรับตารางเดิมให้แชร์งานข้ามบัญชี (รันครั้งเดียว)
+- `supabase/versions.sql` ตารางประวัติเวอร์ชัน (รันครั้งเดียว)
