@@ -1,6 +1,6 @@
 # Line Balance Chart
 
-เว็บแอปทำ Line Balance / Man-Machine Chart (ไฟล์เดียว ไม่ต้อง build)
+เว็บแอปทำ Line Balance / Man-Machine Chart (ไม่ต้อง build อัปโหลดทั้งโฟลเดอร์ขึ้น host ได้เลย)
 เข้าด้วยชื่อผู้ใช้ + รหัสผ่าน และบันทึกงานอัตโนมัติลง Supabase
 
 ## เพิ่มผู้ใช้ (ผู้ดูแลทำใน Supabase)
@@ -32,7 +32,10 @@
 - ต้องเปิด Realtime ในโปรเจกต์ Supabase (ค่าเริ่มต้นเปิดอยู่) ถ้า Realtime ใช้ไม่ได้ ระบบอื่นทำงานปกติ แค่ไม่มีแถบนี้
 
 ## ไฟล์
-- `index.html` แอปหลัก
+- `index.html` แอปหลัก (หน้าจอและการเชื่อม Cloud)
+- `js/calc.js` ตัวคำนวณ Takt / โหลด / คอขวด / Balance Efficiency / ตารางเวลา (ฟังก์ชันล้วน ไม่แตะหน้าจอ)
+- `js/parse.js` ตัวอ่านไฟล์ Excel / Process Flow และตัวจัดไลน์อัตโนมัติ
+- `tests/` ชุดทดสอบการคำนวณ รันด้วย `npm test` (ต้องมี Node 18 ขึ้นไป ไม่ต้องติดตั้งแพ็กเกจเพิ่ม)
 - `config.js` Supabase URL + anon key (anon key ใส่ใน repo public ได้ ห้ามใส่ service_role)
 - `supabase/schema.sql` ตารางเก็บงาน (ติดตั้งใหม่) ทุกบัญชีเห็นงานชุดเดียวกัน
 - `supabase/shared.sql` ปรับตารางเดิมให้แชร์งานข้ามบัญชี (รันครั้งเดียว)
