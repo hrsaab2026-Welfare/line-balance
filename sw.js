@@ -2,7 +2,7 @@
    ไฟล์ของแอปเอง: ลองเน็ตก่อน ถ้าไม่ได้ใช้ของที่เก็บไว้ (ได้เวอร์ชันใหม่เสมอเมื่อออนไลน์)
    ไลบรารี/ฟอนต์จาก CDN: ใช้ที่เก็บไว้ก่อน  ส่วน Supabase ไม่แตะเลย
    เปลี่ยนไฟล์แอปแล้วไม่ต้องแก้อะไร ถ้าเปลี่ยนรายการ SHELL ให้เพิ่มเลขเวอร์ชันของ CACHE */
-var CACHE = 'lb-v3';
+var CACHE = 'lb-v2';
 var SHELL = ['./', 'index.html', 'config.js', 'manifest.webmanifest', 'js/calc.js', 'js/yamazumi.js', 'js/yamazumi-ui.js', 'js/parse.js', 'js/lazy.js', 'js/errlog.js', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
 var CDN = /^https:\/\/(cdnjs\.cloudflare\.com|cdn\.jsdelivr\.net|fonts\.googleapis\.com|fonts\.gstatic\.com)\//;
 
