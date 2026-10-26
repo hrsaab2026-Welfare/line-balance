@@ -482,29 +482,32 @@ th { background:var(--th-bg); color:var(--muted); font-weight:600; font-size:12p
   .sideuser { display:none !important; }
 }
 @media (prefers-reduced-motion:reduce) { .app { transition:none; } }
-/* ===== header: จัดกลุ่มปุ่ม ===== */
-.bar { gap:10px 16px; }
-.bar-actions { display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-end; gap:10px 12px; margin-left:auto; min-width:0; }
-.bar-grp { display:flex; align-items:center; gap:8px; }
-.bar-sep { width:1px; height:24px; background:hsla(0,0%,100%,.18); flex:none; }
-.bar .btn, .bar .icbtn { height:38px; box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; gap:7px; white-space:nowrap; padding-top:0; padding-bottom:0; }
-.bar .icbtn { width:38px; padding:0; }
-.bar .btn svg { width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; flex:none; }
-.bar .btn svg.chev { width:14px; height:14px; opacity:.8; margin-right:-2px; }
-.bar .icbtn:disabled { opacity:.4; cursor:default; }
-.bar .icbtn:disabled:hover { border-color:hsla(0,0%,100%,.18); color:hsla(0,0%,100%,.85); }
-.bar .live { height:32px; box-sizing:border-box; }
-.bar .file-chip { display:inline-flex; align-items:center; max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.bar .file-chip:empty { display:none; }
+/* ===== header เรียบ + แถบเครื่องมือใต้ชื่อหน้า ===== */
+.bar { gap:10px 16px; flex-wrap:nowrap; }
+.bar .crumb { min-width:0; overflow:hidden; white-space:nowrap; }
+.bar-actions { display:flex; align-items:center; gap:8px; margin-left:auto; flex:none; }
+.bar .icbtn { width:38px; height:38px; padding:0; display:inline-flex; align-items:center; justify-content:center; }
+.toolbar { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px 16px; margin-top:-8px; padding:10px 12px; border:1px solid var(--line); border-radius:14px; background:var(--surface); box-shadow:var(--shadow); }
+.tb-status, .tb-actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px; min-width:0; }
+.tb-actions { margin-left:auto; justify-content:flex-end; }
+.tb-sep { width:1px; height:24px; background:var(--line-strong); flex:none; }
+.toolbar .btn, .toolbar .icbtn { height:38px; box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; gap:7px; white-space:nowrap; padding-top:0; padding-bottom:0; }
+.toolbar .icbtn { width:38px; padding:0; }
+.toolbar .btn svg { width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; flex:none; }
+.toolbar .btn svg.chev { width:14px; height:14px; opacity:.7; margin-right:-2px; }
+.toolbar .icbtn:disabled { opacity:.4; cursor:default; }
+.toolbar .icbtn:disabled:hover { border-color:var(--line-strong); color:var(--fg2); }
+.toolbar .live { height:32px; box-sizing:border-box; }
+.toolbar .file-chip { display:inline-flex; align-items:center; max-width:300px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.toolbar .file-chip:empty { display:none; }
 .menu { position:relative; }
-.menupop { position:absolute; top:calc(100% + 8px); left:0; z-index:40; min-width:220px; padding:6px; display:flex; flex-direction:column; gap:2px; border-radius:12px; background:var(--surface); color:var(--fg); border:1px solid var(--line-strong); box-shadow:0 18px 40px -14px rgba(0,0,0,.4); }
-.menupop.right { left:auto; right:0; }
+.menupop { position:absolute; top:calc(100% + 8px); right:0; left:auto; z-index:40; min-width:220px; padding:6px; display:flex; flex-direction:column; gap:2px; border-radius:12px; background:var(--surface); color:var(--fg); border:1px solid var(--line-strong); box-shadow:0 18px 40px -14px rgba(0,0,0,.4); }
 .menupop[hidden] { display:none; }
 .mi { width:100%; text-align:left; padding:10px 12px; border:0; border-radius:8px; background:none; color:var(--fg); font:inherit; font-size:14px; cursor:pointer; }
 .mi:hover, .mi:focus-visible { background:color-mix(in srgb,var(--accent) 12%,var(--surface)); color:var(--accent); outline:none; }
 .mi[hidden] { display:none; }
 .mi:disabled { opacity:.45; cursor:not-allowed; }
-@media (max-width:960px) { .bar-sep { display:none; } .bar-actions { margin-left:0; width:100%; justify-content:flex-start; } .bar .file-chip { max-width:180px; } }
+@media (max-width:960px) { .bar { flex-wrap:wrap; } .tb-actions { margin-left:0; justify-content:flex-start; } .tb-sep { display:none; } .toolbar .file-chip { max-width:200px; } }
 </style>
 <div class="app">
 <aside class="side">
@@ -526,21 +529,25 @@ th { background:var(--th-bg); color:var(--muted); font-weight:600; font-size:12p
   <button class="icbtn" id="sideToggle" type="button" aria-label="ย่อ/ขยายเมนูด้านข้าง" aria-expanded="true" title="ย่อ/ขยายเมนู"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
   <div class="crumb appname"><b>Line Balance</b><span aria-hidden="true">/</span><span>Man-Machine Studio</span></div><span id="crumb" hidden></span>
   <div class="bar-actions">
-    <div class="bar-grp">
+    <button class="icbtn" id="themeBtn" type="button" aria-label="สลับโหมดสว่าง/มืด" title="สลับโหมดสว่าง/มืด"><svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg></button>
+    <button class="icbtn" id="logoutBtn" type="button" aria-label="ออกจากระบบ" title="ออกจากระบบ" hidden><svg viewBox="0 0 24 24"><path d="M9 4H5v16h4M16 8l4 4-4 4M20 12H9"/></svg></button>
+  </div>
+</header>
+<div class="wrap">
+  <div class="pagehead"><h1 id="pgT">สร้างจาก Process Flow</h1><p id="pgS"></p></div>
+  <div class="toolbar" id="toolbar" role="toolbar" aria-label="เครื่องมือของงาน">
+    <div class="tb-status">
       <div class="file-chip" id="fileChip"></div>
-      <button class="icbtn" id="closeFileBtn" type="button" aria-label="ปิดไฟล์" title="ปิดไฟล์นี้แล้วกลับหน้าเริ่มต้น" hidden><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
       <span class="live" id="live">รอข้อมูล</span>
       <span class="live" id="cloudStat" role="status" aria-live="polite" hidden></span>
       <button class="btn ghost" id="cloudRetry" type="button" hidden>ลองบันทึกใหม่</button>
       <span class="live" id="roleChip" hidden></span>
     </div>
-    <span class="bar-sep" aria-hidden="true"></span>
-    <div class="bar-grp">
+    <div class="tb-actions">
       <button class="icbtn" id="undoBtn" type="button" aria-label="ย้อนกลับ (Ctrl+Z)" title="ย้อนกลับ (Ctrl+Z)" disabled><svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3"/></svg></button>
       <button class="icbtn" id="redoBtn" type="button" aria-label="ทำซ้ำ (Ctrl+Y)" title="ทำซ้ำ (Ctrl+Y)" disabled><svg viewBox="0 0 24 24"><path d="M15 14l5-5-5-5M20 9H10a6 6 0 0 0 0 12h3"/></svg></button>
-    </div>
-    <span class="bar-sep" aria-hidden="true"></span>
-    <div class="bar-grp">
+      <span class="tb-sep" aria-hidden="true"></span>
+      <button class="btn ghost" id="closeFileBtn" type="button" title="ปิดไฟล์นี้แล้วกลับหน้าเริ่มต้น" hidden><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>ปิดไฟล์</button>
       <label class="btn" id="hdrUpload" for="fileInput" hidden><svg viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></svg>อัปโหลด Excel</label>
       <input id="fileInput" type="file" accept=".xlsx,.xlsm,.xls" hidden>
       <div class="menu">
@@ -552,21 +559,13 @@ th { background:var(--th-bg); color:var(--muted); font-weight:600; font-size:12p
       </div>
       <div class="menu">
         <button class="icbtn" id="moreBtn" type="button" data-menu aria-haspopup="menu" aria-expanded="false" aria-label="เมนูเพิ่มเติม" title="เพิ่มเติม"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/></svg></button>
-        <div class="menupop right" role="menu" hidden>
+        <div class="menupop" role="menu" hidden>
           <button class="mi" id="sampleBtn" type="button" role="menuitem">โหลดข้อมูลตัวอย่าง</button>
           <button class="mi" id="installBtn" type="button" role="menuitem" hidden>ติดตั้งแอป</button>
         </div>
       </div>
     </div>
-    <span class="bar-sep" aria-hidden="true"></span>
-    <div class="bar-grp">
-      <button class="icbtn" id="themeBtn" type="button" aria-label="สลับโหมดสว่าง/มืด" title="สลับโหมดสว่าง/มืด"><svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg></button>
-      <button class="icbtn" id="logoutBtn" type="button" aria-label="ออกจากระบบ" title="ออกจากระบบ" hidden><svg viewBox="0 0 24 24"><path d="M9 4H5v16h4M16 8l4 4-4 4M20 12H9"/></svg></button>
-    </div>
   </div>
-</header>
-<div class="wrap">
-  <div class="pagehead"><h1 id="pgT">สร้างจาก Process Flow</h1><p id="pgS"></p></div>
   <p id="msg" role="status" aria-live="polite"></p>
   <div class="errbox" id="errBox" role="alert" hidden></div>
   <div class="notice" id="presBar" role="status" aria-live="polite" hidden><b aria-hidden="true">i</b><span id="presTxt"></span><button class="linkbtn" id="presReload" type="button" hidden>โหลดเวอร์ชันล่าสุด</button></div>
