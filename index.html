@@ -409,6 +409,7 @@ th { background:var(--th-bg); color:var(--muted); font-weight:600; font-size:12p
 </style>
 <style>
 /* ===== ย่อ/ขยาย sidebar + ปุ่มออกจากระบบ ===== */
+.bar .crumb.appname b { font-size:17px; letter-spacing:-.01em; }
 .app { transition:grid-template-columns .22s ease; }
 .app.collapsed { grid-template-columns:72px minmax(0,1fr); }
 .side { overflow:hidden; }
@@ -454,7 +455,7 @@ th { background:var(--th-bg); color:var(--muted); font-weight:600; font-size:12p
 <div class="main">
 <header class="bar">
   <button class="icbtn" id="sideToggle" type="button" aria-label="ย่อ/ขยายเมนูด้านข้าง" aria-expanded="true" title="ย่อ/ขยายเมนู"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
-  <div class="crumb">พื้นที่ทำงาน <span aria-hidden="true">/</span> <b id="crumb">สร้างจาก Process Flow</b></div>
+  <div class="crumb appname"><b>Line Balance</b><span aria-hidden="true">/</span><span>Man-Machine Studio</span></div><span id="crumb" hidden></span>
   <div class="file-chip" id="fileChip"></div>
   <span class="live" id="live">รอข้อมูล</span>
   <label class="btn" for="fileInput">อัปโหลด Excel</label>
