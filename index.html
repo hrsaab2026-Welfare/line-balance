@@ -2522,6 +2522,24 @@ body.viewer .tabpanel td input, body.viewer .tabpanel .field input { opacity: .8
 }
 @media (max-width:960px) { .side { border-radius:16px; margin:8px 12px 0; } }
 </style>
+<style>
+/* ป้ายสถานะบันทึก: แยกสีและแอนิเมชันตามสถานะ */
+.live[data-s] { animation:livePop .35s cubic-bezier(.2,.9,.3,1.3); }
+.live[data-s="pend"] { color:var(--warn-text); background:color-mix(in srgb,var(--warn) 16%,var(--surface)); }
+.live[data-s="pend"]::before { background:var(--warn); animation:livePulse 1.4s ease-in-out infinite; }
+.live[data-s="busy"] { color:color-mix(in srgb,var(--accent) 80%,var(--fg)); background:color-mix(in srgb,var(--accent) 14%,var(--surface)); }
+.live[data-s="busy"]::before { box-sizing:border-box; width:12px; height:12px; background:none; border:2px solid color-mix(in srgb,currentColor 30%,transparent); border-top-color:currentColor; animation:liveSpin .7s linear infinite; }
+.live[data-s="ok"] { color:var(--good-text); background:color-mix(in srgb,var(--good) 13%,var(--surface)); }
+.live[data-s="ok"]::before { content:"✓"; width:16px; height:16px; display:grid; place-items:center; font-size:10px; font-weight:700; line-height:1; color:#fff; background:var(--good); }
+.live[data-s="bad"]::before { animation:livePulse 1.4s ease-in-out infinite; }
+.bar .live[data-s="pend"] { color:#f6d98a; background:hsla(38,80%,55%,.2); } .bar .live[data-s="pend"]::before { background:#f3c04d; }
+.bar .live[data-s="busy"] { color:#a9d4ff; background:hsla(210,90%,65%,.2); }
+.bar .live[data-s="ok"] { color:#8be8ae; background:hsla(145,60%,50%,.16); } .bar .live[data-s="ok"]::before { color:#06211c; background:#5fe39a; }
+@keyframes livePop { from { opacity:0; transform:translateY(4px) scale(.94); } to { opacity:1; transform:none; } }
+@keyframes livePulse { 0% { box-shadow:0 0 0 0 color-mix(in srgb,currentColor 55%,transparent); } 70%,100% { box-shadow:0 0 0 7px transparent; } }
+@keyframes liveSpin { to { transform:rotate(360deg); } }
+@media (prefers-reduced-motion:reduce) { .live[data-s], .live[data-s]::before { animation:none !important; } }
+</style>
 <div id="lbGate" role="dialog" aria-modal="true" aria-label="เข้าสู่ระบบ">
   <div class="gate-wrap">
     <aside class="gate-brand" aria-hidden="true">
@@ -2673,7 +2691,7 @@ window.lbConfirm = function (o) {
       user = r.data.session.user; $('gPass').value = ''; gm(''); gate(false); afterAuth(); syncOut();
     }).catch(function () { gbusy(false); gm('เชื่อมต่อไม่ได้ ตรวจอินเทอร์เน็ตแล้วลองใหม่', true); });
   }
-  function stat(t, err) { var el = $('cloudStat'); if (!el) return; el.hidden = !t; el.textContent = t || ''; el.className = 'live' + (err ? ' bad' : ''); }
+  function stat(t, err) { var el = $('cloudStat'); if (!el) return; el.hidden = !t; el.textContent = t || ''; el.className = 'live' + (err ? ' bad' : ''); var s = !t ? '' : err ? 'bad' : /กำลังบันทึก/.test(t) ? 'busy' : /^รอบันทึก/.test(t) ? 'pend' : /แล้ว/.test(t) ? 'ok' : ''; if (s) el.setAttribute('data-s', s); else el.removeAttribute('data-s'); el.style.animation = 'none'; void el.offsetWidth; el.style.animation = ''; }
   function hhmm() { var d = new Date(); return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); }
   function newName() {
     var d = new Date(), p2 = function (n) { return ('0' + n).slice(-2); };
