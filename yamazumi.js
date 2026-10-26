@@ -1,7 +1,7 @@
 /* Yamazumi (กราฟแท่งซ้อน VA / NVA / Waste) และข้อเสนอแนะย้ายงานลดคอขวด (ฟังก์ชันล้วน ทดสอบด้วย Node ได้) */
 (function (root) {
 'use strict';
-var WASTE_RE = /walk|wait|idle|search|rework|defect|scrap|เดิน|รอ|หา|แก้งาน|ซ่อม/i;
+var WASTE_RE = /^(walk|wait|idle|search|rework|defect|scrap)|^(เดิน|รอ|หา|แก้งาน|ซ่อม)(?![\u0E00-\u0E7F])/i;
 var NVA_RE = /^(set|move|take|pick|load|unload|check|inspect|mark|handl|transport|supply|store|clean|เตรียม|หยิบ|วาง|ตรวจ|ขนย้าย|เคลื่อน|ทำความสะอาด)/i;
 var TH = { va: 'งานเพิ่มคุณค่า (VA)', nva: 'งานจำเป็นแต่ไม่เพิ่มคุณค่า (NVA)', waste: 'ความสูญเปล่า (Waste)' };
 

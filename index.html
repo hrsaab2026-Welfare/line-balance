@@ -1055,7 +1055,7 @@ function renderFlowResult(res) {
   var manSum = men.reduce(function (a, r) { return a + loads[r.id]; }, 0);
   var manMax = men.reduce(function (a, r) { return Math.max(a, loads[r.id]); }, 0);
   var eff = men.length && manMax ? manSum / (men.length * manMax) : null;
-  var minMen = T ? Math.max(1, Math.ceil(manSum / T - 1e-9)) : null;
+  var minMen = T && men.length ? Math.max(1, Math.ceil(manSum / T - 1e-9)) : null;
   var bott = R.slice().sort(function (a, b) { return loads[b.id] - loads[a.id]; })[0];
   var over = T && m.cycle > T + 1e-9;
   var smp = flSample().any;
@@ -1873,7 +1873,7 @@ body.viewer .tabpanel td input, body.viewer .tabpanel .field input { opacity: .8
     sb.auth.signInWithPassword({ email: toEmail(u), password: pw }).then(function (r) {
       if (r.error) { gm(/invalid login/i.test(r.error.message) ? 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' : r.error.message, true); return; }
       user = r.data.session.user; $('gPass').value = ''; gm(''); gate(false); afterAuth();
-    });
+    }).catch(function () { gm('เชื่อมต่อไม่ได้ ตรวจอินเทอร์เน็ตแล้วลองใหม่', true); });
   }
   function stat(t, err) { var el = $('cloudStat'); if (!el) return; el.hidden = !t; el.textContent = t || ''; el.className = 'live' + (err ? ' bad' : ''); }
   function hhmm() { var d = new Date(); return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); }

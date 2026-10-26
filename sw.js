@@ -18,12 +18,12 @@ self.addEventListener('fetch', function (e) {
   var u = new URL(r.url);
   if (u.origin === location.origin) {
     e.respondWith(fetch(r).then(function (res) {
-      if (res.ok) { var cp = res.clone(); caches.open(CACHE).then(function (c) { c.put(r, cp); }); }
+      if (res.ok && res.status === 200) { var cp = res.clone(); caches.open(CACHE).then(function (c) { c.put(r, cp); }); }
       return res;
     }).catch(function () { return caches.match(r, { ignoreSearch: true }).then(function (m) { return m || (r.mode === 'navigate' ? caches.match('index.html') : Response.error()); }); }));
   } else if (CDN.test(r.url)) {
     e.respondWith(caches.match(r).then(function (m) {
-      return m || fetch(r).then(function (res) { if (res.ok || res.type === 'opaque') { var cp = res.clone(); caches.open(CACHE).then(function (c) { c.put(r, cp); }); } return res; });
+      return m || fetch(r).then(function (res) { if (res.status === 200 || res.type === 'opaque') { var cp = res.clone(); caches.open(CACHE).then(function (c) { c.put(r, cp); }); } return res; });
     }));
   }
 });
