@@ -1,6 +1,13 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#16324f"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Line Balance"><meta name="apple-mobile-web-app-status-bar-style" content="default"><link rel="icon" type="image/svg+xml" href="icons/icon.svg"><link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png"><link rel="apple-touch-icon" href="icons/apple-touch-icon.png"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>Line Balance Chart</title>
 <meta name="claude:viewport-fit-sides" content="cover">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#16324f">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Line Balance">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&family=Sarabun:wght@400;500;600&family=Outfit:wght@400;500;600&display=swap">
@@ -519,6 +526,7 @@ th { background:var(--th-bg); color:var(--muted); font-weight:600; font-size:12p
     <div class="sec-head"><h2>Man-Machine Chart</h2><span class="note" id="ganttNote"></span><label class="chk"><input type="checkbox" id="parChk" checked><span>คนและเครื่องทำงานพร้อมกัน (คู่ขนาน)</span></label></div>
     <div class="panel">
       <div class="legend" id="ganttLegend"></div>
+      <div class="zoomc" id="ganttZoom"><button class="icbtn" id="zOut" type="button" aria-label="ซูมออก">−</button><button class="icbtn" id="zIn" type="button" aria-label="ซูมเข้า">+</button><button class="btn ghost sm" id="zFit" type="button">พอดีจอ</button><span class="hint" id="zPct" aria-live="polite"></span><span class="hint">บนมือถือใช้สองนิ้วถ่างเพื่อซูมได้</span></div>
       <div class="scroll" id="gantt"></div>
     </div>
   </section>
@@ -642,7 +650,7 @@ function renderLoadChart(m) {
   lines.sort(function (a, b) { return a.v - b.v; });
   var bars = '';
   R.forEach(function (r, k) {
-    var y = top + k * rowH, ld = m.loads[r.id], st = lbStatus(ld, m.cycle);
+    var y = top + k * rowH, ld = m.loads[r.id], st = status(ld, m.cycle);
     var col = st.cls === 'bad' ? 'var(--bad)' : st.cls === 'warn' ? 'var(--warn)' : { man: 'var(--accent)', robot: 'var(--c1)', jig: 'var(--c4)' }[r.kind] || 'var(--bar)';
     var tip = esc(r.name) + (r.tag ? ' (' + esc(r.tag) + ')' : '') + ' · โหลด ' + fmt(ld) + ' วินาที · ' + pct(m.cycle ? ld / m.cycle : 0) + ' ของ Cycle';
     bars += '<text class="strong" x="' + (gut - 10) + '" y="' + (y + rowH / 2 + 4) + '" text-anchor="end">' + esc(r.name) + (r.tag ? '<tspan class="mut" dx="5" style="font-size:11px">' + esc(r.tag) + '</tspan>' : '') + '</text>';
@@ -667,7 +675,7 @@ function renderResTable(m) {
   S.resources.forEach(function (r) {
     h += '<tr><td><b>' + esc(r.name) + '</b>' + (r.tag ? ' <span style="color:var(--muted)">' + esc(r.tag) + '</span>' : '') + '</td><td>' + KIND_TH[r.kind] + '</td>' +
       '<td class="r mono" id="rl-' + r.id + '"></td>' +
-      '<td class="r"><input class="mult" id="mult-' + r.id + '" data-rid="' + r.id + '" type="number" min="0" step="any" inputmode="decimal" value="' + r.mult + '" aria-label="จำนวนชิ้นต่อรอบของ ' + esc(r.name) + '"></td>' +
+      '<td class="r"><input class="mult" id="mult-' + r.id + '" data-rid="' + r.id + '" type="number" min="0" step="any" value="' + r.mult + '" aria-label="จำนวนชิ้นต่อรอบของ ' + esc(r.name) + '"></td>' +
       '<td class="r mono" id="ru-' + r.id + '"></td><td class="r mono" id="ri-' + r.id + '"></td><td id="rs-' + r.id + '"></td></tr>';
   });
   $('resTable').innerHTML = h + '</tbody>';
@@ -675,7 +683,7 @@ function renderResTable(m) {
 }
 function patchRes(m) {
   S.resources.forEach(function (r) {
-    var ld = m.loads[r.id], st = lbStatus(ld, m.cycle);
+    var ld = m.loads[r.id], st = status(ld, m.cycle);
     var a = $('rl-' + r.id); if (a) a.textContent = fmt(ld);
     a = $('ru-' + r.id); if (a) a.textContent = pct(m.cycle ? ld / m.cycle : 0);
     a = $('ri-' + r.id); if (a) a.textContent = fmt(m.cycle - ld);
@@ -738,10 +746,10 @@ function renderElemTable(m) {
   S.elements.forEach(function (e, i) {
     var first = e.step !== last; last = e.step;
     h += '<tr' + (first && i ? ' class="stepstart"' : '') + '><td>' + (first ? '<b>' + esc(e.step) + '</b>' : '') + '</td><td><span class="swatch" style="background:var(--c' + ci.map[e.cat] + ')"></span>' + esc(e.cat) + '</td><td class="wrapcell">' + esc(e.name) + '</td>' +
-      '<td class="r"><input data-e="' + i + '" data-f="time" id="t-' + i + '" type="number" min="0" step="any" inputmode="decimal" value="' + e.time + '" aria-label="เวลา ' + esc(e.name) + '"></td>';
+      '<td class="r"><input data-e="' + i + '" data-f="time" id="t-' + i + '" type="number" min="0" step="any" value="' + e.time + '" aria-label="เวลา ' + esc(e.name) + '"></td>';
     R.forEach(function (r) {
       var v = e.vals[r.id];
-      h += '<td class="r"><input data-e="' + i + '" data-f="' + r.id + '" id="c-' + i + '-' + r.id + '" type="number" min="0" step="any" inputmode="decimal" value="' + (v == null ? '' : v) + '" aria-label="' + esc(r.name) + ' ' + esc(e.name) + '"></td>';
+      h += '<td class="r"><input data-e="' + i + '" data-f="' + r.id + '" id="c-' + i + '-' + r.id + '" type="number" min="0" step="any" value="' + (v == null ? '' : v) + '" aria-label="' + esc(r.name) + ' ' + esc(e.name) + '"></td>';
     });
     h += '</tr>';
   });
@@ -843,7 +851,7 @@ function renderScTable(M) {
     h += '<tr><td>' + esc(r.key.replace(/#\d+$/, '').replace(/\b\w/g, function (c) { return c.toUpperCase(); })) + '</td>';
     M.sc.forEach(function (x, si) {
       var g = x.segs.filter(function (q) { return q.key === r.key; })[0];
-      h += g ? '<td class="r"><input data-sc="' + si + '" data-pi="' + g.pi + '" id="sc-' + si + '-' + g.pi + '" type="number" min="0" step="any" inputmode="decimal" value="' + g.p.time + '" aria-label="' + esc(x.s.name) + ' ' + esc(g.p.name) + '"></td>' : '<td class="r" style="color:var(--muted)">—</td>';
+      h += g ? '<td class="r"><input data-sc="' + si + '" data-pi="' + g.pi + '" id="sc-' + si + '-' + g.pi + '" type="number" min="0" step="any" value="' + g.p.time + '" aria-label="' + esc(x.s.name) + ' ' + esc(g.p.name) + '"></td>' : '<td class="r" style="color:var(--muted)">—</td>';
     });
     M.sc.slice(1).forEach(function (x, j) { h += '<td class="r mono" id="scr-' + ri + '-' + (j + 1) + '"></td>'; });
     h += '</tr>';
@@ -1071,7 +1079,7 @@ function renderFlowResult(res) {
   h += '<div class="rs-legend"><b>งานแต่ละคน</b>' + ci.list.map(function (cat) { return '<span><i style="background:var(--c' + ci.map[cat] + ')"></i>' + esc(cat) + '</span>'; }).join('') + '<span class="muted">ความกว้างของแท่ง = เวลา · เส้นดำ = ' + (T ? 'Takt Time' : 'Cycle Time สูงสุด') + '</span></div>';
   h += '<div class="rs-cards">';
   R.forEach(function (r) {
-    var ld = loads[r.id], st = lbStatus(ld, ref), tasks = m.elements.filter(function (e) { return e.vals[r.id] > 0; });
+    var ld = loads[r.id], st = status(ld, ref), tasks = m.elements.filter(function (e) { return e.vals[r.id] > 0; });
     var av = r.kind === 'robot' ? 'R' : 'M' + ((r.name.match(/\d+/) || [''])[0]);
     h += '<article class="rs-card' + (ld > ref + 1e-9 ? ' over' : '') + '"><div class="rs-ch"><span class="rs-av ' + r.kind + '" aria-hidden="true">' + esc(av) + '</span><div class="who"><b>' + esc(r.name) + '</b><small>' + (r.kind === 'robot' ? 'หุ่นยนต์ / เครื่อง' : 'พนักงาน') + ' · ' + tasks.length + ' งาน</small></div><span class="pill ' + st.cls + '"><span aria-hidden="true">' + st.ico + '</span>' + st.txt + '</span></div>' +
       '<div class="rs-big"><b>' + fmt(ld) + '</b><span>วินาที / รอบ</span><span class="mono">· ' + pct(ref ? ld / ref : 0) + ' ของ ' + (T ? 'Takt' : 'Cycle') + '</span></div>' +
@@ -1636,7 +1644,6 @@ function showTip(e) {
   if (!t) { tip.classList.remove('on'); return; }
   tip.innerHTML = t.getAttribute('data-tip');
   var x = e.clientX + 14, y = e.clientY + 14, w = tip.offsetWidth;
-  if (e.pointerType === 'touch') y = Math.max(8, e.clientY - tip.offsetHeight - 26);
   if (x + w > window.innerWidth - 8) x = e.clientX - w - 14;
   tip.style.left = Math.max(8, x) + 'px'; tip.style.top = y + 'px';
   tip.classList.add('on');
@@ -1745,6 +1752,26 @@ body.viewer .tabpanel td input, body.viewer .tabpanel .field input { opacity: .8
 .gate-card p { color: var(--fg2); }
 .gate-card input { width: 100%; padding: 10px 12px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--bg); text-align: left; }
 .gate-card .btn { justify-content: center; padding: 10px 14px; }
+/* ---------- มือถือ / แท็บเล็ต ---------- */
+@media (pointer: coarse) {
+  .btn, .linkbtn, .tab { min-height: 44px; }
+  .btn.sm { min-height: 40px; }
+  .icbtn { width: 44px; height: 44px; }
+  input[type=text], input[type=number], input[type=password], input[type=email], select, td input, .field input { min-height: 44px; font-size: 16px; } /* 16px กัน iOS ซูมเองตอนแตะช่อง */
+  td input { min-height: 40px; }
+  input[type=checkbox], input[type=radio] { width: 22px; height: 22px; }
+}
+.scroll { -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
+#gantt { touch-action: pan-x pan-y; }
+#gantt svg { zoom: var(--gz, 1); }
+.zoomc { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+.zoomc .icbtn { font-size: 20px; line-height: 1; }
+@media (max-width: 760px) {
+  #resTable th:first-child, #resTable td:first-child { position: sticky; left: 0; z-index: 1; background: var(--surface); }
+  .wl-cta, .wl-big { width: 100%; justify-content: center; }
+  .wrap, main { padding-left: 12px; padding-right: 12px; }
+}
+#cloudDlg, #rptDlg { max-height: calc(100dvh - 24px); overflow: auto; max-width: calc(100vw - 16px); }
 #lbReport { display: none; --bg:#fff; --surface:#fff; --fg:#14201d; --fg2:#4b5653; --muted:#7d8683; --line:#dcddd6; --line-strong:#c3c4bc; --accent:#11594f; --good:#0a8a0a; --good-text:#006300; --warn:#b97a00; --warn-text:#7a5200; --bad:#c43434; --bad-text:#a52a2a; --text-heading:#14201d; color:#14201d; background:#fff; padding:16px 20px; font-size:12px; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
 #lbReport.cap { display:block; position:fixed; left:-10000px; top:0; width:1123px; }
 #lbReport .rp-h { display:flex; align-items:center; gap:16px; border-bottom:3px solid var(--accent); padding-bottom:10px; margin-bottom:10px; }
@@ -1758,100 +1785,6 @@ body.viewer .tabpanel td input, body.viewer .tabpanel .field input { opacity: .8
 #lbReport .rp-f { margin-top:12px; padding-top:6px; border-top:1px solid var(--line); color:var(--muted); font-size:11px; display:flex; justify-content:space-between; gap:12px; }
 @page { size:A4 landscape; margin:10mm; }
 @media print { body.rpt-print > *:not(#lbReport) { display:none !important; } body.rpt-print #lbReport { display:block; padding:0; } }
-</style>
-<style>
-/* ===== ใช้บนมือถือ / แท็บเล็ต: ปุ่มใหญ่พอกดด้วยนิ้ว ตารางและกราฟเลื่อน/ซูมได้ ===== */
-html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
-button, .btn, .tab, label, select, input, summary, a { touch-action: manipulation; }
-button, .btn, .tab { -webkit-tap-highlight-color: color-mix(in srgb, var(--accent) 22%, transparent); }
-.tip { z-index: 60; }
-
-/* ตารางและกราฟเลื่อนแนวนอนลื่น มีเงาจางที่ขอบบอกว่ายังเลื่อนต่อได้ */
-.scroll, [data-zoomable] {
-  overflow-x: auto; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch;
-  background:
-    linear-gradient(to right, var(--surface), var(--surface)) left center / 28px 100% no-repeat local,
-    linear-gradient(to left, var(--surface), var(--surface)) right center / 28px 100% no-repeat local,
-    linear-gradient(to right, color-mix(in srgb, var(--fg) 16%, transparent), transparent) left center / 12px 100% no-repeat scroll,
-    linear-gradient(to left, color-mix(in srgb, var(--fg) 16%, transparent), transparent) right center / 12px 100% no-repeat scroll;
-  background-color: var(--surface);
-}
-
-/* ซูมกราฟ: ปุ่ม − + และบีบนิ้ว (js/mobile.js) */
-[data-zoomable] { touch-action: pan-x pan-y; }
-[data-zoomable] svg { max-width: none; }
-[data-zoomable].zpct svg { width: calc(100% * var(--z, 1)); min-width: calc(var(--minw, 0px) * var(--z, 1)); height: auto; }
-[data-zoomable].znat svg { width: calc(var(--nw, 100%) * var(--z, 1)); height: auto; }
-@media (max-width: 720px) { [data-zoomable].zpct { --minw: 560px; } }
-.zoombar { display: none; justify-content: flex-end; align-items: center; gap: 6px; margin: 0 0 10px; }
-@media (max-width: 960px), (pointer: coarse) { .zoombar { display: flex; } }
-.zoombar .icbtn { width: 40px; height: 40px; font-size: 20px; line-height: 1; }
-.zoombar .zoomval { min-width: 60px; height: 40px; padding: 0 8px; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--surface); color: var(--fg2); font: 600 13px var(--font-data); cursor: pointer; }
-.zoombar .zoomval:hover { color: var(--accent); border-color: var(--accent); }
-
-/* ข้อความลอย: มีเวอร์ชันใหม่ / วิธีติดตั้งบน iPhone */
-.pwa-toast { position: fixed; left: 12px; right: 12px; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); z-index: 70; display: flex; align-items: center; gap: 10px; max-width: 520px; margin-inline: auto; padding: 10px 12px 10px 16px; border-radius: 14px; border: 1px solid hsla(38, 55%, 48%, .5); background: var(--brand-navy-800); color: #fff; font-size: 13.5px; box-shadow: 0 10px 30px rgba(0, 0, 0, .35); }
-.pwa-toast span { flex: 1; min-width: 0; }
-.pwa-toast .btn { padding: 8px 14px; background: var(--brand-gold); border-color: var(--brand-gold); color: var(--brand-navy-900); box-shadow: none; }
-.pwa-toast .icbtn { flex: none; font-size: 20px; line-height: 1; background: hsla(0, 0%, 100%, .1); border-color: hsla(0, 0%, 100%, .2); color: #fff; }
-
-/* จอแท็บเล็ตและมือถือ: แถบหัวไม่ล้นจอ (เส้นทองเดิมลอยหลุดตำแหน่งเมื่อเลิก sticky จึงเปลี่ยนเป็นเงาในตัว) */
-@media (max-width: 960px) {
-  .nav.tabs { flex-direction: row; flex-wrap: nowrap; } /* กฎเดิม .nav.tabs (column + wrap) ทำให้แท็บบนแท็บเล็ต/มือถือเรียงซ้อนลงมาเป็นตั้ง */
-  .nav .tab { width: auto; flex: none; }
-  .file-chip:empty { display: none; }
-  .bar { position: relative; box-shadow: 0 8px 26px hsla(210, 60%, 12%, .28), inset 0 -2px 0 hsla(38, 55%, 48%, .85); }
-  .bar::after { display: none; }
-}
-
-/* มือถือ: เมนูหลักลงมาอยู่ล่างจอ (นิ้วโป้งถึง) แถบหัวเลื่อนปุ่มแนวนอนแถวเดียว */
-@media (max-width: 720px) {
-  .app { padding-bottom: calc(66px + env(safe-area-inset-bottom, 0px)); }
-  .side { position: fixed; left: 0; right: 0; bottom: 0; top: auto; z-index: 40; height: auto; gap: 0; overflow: visible; padding: 6px 6px calc(6px + env(safe-area-inset-bottom, 0px)); box-shadow: 0 -6px 22px rgba(0, 0, 0, .28), inset 0 1px 0 hsla(38, 55%, 48%, .35); }
-  .side > div { flex: 1; min-width: 0; }
-  .brand { display: none; }
-  .nav { width: 100%; gap: 4px; }
-  .nav .tab { flex: 1; min-width: 0; min-height: 54px; flex-direction: column; justify-content: center; gap: 3px; padding: 7px 4px; white-space: normal; text-align: center; font-size: 11.5px; line-height: 1.25; }
-  .nav .tab svg { width: 22px; height: 22px; }
-  .nav .tab.on { box-shadow: inset 0 3px 0 var(--brand-gold); }
-  .bar { flex-wrap: nowrap; overflow-x: auto; gap: 8px; padding: .6rem .8rem; border-radius: 16px; scrollbar-width: none; overscroll-behavior-x: contain; }
-  .bar::-webkit-scrollbar { display: none; }
-  .bar > * { flex: none; }
-  .bar .crumb { display: none; }
-  .bar .file-chip { max-width: none; }
-  .bar .file-chip, .bar .file-chip span { white-space: nowrap; }
-  .pwa-toast { bottom: calc(74px + env(safe-area-inset-bottom, 0px)); }
-  #cloudDlg, #rptDlg { width: calc(100vw - 16px); margin: auto auto calc(8px + env(safe-area-inset-bottom, 0px)); }
-  .pagehead h1 { font-size: 22px; }
-  .wl-hero { padding: 24px 18px; }
-  .wl-cta { width: 100%; } .wl-cta .wl-big { flex: 1 1 100%; justify-content: center; }
-}
-
-/* กล่องโต้ตอบไม่สูงเกินจอ (เวลาแป้นพิมพ์เด้ง) */
-#cloudDlg, #rptDlg { max-height: calc(100dvh - 24px); overflow: auto; overscroll-behavior: contain; }
-.cd-list { max-height: min(280px, 40dvh); -webkit-overflow-scrolling: touch; }
-
-/* หน้าจอสัมผัส (มือถือ แท็บเล็ต): เป้ากดอย่างน้อย 44px และฟอนต์ช่องกรอก 16px กัน iPhone ซูมหน้าเองตอนแตะ */
-@media (pointer: coarse) {
-  .btn, .tab { min-height: 44px; }
-  .icbtn { width: 44px; height: 44px; }
-  .iconbtn { width: 40px; height: 40px; font-size: 16px; }
-  .linkbtn { padding: 10px 6px; font-size: 13px; }
-  .cd .btn.sm { min-height: 44px; padding: 8px 12px; }
-  .chk { min-height: 44px; }
-  .chk input { width: 46px; height: 28px; }
-  .chk input::after { top: 3px; left: 3px; width: 22px; height: 22px; }
-  .chk input:checked::after { transform: translateX(18px); }
-  .hint input[type=checkbox] { width: 22px; height: 22px; }
-  input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]):not([type=hidden]), select, textarea { font-size: 16px !important; min-height: 44px; }
-  td input { width: 72px; } td input.mult { width: 64px; }
-  .wi-r input { min-height: 32px; }
-  .btn:hover { transform: none; filter: none; }
-  .btn:active, .icbtn:active, .iconbtn:active { transform: scale(.96); }
-}
-
-/* ติดตั้งเป็นแอปแล้ว: กันดึงหน้าลงรีเฟรชโดยไม่ตั้งใจตอนกรอกเวลา */
-@media (display-mode: standalone) { html, body { overscroll-behavior-y: none; } }
 </style>
 <div id="lbGate" role="dialog" aria-modal="true" aria-label="เข้าสู่ระบบ">
   <form class="gate-card" id="gForm" onsubmit="return false">
@@ -2433,5 +2366,27 @@ button, .btn, .tab { -webkit-tap-highlight-color: color-mix(in srgb, var(--accen
 })();
 </script>
 
-<script src="js/mobile.js" defer></script>
+<script>
+/* ---------- มือถือ: ซูมกราฟ Man-Machine + ติดตั้งแอป (PWA) ---------- */
+(function () {
+  var g = $('gantt'), z = 1, d0 = 0, z0 = 1, first = true;
+  function set(v) { z = Math.max(0.3, Math.min(3, v)); g.style.setProperty('--gz', z); $('zPct').textContent = Math.round(z * 100) + '%'; }
+  function fit() { var sv = g.querySelector('svg'); if (sv) set(g.clientWidth / (+sv.getAttribute('width') || g.clientWidth)); }
+  function dist(e) { var a = e.touches[0], b = e.touches[1]; return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY); }
+  $('zIn').addEventListener('click', function () { set(z * 1.25); });
+  $('zOut').addEventListener('click', function () { set(z / 1.25); });
+  $('zFit').addEventListener('click', fit);
+  g.addEventListener('touchstart', function (e) { if (e.touches.length === 2) { d0 = dist(e); z0 = z; } }, { passive: true });
+  g.addEventListener('touchmove', function (e) { if (e.touches.length === 2 && d0) set(z0 * dist(e) / d0); }, { passive: true });
+  g.addEventListener('touchend', function () { d0 = 0; });
+  new MutationObserver(function () { if (first && g.querySelector('svg') && g.clientWidth > 0) { first = false; if (innerWidth < 760) fit(); } }).observe(g, { childList: true });
+  set(1);
+
+  var ev = null, btn = $('installBtn');
+  addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); ev = e; btn.hidden = false; });
+  btn.addEventListener('click', function () { if (!ev) return; ev.prompt(); ev.userChoice.finally(function () { ev = null; btn.hidden = true; }); });
+  addEventListener('appinstalled', function () { btn.hidden = true; });
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js').catch(function () {});
+})();
+</script>
 </body></html>

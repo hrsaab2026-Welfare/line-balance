@@ -1,19 +1,17 @@
 {
-  "name": "Line Balance Chart · Man-Machine Studio",
+  "name": "Line Balance Chart",
   "short_name": "Line Balance",
-  "description": "ทำ Line Balance และ Man-Machine Chart บันทึกงานขึ้น Cloud ใช้ได้ทั้งคอม แท็บเล็ต และมือถือ",
+  "description": "Line Balance / Man-Machine Chart",
   "lang": "th",
-  "id": "./",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",
-  "background_color": "#0f2137",
+  "background_color": "#16324f",
   "theme_color": "#16324f",
   "icons": [
     { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
-    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }
