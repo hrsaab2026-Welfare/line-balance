@@ -661,7 +661,7 @@ function renderLoadChart(m) {
   lines.sort(function (a, b) { return a.v - b.v; });
   var bars = '';
   R.forEach(function (r, k) {
-    var y = top + k * rowH, ld = m.loads[r.id], st = status(ld, m.cycle);
+    var y = top + k * rowH, ld = m.loads[r.id], st = lbStatus(ld, m.cycle);
     var col = st.cls === 'bad' ? 'var(--bad)' : st.cls === 'warn' ? 'var(--warn)' : { man: 'var(--accent)', robot: 'var(--c1)', jig: 'var(--c4)' }[r.kind] || 'var(--bar)';
     var tip = esc(r.name) + (r.tag ? ' (' + esc(r.tag) + ')' : '') + ' · โหลด ' + fmt(ld) + ' วินาที · ' + pct(m.cycle ? ld / m.cycle : 0) + ' ของ Cycle';
     bars += '<text class="strong" x="' + (gut - 10) + '" y="' + (y + rowH / 2 + 4) + '" text-anchor="end">' + esc(r.name) + (r.tag ? '<tspan class="mut" dx="5" style="font-size:11px">' + esc(r.tag) + '</tspan>' : '') + '</text>';
@@ -694,7 +694,7 @@ function renderResTable(m) {
 }
 function patchRes(m) {
   S.resources.forEach(function (r) {
-    var ld = m.loads[r.id], st = status(ld, m.cycle);
+    var ld = m.loads[r.id], st = lbStatus(ld, m.cycle);
     var a = $('rl-' + r.id); if (a) a.textContent = fmt(ld);
     a = $('ru-' + r.id); if (a) a.textContent = pct(m.cycle ? ld / m.cycle : 0);
     a = $('ri-' + r.id); if (a) a.textContent = fmt(m.cycle - ld);
@@ -987,7 +987,7 @@ function renderTasks() {
   D.procs.forEach(function (p, pi) {
     if (!p.include) return;
     any = true;
-    h += '<tbody><tr class="stephead"><td colspan="6"><span class="stepno mono">' + esc(p.no) + '</span><b>' + esc(p.name) + '</b><span class="stsum mono">รวม ' + fmt(D.elements.reduce(function (a, e) { return e.proc === p.no ? a + (+e.time || 0) : a; }, 0)) + ' s</span>' +
+    h += '<tbody><tr class="stephead"><td colspan="6"><span class="stepno mono">' + esc(p.no) + '</span><b>' + esc(p.name) + '</b><span class="stsum mono" data-sp="' + esc(p.no) + '">รวม ' + fmt(D.elements.reduce(function (a, e) { return e.proc === p.no ? a + (+e.time || 0) : a; }, 0)) + ' s</span>' +
       '<span class="acts"><button class="linkbtn" type="button" data-fa="add" data-pi="' + pi + '">+ เพิ่มงาน</button><button class="linkbtn" type="button" data-fa="reset" data-pi="' + pi + '">สร้างงานย่อยใหม่</button></span></td></tr>';
     D.elements.forEach(function (e) {
       if (e.proc !== p.no) return;
@@ -1005,7 +1005,11 @@ function renderTasks() {
   $('taskTable').innerHTML = h;
 }
 
-function updateProg() { var c = flCounts(); $('flowProg').textContent = 'กรอกเวลาแล้ว ' + c.done + ' จาก ' + c.tot + ' งาน'; }
+function updateProg() {
+  var c = flCounts(); $('flowProg').textContent = 'กรอกเวลาแล้ว ' + c.done + ' จาก ' + c.tot + ' งาน';
+  var sums = {}; D.elements.forEach(function (e) { sums[e.proc] = (sums[e.proc] || 0) + (+e.time || 0); });
+  document.querySelectorAll('.stsum[data-sp]').forEach(function (el) { el.textContent = 'รวม ' + fmt(sums[el.getAttribute('data-sp')] || 0) + ' s'; });
+}
 function updateTaktText() {
   var t = flTaktFromInputs(), el = $('flowTakt');
   if (t && D.takt && Math.abs(D.takt - t) < 0.06) el.innerHTML = 'Takt Time = ' + fmt(+D.minutes) + ' นาที × 60 ÷ ' + fmt(+D.demand) + ' ชิ้น = <b class="mono">' + fmt(D.takt) + '</b> วินาที/ชิ้น';
@@ -1090,7 +1094,7 @@ function renderFlowResult(res) {
   h += '<div class="rs-legend"><b>งานแต่ละคน</b>' + ci.list.map(function (cat) { return '<span><i style="background:var(--c' + ci.map[cat] + ')"></i>' + esc(cat) + '</span>'; }).join('') + '<span class="muted">ความกว้างของแท่ง = เวลา · เส้นดำ = ' + (T ? 'Takt Time' : 'Cycle Time สูงสุด') + '</span></div>';
   h += '<div class="rs-cards">';
   R.forEach(function (r) {
-    var ld = loads[r.id], st = status(ld, ref), tasks = m.elements.filter(function (e) { return e.vals[r.id] > 0; });
+    var ld = loads[r.id], st = lbStatus(ld, ref), tasks = m.elements.filter(function (e) { return e.vals[r.id] > 0; });
     var av = r.kind === 'robot' ? 'R' : 'M' + ((r.name.match(/\d+/) || [''])[0]);
     h += '<article class="rs-card' + (ld > ref + 1e-9 ? ' over' : '') + '"><div class="rs-ch"><span class="rs-av ' + r.kind + '" aria-hidden="true">' + esc(av) + '</span><div class="who"><b>' + esc(r.name) + '</b><small>' + (r.kind === 'robot' ? 'หุ่นยนต์ / เครื่อง' : 'พนักงาน') + ' · ' + tasks.length + ' งาน</small></div><span class="pill ' + st.cls + '"><span aria-hidden="true">' + st.ico + '</span>' + st.txt + '</span></div>' +
       '<div class="rs-big"><b>' + fmt(ld) + '</b><span>วินาที / รอบ</span><span class="mono">· ' + pct(ref ? ld / ref : 0) + ' ของ ' + (T ? 'Takt' : 'Cycle') + '</span></div>' +
@@ -1653,7 +1657,7 @@ var tip = $('tip');
 function showTip(e) {
   var t = e.target.closest ? e.target.closest('[data-tip]') : null;
   if (!t) { tip.classList.remove('on'); return; }
-  tip.innerHTML = t.getAttribute('data-tip');
+  tip.textContent = t.getAttribute('data-tip');
   var x = e.clientX + 14, y = e.clientY + 14, w = tip.offsetWidth;
   if (x + w > window.innerWidth - 8) x = e.clientX - w - 14;
   tip.style.left = Math.max(8, x) + 'px'; tip.style.top = y + 'px';
