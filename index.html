@@ -2540,6 +2540,19 @@ body.viewer .tabpanel td input, body.viewer .tabpanel .field input { opacity: .8
 @keyframes liveSpin { to { transform:rotate(360deg); } }
 @media (prefers-reduced-motion:reduce) { .live[data-s], .live[data-s]::before { animation:none !important; } }
 </style>
+<style>
+/* ป้ายสถานะ Takt/Cycle (#live): ตอนรอข้อมูลให้ดูมีชีวิต ตอนมีผลให้เห็นชัด */
+#live:not(.good):not(.bad):not(.smp) { color:color-mix(in srgb,var(--accent) 78%,var(--fg)); background:linear-gradient(110deg,color-mix(in srgb,var(--accent) 9%,var(--surface)) 30%,color-mix(in srgb,var(--accent) 22%,var(--surface)) 50%,color-mix(in srgb,var(--accent) 9%,var(--surface)) 70%); background-size:220% 100%; animation:liveShimmer 2.8s linear infinite; }
+#live:not(.good):not(.bad):not(.smp)::before { background:var(--accent); animation:livePulse 1.8s ease-in-out infinite; }
+#live.good::before { content:"✓"; width:16px; height:16px; display:grid; place-items:center; font-size:10px; font-weight:700; line-height:1; color:#fff; background:var(--good); }
+#live.bad::before { animation:livePulse 1.4s ease-in-out infinite; }
+#live.smp::before { background:var(--warn); }
+.bar #live:not(.good):not(.bad):not(.smp) { color:#a9d4ff; background:linear-gradient(110deg,hsla(210,90%,70%,.12) 30%,hsla(210,90%,70%,.28) 50%,hsla(210,90%,70%,.12) 70%); background-size:220% 100%; }
+.bar #live:not(.good):not(.bad):not(.smp)::before { background:#7fbcff; }
+.bar #live.good::before { color:#06211c; background:#5fe39a; }
+@keyframes liveShimmer { from { background-position:120% 0; } to { background-position:-120% 0; } }
+@media (prefers-reduced-motion:reduce) { #live, #live::before { animation:none !important; } }
+</style>
 <div id="lbGate" role="dialog" aria-modal="true" aria-label="เข้าสู่ระบบ">
   <div class="gate-wrap">
     <aside class="gate-brand" aria-hidden="true">
