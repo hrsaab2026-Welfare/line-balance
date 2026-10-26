@@ -10,10 +10,56 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&family=Sarabun:wght@400;500;600&family=Outfit:wght@400;500;600&display=swap">
-<script src="js/lazy.js"></script>
-<script src="js/errlog.js"></script>
+<script>/* inline: js/lazy.js */
+/* โหลดไลบรารี Excel เฉพาะตอนที่ใช้ (นำเข้า / ส่งออก / ดาวน์โหลดแม่แบบ) เพื่อให้หน้าเว็บเปิดเร็วบนมือถือและเน็ตโรงงาน */
+(function (root) {
+  var URLS = {
+    xlsx: 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
+    exceljs: 'https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js'
+  }, GLOBAL = { xlsx: 'XLSX', exceljs: 'ExcelJS' }, pending = {};
+  function one(k) {
+    if (root[GLOBAL[k]]) return Promise.resolve(true);
+    if (pending[k]) return pending[k];
+    return (pending[k] = new Promise(function (ok) {
+      var s = document.createElement('script'); s.src = URLS[k];
+      s.onload = function () { ok(true); };
+      s.onerror = function () { delete pending[k]; s.remove(); ok(false); };
+      document.head.appendChild(s);
+    }));
+  }
+  root.lbLoaded = function (ks) { return ks.every(function (k) { return !!root[GLOBAL[k]]; }); };
+  root.lbLoad = function (ks) { return Promise.all(ks.map(one)); }; /* ไม่ reject: ถ้าโหลดไม่ได้ โค้ดเดิมจะแจ้งข้อความเองอยู่แล้ว */
+})(window);
+
+</script>
+<script>/* inline: js/errlog.js */
+/* เก็บข้อผิดพลาดของหน้าเว็บลงตาราง lb_errors (ต้องรัน supabase/backup_logs.sql) ถ้ายังไม่มีตารางจะเงียบและหยุดส่ง */
+(function () {
+  var sent = 0, MAX = 5, seen = {}, ready = true;
+  function send(msg, stack) {
+    var c = window.__lbCloud, db = c && c.db && c.db();
+    if (!db || !ready || sent >= MAX) return;
+    var key = String(msg).slice(0, 120); if (seen[key]) return;
+    seen[key] = 1; sent++;
+    var I = c.info();
+    db.from('lb_errors').insert({ user_name: I.user, job: I.job, msg: String(msg).slice(0, 500), stack: String(stack || '').slice(0, 2000), url: location.pathname, ua: navigator.userAgent.slice(0, 200) })
+      .then(function (r) { if (r.error && /lb_errors|schema cache|does not exist/i.test(r.error.message || '')) ready = false; }, function () {});
+  }
+  window.addEventListener('error', function (e) { if (e.message) send(e.message + ' @' + String(e.filename || '').split('/').pop() + ':' + e.lineno, e.error && e.error.stack); });
+  window.addEventListener('unhandledrejection', function (e) { var r = e.reason; send('Promise: ' + ((r && r.message) || r), r && r.stack); });
+  window.lbLogError = send;
+})();
+
+</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js"></script>
+<script>/* inline: config.js */
+// anon public key ใส่ใน repo public ได้ (ข้อมูลป้องกันด้วย RLS) ห้ามใส่ service_role key
+window.LB_CONFIG = {
+  url: 'https://mvaouszzagncncehcakl.supabase.co',
+  anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12YW91c3p6YWduY25jZWhjYWtsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2NDcyMDksImV4cCI6MjEwODIyMzIwOX0.Z2oZul-M7RrUFHDYDI4nk3DAWAz8Io2bcLbCyFuKamg'
+};
+
+</script>
 </head><body>
 <style>
 /* Layout: one-column workbench. Inputs and verdict on top, load chart and Gantt in the middle, editable tables at the bottom. */
@@ -601,9 +647,525 @@ th { background:var(--th-bg); color:var(--muted); font-weight:600; font-size:12p
 </div>
 <div class="tip" id="tip" role="tooltip"></div>
 
-<script src="js/parse.js"></script>
-<script src="js/calc.js"></script>
-<script src="js/yamazumi.js"></script>
+<script>/* inline: js/parse.js */
+/* ตัวอ่านไฟล์ Excel / Process Flow และตัวจัดไลน์อัตโนมัติ (ไม่แตะหน้าจอ ทดสอบด้วย Node ได้) */
+(function (root) {
+'use strict';
+/* ---- Excel parser: Process Line sheet -> model ---- */
+function lbClean(v) { return v == null ? '' : String(v).replace(/\s+/g, ' ').trim(); }
+function lbNum(v) {
+  if (typeof v === 'number' && isFinite(v)) return v;
+  if (typeof v === 'string' && /^-?\d+(\.\d+)?$/.test(v.trim())) return parseFloat(v);
+  return null;
+}
+var LB_TIME_RE = /^time\s*\(?\s*sec/i;
+
+function lbParseSheet(aoa) {
+  var s = lbClean, num = lbNum, i, j;
+  var h = -1, tc = -1;
+  for (i = 0; i < Math.min(aoa.length, 40) && h < 0; i++) {
+    for (j = 0; j < (aoa[i] || []).length; j++) {
+      if (LB_TIME_RE.test(s(aoa[i][j]))) { h = i; tc = j; break; }
+    }
+  }
+  if (h < 0) return null;
+
+  // resource columns (Robot, Jig, Man ...)
+  var head = aoa[h] || [], sub = aoa[h + 1] || [];
+  var maxC = Math.max(head.length, sub.length);
+  var cols = [], lastHead = '';
+  for (j = tc + 1; j < maxC; j++) {
+    var hd = s(head[j]), sb = s(sub[j]);
+    if (!hd && !sb) { lastHead = ''; continue; }
+    if (hd) lastHead = hd;
+    var base = hd || lastHead;
+    var kind = /^man/i.test(base) ? 'man' : /robot/i.test(base) ? 'robot' : /jig/i.test(base) ? 'jig' : 'other';
+    var name, tag = '';
+    if (kind === 'man') { name = base; tag = sb; }
+    else if (kind === 'robot') { name = sb ? 'Robot ' + sb : 'Robot'; }
+    else if (kind === 'jig') { name = 'Jig ' + (sb || ''); name = name.trim(); }
+    else { name = sb && hd !== sb ? base + ' ' + sb : base; }
+    cols.push({ col: j, name: name, kind: kind, tag: tag });
+  }
+
+  if (!cols.some(function (cl) { return cl.kind !== 'other'; })) return null;
+
+  // element rows
+  var elements = [], station = '', step = '', cat = '';
+  var stated = null, firstSummary = null, vals;
+  for (i = h + 2; i < aoa.length; i++) {
+    var r = aoa[i] || [];
+    var a = s(r[0]), b = s(r[1]), c = s(r[2]), d = s(r[3]);
+    if (LB_TIME_RE.test(s(r[tc]))) break;
+    if (/^su\w*\s*total/i.test(a)) {
+      var t0 = num(r[tc]);
+      if (firstSummary == null && t0 != null) firstSummary = t0;
+      var st = {}, any = false;
+      cols.forEach(function (cl) { var v = num(r[cl.col]); if (v != null && v > 0) { st[cl.col] = v; any = true; } });
+      if (any) { stated = st; break; }
+      continue;
+    }
+    if (a) station = a;
+    if (b) step = b;
+    if (/^total$/i.test(c)) continue;
+    if (c) cat = c;
+    var t = num(r[tc]);
+    if (!d || d === '-' || t == null) continue;
+    vals = {};
+    cols.forEach(function (cl) { var v = num(r[cl.col]); if (v != null && v > 0) vals[cl.col] = v; });
+    elements.push({ station: station, step: step, cat: cat || 'อื่นๆ', name: d, time: t, vals: vals });
+  }
+  if (!elements.length) return null;
+
+  // resources that actually have work
+  var resources = cols.filter(function (cl) {
+    return elements.some(function (e) { return e.vals[cl.col] > 0; });
+  }).map(function (cl, k) { return { id: 'r' + k, col: cl.col, name: cl.name, kind: cl.kind, tag: cl.tag }; });
+  var colToId = {};
+  resources.forEach(function (rs) { colToId[rs.col] = rs.id; });
+  elements.forEach(function (e) {
+    var nv = {};
+    Object.keys(e.vals).forEach(function (k) { if (colToId[k]) nv[colToId[k]] = e.vals[k]; });
+    e.vals = nv;
+  });
+
+  // multiplier = pieces each resource handles per cycle (stated summary / sum of rows)
+  resources.forEach(function (rs) {
+    var comp = elements.reduce(function (acc, e) { return acc + (e.vals[rs.id] || 0); }, 0);
+    var stv = stated ? stated[rs.col] : null;
+    rs.mult = stv && comp > 0 ? Math.round((stv / comp) * 100) / 100 : 1;
+  });
+
+  // takt / cycle / pcs
+  var takt = null, pcs = null, cycle = null;
+  for (i = 0; i < aoa.length; i++) {
+    var row = aoa[i] || [];
+    for (j = 0; j < row.length; j++) {
+      var txt = s(row[j]);
+      if (!txt) continue;
+      if (takt == null && /^takt\s*time/i.test(txt)) {
+        for (var k = j + 1; k < row.length; k++) { var nv2 = num(row[k]); if (nv2 != null) { takt = nv2; break; } }
+      }
+      var m = /(\d+(?:\.\d+)?)\s*sec\s*\/\s*(\d+)\s*pcs/i.exec(txt);
+      if (m && cycle == null) { cycle = parseFloat(m[1]); pcs = parseInt(m[2], 10); }
+    }
+  }
+  if (cycle == null) {
+    cycle = firstSummary;
+    if (cycle == null) {
+      cycle = 0;
+      resources.forEach(function (rs) {
+        var l = elements.reduce(function (acc, e) { return acc + (e.vals[rs.id] || 0); }, 0) * rs.mult;
+        if (l > cycle) cycle = l;
+      });
+    }
+  }
+  return { elements: elements, resources: resources, takt: takt, pcs: pcs || 1, cycle: cycle };
+}
+
+function lbParseWorkbook(wb, XLSX) {
+  for (var n = 0; n < wb.SheetNames.length; n++) {
+    var ws = wb.Sheets[wb.SheetNames[n]];
+    var aoa = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: null, blankrows: true });
+    var res = lbParseSheet(aoa);
+    if (res) { res.sheet = wb.SheetNames[n]; return res; }
+  }
+  return null;
+}
+/* ---- Excel parser: Man-Machine scenario sheet (Scenario / Process / Time) ---- */
+function lbParseScenarios(aoa) {
+  var s = lbClean, num = lbNum, i, j, h = -1, cs = -1, cp = -1, ct = -1;
+  for (i = 0; i < Math.min(aoa.length, 40) && h < 0; i++) {
+    var row = aoa[i] || [], a1 = -1, p1 = -1, t1 = -1;
+    for (j = 0; j < row.length; j++) {
+      var x = s(row[j]);
+      if (/^scenario$/i.test(x)) a1 = j;
+      else if (/^process$/i.test(x)) p1 = j;
+      else if (/^time/i.test(x) && t1 < 0) t1 = j;
+    }
+    if (a1 >= 0 && p1 >= 0 && t1 >= 0) { h = i; cs = a1; cp = p1; ct = t1; }
+  }
+  if (h < 0) return null;
+  var map = {}, order = [], cur = '';
+  for (i = h + 1; i < aoa.length; i++) {
+    var r = aoa[i] || [];
+    var a = s(r[cs]), p = s(r[cp]), t = num(r[ct]);
+    if (/^total/i.test(p)) continue;
+    if (a) cur = a;
+    if (!p || t == null || !cur) continue;
+    if (!map[cur]) { map[cur] = []; order.push(cur); }
+    map[cur].push({ name: p, time: t });
+  }
+  if (order.length < 2) return null;
+  return { scenarios: order.map(function (n) { return { name: n, steps: map[n] }; }) };
+}
+function lbParseScenarioWorkbook(wb, XLSX) {
+  for (var n = 0; n < wb.SheetNames.length; n++) {
+    var ws = wb.Sheets[wb.SheetNames[n]];
+    var aoa = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: null, blankrows: true });
+    var res = lbParseScenarios(aoa);
+    if (res) { res.sheet = wb.SheetNames[n]; return res; }
+  }
+  return null;
+}
+/* ---- Process Flow parser (two-column NPC flow sheet) ---- */
+function lbTitle(t) { return String(t).toLowerCase().replace(/\b\w/g, function (c) { return c.toUpperCase(); }).replace(/\bFg\b/, 'FG'); }
+function lbUniq(a) { var seen = {}, out = []; a.forEach(function (x) { var k = x.toUpperCase(); if (!seen[k]) { seen[k] = 1; out.push(x); } }); return out; }
+
+function lbClassify(p) {
+  var n = p.name.toUpperCase();
+  if (/HANDLING|TRANSPORT|SUPPLY|DELIVER|MOVE/.test(n)) return 'move';
+  if (/WAREHOUSE|STORAGE|STORE/.test(n)) return 'storage';
+  if (/INSPECT|AUDIT|CHECK/.test(n)) return 'inspection';
+  return 'operation';
+}
+
+function lbParseProcessFlow(aoa) {
+  var s = lbClean, num = lbNum, i, j, r = -1, starts = [];
+  for (i = 0; i < Math.min(aoa.length, 30) && r < 0; i++) {
+    var row = aoa[i] || [], st = [], hasName = false;
+    for (j = 0; j < row.length; j++) {
+      var x = s(row[j]);
+      if (/^proc\.?$/i.test(x)) st.push(j);
+      if (/process\s*name|ชื่อกระบวนการ/i.test(x)) hasName = true;
+    }
+    if (st.length && hasName) { r = i; starts = st; }
+  }
+  if (r < 0) return null;
+  var maxC = 0;
+  aoa.forEach(function (rw) { if (rw && rw.length > maxC) maxC = rw.length; });
+  function findIn(rows, re, a, b) {
+    for (var q = 0; q < rows.length; q++) {
+      var rw = aoa[rows[q]] || [];
+      for (var c = a; c < Math.min(b, rw.length); c++) if (re.test(s(rw[c]))) return c;
+    }
+    return -1;
+  }
+  var near = [r - 2, r - 1, r, r + 1, r + 2].filter(function (v) { return v >= 0 && v < aoa.length; });
+  var blocks = starts.map(function (pc, k) {
+    var end = k + 1 < starts.length ? starts[k + 1] : maxC;
+    return {
+      pc: pc,
+      nc: findIn(near, /process\s*name|ชื่อกระบวนการ/i, pc + 1, end),
+      mc: findIn(near, /machine/i, pc + 1, end),
+      cc: findIn(near, /characteristics/i, pc + 1, end),
+      pdc: findIn([r], /^product$/i, pc + 1, end),
+      rkc: findIn([r], /^rank$/i, pc + 1, end)
+    };
+  });
+  var procs = [], cur = [];
+  for (i = r + 1; i < aoa.length; i++) {
+    var rw2 = aoa[i] || [], stop = false;
+    for (j = 0; j < rw2.length; j++) if (/\(copy\)|symbols\s*:|core\s*team/i.test(s(rw2[j]))) { stop = true; break; }
+    if (stop) break;
+    blocks.forEach(function (b, k) {
+      var no = num(rw2[b.pc]);
+      if (no != null) { cur[k] = { no: no, lines: [], machines: [], chars: [] }; procs.push(cur[k]); }
+      var p = cur[k];
+      if (!p) return;
+      if (b.nc >= 0) { var t = s(rw2[b.nc]); if (t) p.lines.push(t); }
+      if (b.mc >= 0) { var m = s(rw2[b.mc]); if (m) p.machines.push(m); }
+      var pcs = b.cc >= 0 ? s(rw2[b.cc]) : '', pd = b.pdc >= 0 ? s(rw2[b.pdc]) : '', rk = b.rkc >= 0 ? s(rw2[b.rkc]) : '';
+      if (pcs || pd || rk) p.chars.push({ proc: pcs, prod: pd, rank: rk });
+    });
+  }
+  if (procs.length < 2) return null;
+  procs.sort(function (a, b) { return a.no - b.no; });
+  procs.forEach(function (p) {
+    var nm = [], notes = [];
+    p.lines.forEach(function (t) { if (/=|^\d{6,}$|^\d+\s*\.\s/.test(t)) notes.push(t); else nm.push(t); });
+    p.name = nm.join(' ').replace(/\s+/g, ' ').trim() || p.lines[0] || ('Process ' + p.no);
+    p.notes = notes; delete p.lines;
+    p.type = lbClassify(p);
+    p.robot = p.machines.some(function (m) { return /robot/i.test(m); });
+  });
+  var fo = -1;
+  procs.forEach(function (p, k) { if (fo < 0 && p.type === 'operation') fo = k; });
+  if (fo >= 0) for (i = fo; i < procs.length && (procs[i].type === 'operation' || procs[i].type === 'inspection'); i++) procs[i].inline = true;
+
+  var part = {}, labels = [['cust', /^cust\.?\s*:/i], ['model', /^model\s*:/i], ['partNo', /^part\s*no/i], ['partName', /^part\s*name/i], ['rev', /^rev\.?\s*no/i]];
+  for (i = 0; i < r; i++) {
+    var rr = aoa[i] || [];
+    for (j = 0; j < rr.length; j++) {
+      var tx = s(rr[j]);
+      if (!tx) continue;
+      labels.forEach(function (l) {
+        if (!(l[0] in part) && l[1].test(tx)) {
+          var below = aoa[i + 1] ? s(aoa[i + 1][j]) : '';
+          part[l[0]] = below;
+        }
+      });
+    }
+  }
+  return { part: part, processes: procs };
+}
+function lbParseProcessFlowWorkbook(wb, XLSX) {
+  for (var n = 0; n < wb.SheetNames.length; n++) {
+    var ws = wb.Sheets[wb.SheetNames[n]];
+    var aoa = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: null, blankrows: true });
+    var res = lbParseProcessFlow(aoa);
+    if (res) { res.sheet = wb.SheetNames[n]; return res; }
+  }
+  return null;
+}
+
+/* ---- sub-task generator, draft model, auto balancing ---- */
+function lbBom(procs) {
+  for (var i = 0; i < procs.length; i++) {
+    var out = [];
+    procs[i].notes.forEach(function (t) {
+      var m = /^(\d+)\s*\.\s*(.+?)\s*\/\s*(\S+)\s*$/.exec(t);
+      if (m) out.push({ n: +m[1], name: m[2].trim(), id: m[3] });
+    });
+    if (out.length) return out;
+  }
+  return [];
+}
+
+function lbGenElements(o, bom) {
+  var n = o.name.toUpperCase(), ms = o.machines.join(' ').toUpperCase(), E = [];
+  var allChars = o.chars.map(function (c) { return c.proc + ' ' + c.prod; }).join(' ').toUpperCase();
+  var prodChars = lbUniq(o.chars.map(function (c) { return c.prod; }).filter(function (x) { return x && !/QUANTITY|STATUS/i.test(x); }));
+  if (o.type === 'inspection' || /INSPECT|CHECK/.test(n)) {
+    E.push({ cat: 'Set', name: /FIXTURE/.test(ms) ? 'Set part on checking fixture' : 'Set part for inspection', kind: 'man' });
+    (prodChars.length ? prodChars : ['APPEARANCE']).forEach(function (c) { E.push({ cat: 'Check', name: 'Check ' + lbTitle(c), kind: 'man' }); });
+    E.push({ cat: 'Move', name: 'Mark / Take Off', kind: 'man' });
+  } else if (o.robot || /WELD|MAIN ASS|ASSEMBL/.test(n)) {
+    if (bom && bom.length) bom.forEach(function (b) { E.push({ cat: 'Set', name: 'Set ' + lbTitle(b.name) + ' on jig', kind: 'man' }); });
+    else E.push({ cat: 'Set', name: 'Set parts on jig', kind: 'man' });
+    E.push({ cat: 'Weld', name: o.robot ? 'Robot welding' : 'Welding', kind: o.robot ? 'robot' : 'man' });
+    E.push({ cat: 'Move', name: 'Take Off (FG)', kind: 'man' });
+  } else if (/CLEAN|RUST|OIL/.test(n)) {
+    if (/CLEAN/.test(n)) E.push({ cat: "Ass'y", name: /SPATTER/.test(allChars) ? 'Clean part (remove spatter)' : 'Clean part', kind: 'man' });
+    if (/OIL|RUST/.test(n) || /OIL/.test(ms)) E.push({ cat: "Ass'y", name: 'Apply preventive oil', kind: 'man' });
+    E.push({ cat: 'Move', name: 'Take Off', kind: 'man' });
+  } else if (/PACK/.test(n)) {
+    var box = o.machines.filter(function (m) { return /BOX|PALLET|BAG|CASE/i.test(m); })[0];
+    E.push({ cat: "Ass'y", name: 'Pack into ' + (box ? lbTitle(box) : 'box'), kind: 'man' });
+    if (/IDENT|INDENT|TAG|LABEL/.test(allChars)) E.push({ cat: "Ass'y", name: 'Identify (tag / label)', kind: 'man' });
+    E.push({ cat: 'Move', name: 'Move to rack', kind: 'man' });
+  } else if (o.type === 'move') {
+    E.push({ cat: 'Move', name: lbTitle(o.name), kind: 'man' });
+  } else if (o.type === 'storage') {
+    E.push({ cat: 'Move', name: 'Store / pick part', kind: 'man' });
+  } else {
+    E.push({ cat: 'Set', name: 'Set part', kind: 'man' });
+    E.push({ cat: "Ass'y", name: lbTitle(o.name), kind: o.robot ? 'robot' : 'man' });
+    E.push({ cat: 'Move', name: 'Take Off', kind: 'man' });
+  }
+  return E;
+}
+
+function lbAddGenerated(D, o) {
+  lbGenElements(o, D.bom).forEach(function (g) {
+    D.elements.push({ id: D.nextId++, proc: o.no, cat: g.cat, name: g.name, kind: g.kind, time: null });
+  });
+}
+
+function lbInitDraft(pf) {
+  var D = { part: pf.part, bom: lbBom(pf.processes), procs: [], elements: [], nextId: 1, takt: null, demand: '', minutes: '', menFix: '', sheet: pf.sheet || '' };
+  pf.processes.forEach(function (p) {
+    var o = { no: p.no, name: p.name, notes: p.notes, machines: p.machines, chars: p.chars, type: p.type, robot: p.robot, include: !!p.inline };
+    D.procs.push(o);
+    if (o.include) lbAddGenerated(D, o);
+  });
+  return D;
+}
+
+/* Draft -> line-balance model. Man elements are cut into consecutive groups (one man each).
+   Robot elements run in parallel with the men (positioner / jig swap), so they load the Robot only. */
+function lbAutoModel(D) {
+  var warn = [], i;
+  var order = D.procs.filter(function (p) { return p.include; });
+  var els = [];
+  order.forEach(function (p, pi) {
+    var k = 0;
+    D.elements.forEach(function (e) {
+      if (e.proc !== p.no) return;
+      k++;
+      if (e.time > 0) els.push({ e: e, step: p.no + ' ' + p.name, label: (pi + 1) + '.' + k + ' ' + e.name });
+    });
+  });
+  if (!els.length) return { empty: true, warn: warn };
+  var takt = +D.takt > 0 ? +D.takt : 0;
+  var men = els.filter(function (x) { return x.e.kind !== 'robot'; });
+  var rob = els.filter(function (x) { return x.e.kind === 'robot'; });
+  var groups = [];
+  if (men.length) {
+    var times = men.map(function (x) { return x.e.time; });
+    var total = times.reduce(function (a, b) { return a + b; }, 0), mx = Math.max.apply(null, times);
+    var part = function (M) {
+      var g = [[]], sum = 0;
+      men.forEach(function (x) {
+        if (sum + x.e.time > M + 1e-9 && sum > 0) { g.push([]); sum = 0; }
+        g[g.length - 1].push(x); sum += x.e.time;
+      });
+      return g;
+    };
+    var fix = Math.floor(+D.menFix) > 0 ? Math.floor(+D.menFix) : 0;
+    var n = fix || (takt ? part(takt).length : 1);
+    var lo = mx, hi = total;
+    for (i = 0; i < 60; i++) { var mid = (lo + hi) / 2; if (part(mid).length <= n) hi = mid; else lo = mid; }
+    groups = part(hi);
+    if (fix && groups.length < fix) warn.push('งานแบ่งให้คนได้ละเอียดสุด ' + groups.length + ' คน จึงใช้ ' + groups.length + ' คนแทน ' + fix + ' คน');
+  }
+  var resources = [], idOf = new Map();
+  groups.forEach(function (g, k) {
+    var id = 'm' + (k + 1);
+    resources.push({ id: id, name: 'Man ' + (k + 1), kind: 'man', tag: '', mult: 1 });
+    g.forEach(function (x) { idOf.set(x, id); });
+  });
+  var robotLoad = rob.reduce(function (a, x) { return a + x.e.time; }, 0);
+  if (rob.length) resources.push({ id: 'rb', name: 'Robot', kind: 'robot', tag: '', mult: 1 });
+  var stationOf = new Map();
+  groups.forEach(function (g, k) { g.forEach(function (x) { stationOf.set(x, 'Station ' + (k + 1)); }); });
+  var elements = els.map(function (x) {
+    var vals = {}, isRob = x.e.kind === 'robot';
+    vals[isRob ? 'rb' : idOf.get(x)] = x.e.time;
+    return { station: isRob ? 'Robot' : stationOf.get(x), step: x.step, cat: x.e.cat, name: x.label, time: x.e.time, vals: vals };
+  });
+  var cycle = 0, loads = {};
+  elements.forEach(function (e) { Object.keys(e.vals).forEach(function (k) { loads[k] = (loads[k] || 0) + e.vals[k]; }); });
+  Object.keys(loads).forEach(function (k) { if (loads[k] > cycle) cycle = loads[k]; });
+  if (takt) {
+    els.forEach(function (x) { if (x.e.kind !== 'robot' && x.e.time > takt) warn.push('"' + x.label + '" ใช้ ' + x.e.time + ' วินาที เกิน Takt ' + takt + ' วินาที ต้องแตกงานให้ละเอียดขึ้นหรือให้สองคนทำคู่กัน'); });
+    if (robotLoad > takt) warn.push('งานของ Robot รวม ' + robotLoad + ' วินาที เกิน Takt ' + takt + ' วินาที ต้องใช้หุ่นยนต์หรือ Jig อย่างน้อย ' + Math.ceil(robotLoad / takt) + ' ชุดทำงานคู่ขนาน');
+  }
+  return { empty: false, warn: warn, model: { elements: elements, resources: resources, takt: takt || null, pcs: 1, cycle: cycle, auto: true } };
+}
+var api = { lbClean: lbClean, lbNum: lbNum, LB_TIME_RE: LB_TIME_RE, lbParseSheet: lbParseSheet, lbParseWorkbook: lbParseWorkbook, lbParseScenarios: lbParseScenarios, lbParseScenarioWorkbook: lbParseScenarioWorkbook, lbTitle: lbTitle, lbUniq: lbUniq, lbClassify: lbClassify, lbParseProcessFlow: lbParseProcessFlow, lbParseProcessFlowWorkbook: lbParseProcessFlowWorkbook, lbBom: lbBom, lbGenElements: lbGenElements, lbAddGenerated: lbAddGenerated, lbInitDraft: lbInitDraft, lbAutoModel: lbAutoModel };
+if (typeof module !== 'undefined' && module.exports) module.exports = api; else Object.assign(root, api);
+})(typeof window !== 'undefined' ? window : globalThis);
+
+</script>
+<script>/* inline: js/calc.js */
+/* ตัวคำนวณ Line Balance (ฟังก์ชันล้วน ไม่อ่าน/เขียนหน้าจอ ทดสอบด้วย Node ได้) */
+(function (root) {
+'use strict';
+function fmt(n, d) { if (n == null || !isFinite(n)) return '—'; d = d == null ? 1 : d; return n.toFixed(d).replace(/\.0+$/, '').replace(/(\.\d*?)0+$/, '$1'); }
+function pct(n) { return fmt(n * 100, 1) + '%'; }
+/* ลำดับเวลา: คู่ขนาน = แต่ละคน/เครื่องมีเส้นเวลาของตัวเอง งานที่ใช้หลายทรัพยากรเริ่มเมื่อทุกตัวว่าง / ต่อเนื่อง = เรียงงานทีละงาน */
+function lbSchedule(E, par) {
+  var t = 0, free = {};
+  return E.map(function (e) {
+    var ids = Object.keys(e.vals).filter(function (k) { return e.vals[k] > 0; }), o;
+    if (!par || !ids.length) { o = { e: e, start: t, end: t + e.time }; t += e.time; return o; }
+    var st = ids.reduce(function (a, k) { return Math.max(a, free[k] || 0); }, 0), mx = 0;
+    ids.forEach(function (k) { free[k] = st + e.vals[k]; mx = Math.max(mx, e.vals[k]); });
+    return { e: e, start: st, end: st + mx };
+  });
+}
+/* แถบ Step: ช่วงเวลาของแต่ละ Step ไม่ซ้อนกัน */
+function bandsOf(m) {
+  var map = {}, list = [];
+  m.sched.forEach(function (o) {
+    var k = o.e.step || '', b = map[k];
+    if (!b) { b = map[k] = { step: k, a: o.start, b: o.end }; list.push(b); } else { b.a = Math.min(b.a, o.start); b.b = Math.max(b.b, o.end); }
+  });
+  list.sort(function (x, y) { return x.a - y.a; });
+  var out = [], prev = 0;
+  list.forEach(function (b) { var a = Math.max(b.a, prev); if (b.b > a) { out.push({ step: b.step, a: a, b: b.b }); prev = b.b; } });
+  return out;
+}
+function lbCompute(S, par) {
+  var E = S.elements, R = S.resources, cycle = +S.cycle || 0, pcs = Math.max(1, +S.pcs || 1), takt = +S.takt || 0;
+  var loads = {}, m = { perPiece: cycle / pcs, cycle: cycle, pcs: pcs, takt: takt };
+  R.forEach(function (r) { loads[r.id] = E.reduce(function (a, e) { return a + (e.vals[r.id] || 0); }, 0) * r.mult; });
+  m.loads = loads;
+  var men = R.filter(function (r) { return r.kind === 'man'; });
+  var manSum = men.reduce(function (a, r) { return a + loads[r.id]; }, 0);
+  var manMax = men.reduce(function (a, r) { return Math.max(a, loads[r.id]); }, 0);
+  m.men = men.length; m.manSum = manSum;
+  m.balEff = men.length && manMax ? manSum / (men.length * manMax) : null;
+  m.laborUtil = men.length && cycle ? manSum / (men.length * cycle) : null;
+  m.laborPerPc = men.length ? manSum / pcs : null;
+  var maxLoad = 0; R.forEach(function (r) { if (loads[r.id] > maxLoad) maxLoad = loads[r.id]; });
+  m.maxLoad = maxLoad;
+  m.bottle = R.filter(function (r) { return maxLoad > 0 && Math.abs(loads[r.id] - maxLoad) < 1e-9; });
+  m.capacity = m.perPiece ? 3600 / m.perPiece : null;
+  m.required = takt ? 3600 / takt : null;
+  m.sched = lbSchedule(E, par);
+  m.total = m.sched.reduce(function (a, o) { return Math.max(a, o.end); }, 0);
+  return m;
+}
+
+function status(load, cycle) {
+  if (cycle && load > cycle + 1e-9) return { cls: 'bad', ico: '▲', txt: 'เกินรอบ' };
+  if (cycle && load >= cycle * 0.95) return { cls: 'warn', ico: '●', txt: 'ใกล้เต็ม' };
+  return { cls: 'good', ico: '✓', txt: 'ปกติ' };
+}
+
+
+var api = { fmt: fmt, pct: pct, lbSchedule: lbSchedule, bandsOf: bandsOf, lbCompute: lbCompute, status: status };
+/* บนเบราว์เซอร์ห้ามวางชื่อ status ลง window: window.status เป็นข้อความเก่าของเบราว์เซอร์ ฟังก์ชันที่ใส่เข้าไปจะถูกแปลงเป็นสตริง แล้วเรียก status() ไม่ได้ (กราฟไม่ขึ้น) จึงใช้ชื่อ lbStatus แทน */
+if (typeof module !== 'undefined' && module.exports) module.exports = api;
+else { var g = Object.assign({}, api, { lbStatus: status }); delete g.status; Object.assign(root, g); }
+})(typeof window !== 'undefined' ? window : globalThis);
+
+</script>
+<script>/* inline: js/yamazumi.js */
+/* Yamazumi (กราฟแท่งซ้อน VA / NVA / Waste) และข้อเสนอแนะย้ายงานลดคอขวด (ฟังก์ชันล้วน ทดสอบด้วย Node ได้) */
+(function (root) {
+'use strict';
+var WASTE_RE = /^(walk|wait|idle|search|rework|defect|scrap)|^(เดิน|รอ|หา|แก้งาน|ซ่อม)(?![\u0E00-\u0E7F])/i;
+var NVA_RE = /^(set|move|take|pick|load|unload|check|inspect|mark|handl|transport|supply|store|clean|เตรียม|หยิบ|วาง|ตรวจ|ขนย้าย|เคลื่อน|ทำความสะอาด)/i;
+var TH = { va: 'งานเพิ่มคุณค่า (VA)', nva: 'งานจำเป็นแต่ไม่เพิ่มคุณค่า (NVA)', waste: 'ความสูญเปล่า (Waste)' };
+
+/* จัดหมวดจากชื่อหมวด (cat) ก่อน ถ้าไม่เข้าเกณฑ์ใช้ผู้ใช้กำหนด (override) หรือถือเป็น VA */
+function lbYzClass(cat, override) {
+  var c = String(cat == null ? '' : cat).trim();
+  if (override && override[c]) return override[c];
+  if (WASTE_RE.test(c)) return 'waste';
+  if (NVA_RE.test(c)) return 'nva';
+  return 'va';
+}
+
+/* ต่อทรัพยากร: เวลา VA/NVA/Waste (รวมตัวคูณ mult แล้ว ผลรวม = โหลดของ compute เสมอ) */
+function lbYamazumi(S, override) {
+  var rows = S.resources.map(function (r) { return { id: r.id, name: r.name, kind: r.kind, va: 0, nva: 0, waste: 0, total: 0, cats: {} }; });
+  var by = {}; rows.forEach(function (x, i) { by[x.id] = i; });
+  var mult = {}; S.resources.forEach(function (r) { mult[r.id] = r.mult; });
+  S.elements.forEach(function (e) {
+    var cl = lbYzClass(e.cat, override);
+    Object.keys(e.vals).forEach(function (id) {
+      if (!(id in by) || !(e.vals[id] > 0)) return;
+      var t = e.vals[id] * mult[id], x = rows[by[id]];
+      x[cl] += t; x.total += t; x.cats[e.cat] = (x.cats[e.cat] || 0) + t;
+    });
+  });
+  return rows;
+}
+
+/* ข้อเสนอ: ย้ายงานแรก/งานสุดท้ายของคอขวด (คน) ไปสถานีข้างเคียง เพื่อคงลำดับงานไว้ */
+function lbSuggest(S, m, override) {
+  var out = [], men = S.resources.filter(function (r) { return r.kind === 'man'; });
+  var cap = m.takt && m.takt > 0 ? m.takt * m.pcs : 0;
+  if (men.length < 2) return out;
+  var worst = men.reduce(function (a, r) { return m.loads[r.id] > m.loads[a.id] ? r : a; }, men[0]);
+  var wi = men.indexOf(worst), oldMax = Math.max.apply(null, men.map(function (r) { return m.loads[r.id]; }));
+  var mine = S.elements.filter(function (e) { var k = Object.keys(e.vals).filter(function (i) { return e.vals[i] > 0; }); return k.length === 1 && k[0] === worst.id; });
+  var cands = [];
+  if (mine.length > 1) {
+    if (wi > 0) cands.push({ e: mine[0], to: men[wi - 1], pos: 'งานแรก' });
+    if (wi < men.length - 1) cands.push({ e: mine[mine.length - 1], to: men[wi + 1], pos: 'งานสุดท้าย' });
+  }
+  cands.forEach(function (c) {
+    var raw = c.e.vals[worst.id], nw = m.loads[worst.id] - raw * worst.mult, nt = m.loads[c.to.id] + raw * c.to.mult;
+    var newMax = Math.max.apply(null, men.map(function (r) { return r === worst ? nw : r === c.to ? nt : m.loads[r.id]; }));
+    if (newMax < oldMax - 1e-9) out.push({ type: 'move', name: c.e.name, cat: c.e.cat, pos: c.pos, time: raw, from: worst.name, to: c.to.name, oldMax: oldMax, newMax: newMax, gain: oldMax - newMax, meetsTakt: cap ? newMax <= cap + 1e-9 : null });
+  });
+  out.sort(function (a, b) { return b.gain - a.gain; });
+  var y = lbYamazumi(S, override).filter(function (x) { return x.id === worst.id; })[0];
+  if (y && y.total > 0 && (y.nva + y.waste) / y.total >= 0.3) out.push({ type: 'nva', who: worst.name, share: (y.nva + y.waste) / y.total, secs: y.nva + y.waste });
+  if (cap && oldMax > cap + 1e-9 && !out.some(function (o) { return o.type === 'move' && o.meetsTakt; })) out.push({ type: 'gap', who: worst.name, over: oldMax - cap });
+  return out;
+}
+
+var api = { lbYzClass: lbYzClass, lbYamazumi: lbYamazumi, lbSuggest: lbSuggest, LB_YZ_TH: TH };
+if (typeof module !== 'undefined' && module.exports) module.exports = api; else Object.assign(root, api);
+})(typeof window !== 'undefined' ? window : globalThis);
+
+</script>
 <script>
 var SAMPLE = {"sheet":"Process Line RG21 Concept 3","elements":[{"station":"Station 1","step":"Step 1","cat":"Set","name":"1.1 Set Part Ornament (RH)","time":10,"vals":{"r3":10,"r4":10,"r5":10,"r6":10}},{"station":"Station 1","step":"Step 1","cat":"Ass'y","name":"1.2 Apply glue Primer on Ornament (RH)","time":10,"vals":{"r3":10,"r4":10,"r5":10,"r6":10}},{"station":"Station 1","step":"Step 1","cat":"Ass'y","name":"1.3 Robot Apply glue Adhesive on Ornament (RH)","time":10,"vals":{"r0":10}},{"station":"Station 1","step":"Step 1","cat":"Move","name":"1.4 Tack Off","time":5,"vals":{"r3":5,"r4":5,"r5":5,"r6":5}},{"station":"Station 2","step":"Step 2","cat":"Set","name":"2.1 Set Side Step CTR (RH)","time":10,"vals":{"r3":10,"r4":10,"r5":10,"r6":10}},{"station":"Station 2","step":"Step 2","cat":"Set","name":"2.2 Set BRK'T FR , CTR , RR (RH)","time":10,"vals":{"r3":10,"r4":10,"r5":10,"r6":10}},{"station":"Station 2","step":"Step 2","cat":"Ass'y","name":"2.3 Ass'y BOLT M8 : 6 Pcs.","time":25,"vals":{"r3":25,"r4":25,"r5":25,"r6":25}},{"station":"Station 2","step":"Step 2","cat":"Ass'y","name":"2.4 Test Torque M8 : 6 Point","time":20,"vals":{"r3":20,"r4":20,"r5":20,"r6":20}},{"station":"Station 2","step":"Step 2","cat":"Move","name":"2.5 Tack Off ( Rotate Jig )","time":5,"vals":{"r1":5,"r2":5}},{"station":"Station 2","step":"Step 3","cat":"Ass'y","name":"3.1 Apply glue Primer on side step (RH)","time":10,"vals":{"r3":10,"r4":10,"r5":10,"r6":10}},{"station":"Station 2","step":"Step 3","cat":"Ass'y","name":"3.2 Ass'y Ornament With Side Step CTR (RH)","time":15,"vals":{"r3":15,"r4":15,"r5":15,"r6":15}},{"station":"Station 2","step":"Step 3","cat":"Ass'y","name":"3.3 Ass'y Collar : 6 Point And Bolt M6 : 6 Point (RH)","time":30,"vals":{"r3":30,"r4":30,"r5":30,"r6":30}},{"station":"Station 2","step":"Step 3","cat":"Ass'y","name":"3.4 Test Torque M6 : 6 Point (RH)","time":20,"vals":{"r3":20,"r4":20,"r5":20,"r6":20}},{"station":"Station 2","step":"Step 3","cat":"Move","name":"3.5 Rotate Jig","time":5,"vals":{"r1":5,"r2":5}},{"station":"Station 2","step":"Step 3","cat":"Move","name":"3.6 Tack Off","time":5,"vals":{"r3":5,"r4":5,"r5":5,"r6":5}},{"station":"Station 2","step":"Step 4","cat":"Check","name":"4.1 Cleaning","time":10,"vals":{"r7":10,"r8":10}},{"station":"Station 2","step":"Step 4","cat":"Check","name":"4.2 Check & Mark","time":50,"vals":{"r7":50,"r8":50}},{"station":"Station 2","step":"Step 4","cat":"Move","name":"4.3 Tack off to Rack","time":20,"vals":{"r7":20,"r8":20}}],"resources":[{"id":"r0","col":6,"name":"Robot","kind":"robot","tag":"","mult":1},{"id":"r1","col":7,"name":"Jig 1","kind":"jig","tag":"","mult":1},{"id":"r2","col":8,"name":"Jig 2","kind":"jig","tag":"","mult":1},{"id":"r3","col":11,"name":"Man 1","kind":"man","tag":"R","mult":1},{"id":"r4","col":12,"name":"Man 2","kind":"man","tag":"L","mult":1},{"id":"r5","col":13,"name":"Man 3","kind":"man","tag":"R","mult":1},{"id":"r6","col":14,"name":"Man 4","kind":"man","tag":"L","mult":1},{"id":"r7","col":15,"name":"Man 5","kind":"man","tag":"R/R","mult":2},{"id":"r8","col":16,"name":"Man 6","kind":"man","tag":"L/L","mult":2}],"takt":100,"pcs":2,"cycle":190};
 var SAMPLE_SC = {"scenarios":[{"name":"Manual","steps":[{"name":"Set Part","time":10},{"name":"Grinding (Manual)","time":480},{"name":"Check","time":210},{"name":"Take Off","time":10},{"name":"Move","time":0}]},{"name":"Robot","steps":[{"name":"Set Part","time":10},{"name":"Robot Grinding","time":220},{"name":"Check","time":0},{"name":"Take Off","time":10},{"name":"Move","time":10}]}],"sheet":"Man-Machine"};
@@ -2463,5 +3025,75 @@ body.viewer .tabpanel td input, body.viewer .tabpanel .field input { opacity: .8
   if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js').catch(function () {});
 })();
 </script>
-<script src="js/yamazumi-ui.js"></script>
+<script>/* inline: js/yamazumi-ui.js */
+/* หน้าจอ Yamazumi Chart + ข้อเสนอแนะ (ใช้ฟังก์ชันจาก yamazumi.js และตัวช่วยของหน้าหลัก) */
+(function () {
+  var K = 'lbYz', OV = {}, COL = { va: 'var(--accent)', nva: 'var(--warn)', waste: 'var(--bad)' }, SH = { va: 'VA', nva: 'NVA', waste: 'Waste' };
+  try { OV = JSON.parse(localStorage.getItem(K) || '{}') || {}; } catch (e) {}
+  function keep() { try { localStorage.setItem(K, JSON.stringify(OV)); } catch (e) {} }
+
+  function chart(m, rows) {
+    var W = 760, left = 46, right = 20, top = 32, bot = 46, H = 300, ph = H - top - bot, pw = W - left - right;
+    var cap = m.takt ? m.takt * m.pcs : 0, ymax = Math.max(cap, m.cycle, m.maxLoad) * 1.12 || 10;
+    function Y(v) { return top + ph - (v / ymax) * ph; }
+    var step = ymax > 150 ? 50 : ymax > 60 ? 20 : 10, g = '', tv;
+    for (tv = 0; tv <= ymax; tv += step) g += '<line x1="' + left + '" x2="' + (W - right) + '" y1="' + Y(tv) + '" y2="' + Y(tv) + '" stroke="var(--line)"/><text class="num mut" x="' + (left - 6) + '" y="' + (Y(tv) + 4) + '" text-anchor="end" style="font-size:11px">' + tv + '</text>';
+    var slot = pw / rows.length, bw = Math.min(72, slot * 0.6), bars = '';
+    rows.forEach(function (r, i) {
+      var x = left + slot * i + (slot - bw) / 2, acc = 0;
+      ['va', 'nva', 'waste'].forEach(function (k) {
+        var v = r[k]; if (!(v > 0)) return;
+        var y0 = Y(acc + v), h = Y(acc) - y0, tip = esc(r.name) + ' · ' + SH[k] + ' ' + fmt(v) + ' วินาที (' + pct(r.total ? v / r.total : 0) + ' ของโหลด)';
+        bars += '<rect data-tip="' + tip + '" x="' + x + '" y="' + y0 + '" width="' + bw + '" height="' + Math.max(1, h) + '" fill="' + COL[k] + '" stroke="var(--surface)" stroke-width="1"/>';
+        if (h >= 17) bars += '<text class="num strong" x="' + (x + bw / 2) + '" y="' + (y0 + h / 2 + 4) + '" text-anchor="middle" style="font-size:11px;fill:#fff">' + fmt(v) + '</text>';
+        acc += v;
+      });
+      bars += '<text class="num strong" x="' + (x + bw / 2) + '" y="' + (Y(r.total) - 6) + '" text-anchor="middle" style="font-size:12px">' + fmt(r.total) + '</text>';
+      bars += '<text class="strong" x="' + (x + bw / 2) + '" y="' + (H - bot + 18) + '" text-anchor="middle" style="font-size:12px">' + esc(r.name) + '</text>';
+    });
+    var ref = cap ? '<line x1="' + left + '" x2="' + (W - right) + '" y1="' + Y(cap) + '" y2="' + Y(cap) + '" stroke="var(--fg)" stroke-width="2"/><text class="num strong" x="' + (W - right) + '" y="' + (Y(cap) - 6) + '" text-anchor="end" style="font-size:11.5px">Takt×' + m.pcs + ' ' + fmt(cap) + '</text>' : '';
+    return '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" role="img" aria-label="Yamazumi Chart แสดงเวลา VA NVA และ Waste ของแต่ละคนและเครื่อง">' + g + bars + ref + '</svg>';
+  }
+
+  function sugHtml(list, men) {
+    if (men < 2) return '<p class="mut" style="margin:0">ต้องมีพนักงานอย่างน้อย 2 คน จึงจะแนะนำการย้ายงานได้</p>';
+    var li = list.map(function (o) {
+      if (o.type === 'move') return '<li>ย้าย <b>' + esc(o.name) + '</b> (' + o.pos + 'ของ ' + esc(o.from) + ' · ' + fmt(o.time) + ' วินาที) ไป <b>' + esc(o.to) + '</b> คอขวดจะลดจาก ' + fmt(o.oldMax) + ' เหลือ <b>' + fmt(o.newMax) + '</b> วินาที (ลด ' + fmt(o.gain) + ')' + (o.meetsTakt === true ? ' <span class="pill good">ทัน Takt</span>' : o.meetsTakt === false ? ' <span class="pill warn">ยังไม่ทัน Takt</span>' : '') + '</li>';
+      if (o.type === 'nva') return '<li><b>' + esc(o.who) + '</b> ใช้ ' + fmt(o.secs) + ' วินาที (' + pct(o.share) + ') ไปกับงาน NVA/Waste ลองลดด้วย Jig จัดวางชิ้นงานใหม่ หรือย้ายไปทำคู่ขนานกับเครื่อง</li>';
+      return '<li>คอขวด <b>' + esc(o.who) + '</b> ยังเกิน Takt อีก <b>' + fmt(o.over) + '</b> วินาที ย้ายงานเดี่ยวอย่างเดียวไม่พอ ต้องแตกงานให้ละเอียดขึ้น ลดเวลางาน หรือเพิ่มคน</li>';
+    }).join('');
+    if (!li) return '<p class="mut" style="margin:0">ไม่พบการย้ายงานเดี่ยวที่ช่วยลดคอขวดได้ (ไลน์สมดุลดีแล้ว หรือต้องแตกงานให้เล็กลงก่อน)</p>';
+    return '<b>ข้อเสนอแนะ</b><ul class="yz-sug">' + li + '</ul><p class="mut" style="margin:6px 0 0;font-size:12px">เป็นข้อเสนอจากตัวเลขเท่านั้น (ย้ายเฉพาะงานแรก/งานสุดท้ายไปสถานีข้างเคียงเพื่อคงลำดับงาน) ต้องตรวจความเป็นไปได้หน้างานก่อน เช่น ทักษะ ระยะเดิน Jig</p>';
+  }
+
+  function cfg(cats) {
+    $('yzMap').innerHTML = '<div class="yz-cfg">' + cats.map(function (c) {
+      var cur = lbYzClass(c, OV);
+      return '<label><span>' + esc(c) + '</span><select data-yz="' + esc(c) + '">' + ['va', 'nva', 'waste'].map(function (k) { return '<option value="' + k + '"' + (k === cur ? ' selected' : '') + '>' + SH[k] + '</option>'; }).join('') + '</select></label>';
+    }).join('') + '</div>' + (Object.keys(OV).length ? '<button class="btn ghost sm" id="yzReset" type="button">คืนค่าอัตโนมัติ</button>' : '');
+  }
+
+  window.renderYamazumi = function (m) {
+    if (!window.S || !$('yzChart')) return;
+    m = m || compute();
+    var rows = lbYamazumi(S, OV), men = S.resources.filter(function (r) { return r.kind === 'man'; }), tot = { va: 0, nva: 0, waste: 0 };
+    rows.forEach(function (r) { ['va', 'nva', 'waste'].forEach(function (k) { tot[k] += r[k]; }); });
+    var all = tot.va + tot.nva + tot.waste;
+    $('yzChart').innerHTML = chart(m, rows);
+    $('yzNote').textContent = all ? 'VA ' + pct(tot.va / all) + ' · NVA ' + pct(tot.nva / all) + ' · Waste ' + pct(tot.waste / all) : '';
+    $('yzSug').innerHTML = sugHtml(lbSuggest(S, m, OV), men.length);
+    var cats = []; S.elements.forEach(function (e) { if (cats.indexOf(e.cat) < 0) cats.push(e.cat); });
+    if (!$('yzMap').contains(document.activeElement)) cfg(cats);
+  };
+
+  $('yzMap').addEventListener('change', function (e) {
+    var c = e.target.getAttribute && e.target.getAttribute('data-yz'); if (c == null) return;
+    if (e.target.value === lbYzClass(c)) delete OV[c]; else OV[c] = e.target.value;
+    keep(); renderYamazumi();
+  });
+  $('yzMap').addEventListener('click', function (e) { if (e.target.id === 'yzReset') { OV = {}; keep(); renderYamazumi(); } });
+  if (window.S) renderYamazumi();
+})();
+
+</script>
 </body></html>
