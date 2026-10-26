@@ -429,7 +429,8 @@ th { background:var(--th-bg); color:var(--muted); font-weight:600; font-size:12p
   <label class="btn" for="fileInput">อัปโหลด Excel</label>
   <input id="fileInput" type="file" accept=".xlsx,.xlsm,.xls" hidden>
   <button class="btn ghost" id="sampleBtn" type="button">โหลดข้อมูลตัวอย่าง</button>
-  <button class="icbtn" id="undoBtn" type="button" aria-label="ย้อนกลับ (Ctrl+Z)" title="ย้อนกลับ (Ctrl+Z)" disabled>↶</button><button class="icbtn" id="redoBtn" type="button" aria-label="ทำซ้ำ (Ctrl+Y)" title="ทำซ้ำ (Ctrl+Y)" disabled>↷</button>
+  <button class="icbtn" id="undoBtn" type="button" aria-label="ย้อนกลับ (Ctrl+Z)" title="ย้อนกลับ (Ctrl+Z)" disabled>↶</button><button class="icbtn" id="redoBtn" type="button" aria-label="ทำซ้ำ (Ctrl+Y)" title="ทำซ้ำ (Ctrl+Y)" disabled>↷</button><i class="sep" aria-hidden="true"></i>
+  <i class="sep" aria-hidden="true"></i>
   <button class="btn ghost" id="cloudSaveBtn" type="button">บันทึกขึ้น Cloud</button>
   <button class="btn ghost" id="cloudOpenBtn" type="button">งานที่บันทึกไว้</button>
   <span class="live" id="cloudStat" role="status" aria-live="polite" hidden></span>
@@ -661,7 +662,7 @@ function renderLoadChart(m) {
   lines.sort(function (a, b) { return a.v - b.v; });
   var bars = '';
   R.forEach(function (r, k) {
-    var y = top + k * rowH, ld = m.loads[r.id], st = status(ld, m.cycle);
+    var y = top + k * rowH, ld = m.loads[r.id], st = lbStatus(ld, m.cycle);
     var col = st.cls === 'bad' ? 'var(--bad)' : st.cls === 'warn' ? 'var(--warn)' : { man: 'var(--accent)', robot: 'var(--c1)', jig: 'var(--c4)' }[r.kind] || 'var(--bar)';
     var tip = esc(r.name) + (r.tag ? ' (' + esc(r.tag) + ')' : '') + ' · โหลด ' + fmt(ld) + ' วินาที · ' + pct(m.cycle ? ld / m.cycle : 0) + ' ของ Cycle';
     bars += '<text class="strong" x="' + (gut - 10) + '" y="' + (y + rowH / 2 + 4) + '" text-anchor="end">' + esc(r.name) + (r.tag ? '<tspan class="mut" dx="5" style="font-size:11px">' + esc(r.tag) + '</tspan>' : '') + '</text>';
@@ -694,7 +695,7 @@ function renderResTable(m) {
 }
 function patchRes(m) {
   S.resources.forEach(function (r) {
-    var ld = m.loads[r.id], st = status(ld, m.cycle);
+    var ld = m.loads[r.id], st = lbStatus(ld, m.cycle);
     var a = $('rl-' + r.id); if (a) a.textContent = fmt(ld);
     a = $('ru-' + r.id); if (a) a.textContent = pct(m.cycle ? ld / m.cycle : 0);
     a = $('ri-' + r.id); if (a) a.textContent = fmt(m.cycle - ld);
@@ -1090,7 +1091,7 @@ function renderFlowResult(res) {
   h += '<div class="rs-legend"><b>งานแต่ละคน</b>' + ci.list.map(function (cat) { return '<span><i style="background:var(--c' + ci.map[cat] + ')"></i>' + esc(cat) + '</span>'; }).join('') + '<span class="muted">ความกว้างของแท่ง = เวลา · เส้นดำ = ' + (T ? 'Takt Time' : 'Cycle Time สูงสุด') + '</span></div>';
   h += '<div class="rs-cards">';
   R.forEach(function (r) {
-    var ld = loads[r.id], st = status(ld, ref), tasks = m.elements.filter(function (e) { return e.vals[r.id] > 0; });
+    var ld = loads[r.id], st = lbStatus(ld, ref), tasks = m.elements.filter(function (e) { return e.vals[r.id] > 0; });
     var av = r.kind === 'robot' ? 'R' : 'M' + ((r.name.match(/\d+/) || [''])[0]);
     h += '<article class="rs-card' + (ld > ref + 1e-9 ? ' over' : '') + '"><div class="rs-ch"><span class="rs-av ' + r.kind + '" aria-hidden="true">' + esc(av) + '</span><div class="who"><b>' + esc(r.name) + '</b><small>' + (r.kind === 'robot' ? 'หุ่นยนต์ / เครื่อง' : 'พนักงาน') + ' · ' + tasks.length + ' งาน</small></div><span class="pill ' + st.cls + '"><span aria-hidden="true">' + st.ico + '</span>' + st.txt + '</span></div>' +
       '<div class="rs-big"><b>' + fmt(ld) + '</b><span>วินาที / รอบ</span><span class="mono">· ' + pct(ref ? ld / ref : 0) + ' ของ ' + (T ? 'Takt' : 'Cycle') + '</span></div>' +
@@ -1799,6 +1800,44 @@ body.viewer .tabpanel td input, body.viewer .tabpanel .field input { opacity: .8
 #lbReport .rp-f { margin-top:12px; padding-top:6px; border-top:1px solid var(--line); color:var(--muted); font-size:11px; display:flex; justify-content:space-between; gap:12px; }
 @page { size:A4 landscape; margin:10mm; }
 @media print { body.rpt-print > *:not(#lbReport) { display:none !important; } body.rpt-print #lbReport { display:block; padding:0; } }
+</style>
+<style>
+/* ===== v3: ธีมเรียบ เป็นระเบียบ (วางท้ายสุด ทับสไตล์ตกแต่งชั้นก่อนหน้า: ไม่มีไล่สี เงา แสงทอง แอนิเมชันเข้าฉาก) ===== */
+:root { --r:8px; --shadow:none; --brand-gold:#8fb0e0; }
+body { line-height:1.6; }
+.side { background:#14243a; box-shadow:none; }
+.brand .logo { background:var(--accent); box-shadow:none; } .brand .logo svg { stroke:#fff; }
+.brand small { text-transform:none; letter-spacing:0; font-size:12px; font-weight:400; color:#8da3bf; }
+.nav .tab { border-radius:8px; } .nav .tab.on { background:rgba(255,255,255,.12); box-shadow:inset 3px 0 0 #fff; }
+.gauge { background:rgba(255,255,255,.05); border-radius:10px; } .gtrack i { background:#fff; } .gstate, .gauge.bad .gstate { color:#fff; }
+.bar { position:sticky; top:0; margin:0; padding:10px 32px; gap:8px; border:0; border-bottom:1px solid var(--line); border-radius:0; background:var(--surface); box-shadow:none; backdrop-filter:none; }
+.bar::after { display:none; }
+.bar .crumb, .bar .crumb b { color:var(--fg2); } .bar .crumb b { color:var(--fg); }
+.bar .btn { background:var(--accent); border-color:var(--accent); color:#fff; font-weight:500; }
+.bar .btn.ghost { background:var(--surface); color:var(--fg); border-color:var(--line-strong); }
+.bar .btn.ghost:hover { border-color:var(--accent); color:var(--accent); background:var(--surface); }
+.bar .icbtn { background:var(--surface); border-color:var(--line-strong); color:var(--fg2); }
+.bar .icbtn:hover { border-color:var(--accent); color:var(--accent); }
+.bar .file-chip { background:var(--bg-input); border-color:var(--line); color:var(--fg); } .bar .file-chip .mut { color:var(--muted) !important; }
+.file-chip:empty { display:none; }
+.bar .live { background:var(--th-bg); color:var(--fg2); }
+.bar .live.good { color:var(--good-text); background:color-mix(in srgb,var(--good) 12%,var(--surface)); }
+.bar .live.bad { color:var(--bad-text); background:color-mix(in srgb,var(--bad) 12%,var(--surface)); }
+.bar .live.smp { color:var(--warn-text); background:color-mix(in srgb,var(--warn) 14%,var(--surface)); }
+.bar .sep { width:1px; height:24px; background:var(--line-strong); margin:0 4px; }
+.btn { background-image:none; background:var(--accent); box-shadow:none; border-radius:6px; font-weight:500; } .btn:hover { transform:none; }
+.btn.ghost { background:var(--surface); color:var(--fg); border-color:var(--line-strong); }
+.icbtn { width:36px; height:36px; border-radius:6px; }
+.wrap { gap:20px; padding:24px 32px 56px; }
+.pagehead h1 { font-size:22px; font-weight:700; } .pagehead h1::before, .sec-head h2::before { display:none; }
+.sec-head h2 { font-size:15px; font-weight:700; }
+.sec, .tabpanel:not([hidden]) { animation:none; }
+.panel, .cond, .partband, .kpis, .empty, .rs-tile, .rs-card, .rs-hero, .verdict, .notice, .wl-hero, .wl-steps li, .errbox { border-radius:8px; box-shadow:none; }
+.kpi::before { display:none; } .verdict, .rs-hero { border-left-width:4px; } .rs-hero::before { width:4px; }
+.wl-hero, .rs-sample, .rs-hero.smp { border-style:solid; border-width:1px; } .rs-hero.smp::before { background:var(--warn); }
+th { text-transform:none; letter-spacing:0; font-weight:600; color:var(--fg2); }
+.pill { border-radius:4px; } .chip { border-radius:6px; }
+@media (max-width:960px) { .bar { position:static; padding:10px 12px; margin:0; } .bar .sep { display:none; } .wrap { padding:16px 12px 40px; } }
 </style>
 <div id="lbGate" role="dialog" aria-modal="true" aria-label="เข้าสู่ระบบ">
   <form class="gate-card" id="gForm" onsubmit="return false">
