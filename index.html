@@ -518,7 +518,7 @@ th { background:var(--th-bg); color:var(--muted); font-weight:600; font-size:12p
     <button class="tab" id="tabbtn-balance" role="tab" type="button" aria-selected="false"><svg viewBox="0 0 24 24"><path d="M5 20V11M11 20V4M17 20v-6M3 20h18"/></svg><span>Line Balance และ Man-Machine<small>โหลดต่อคน เทียบ Takt</small></span></button>
     <button class="tab" id="tabbtn-compare" role="tab" type="button" aria-selected="false"><svg viewBox="0 0 24 24"><path d="M7 7h12M15 3l4 4-4 4M17 17H5M9 13l-4 4 4 4"/></svg><span>เทียบ Manual กับ Robot<small>เวลาต่อชิ้นที่ลดได้</small></span></button>
   </nav></div>
-  <div class="gauge" id="gauge"><span class="gt">Takt vs Cycle ตอนนี้</span>
+  <div class="gauge" id="gauge"><div class="gjob" id="gJob" hidden><span class="gt">งานที่กำลังดู</span><b class="gj-name" id="gjName"></b><div class="gj-meta"><div><small>Model</small><span id="gjModel">—</span></div><div><small>Part No.</small><span id="gjNo">—</span></div></div></div><span class="gt">Takt vs Cycle ตอนนี้</span>
     <div class="gr"><span>Takt Time</span><b id="gT">—</b></div>
     <div class="gtrack"><i id="gF" style="width:0"></i><u></u></div>
     <div class="gr"><span>Cycle ต่อชิ้น</span><b id="gC">—</b></div><div class="gstate" id="gS">รอข้อมูล</div></div>
@@ -2318,7 +2318,7 @@ document.addEventListener('change', function (ev) {
 var PG = { flow: ['สร้างจาก Process Flow', 'ใส่เวลางานย่อย แล้วระบบจัดคนและสถานีให้ตาม Takt Time'], balance: ['Line Balance และ Man-Machine', 'ดูโหลดของแต่ละคนและเครื่อง เทียบกับ Cycle Time และ Takt Time'], compare: ['เทียบ Manual กับ Robot', 'เวลาต่อชิ้นของสถานีเดียว เห็นว่าหุ่นยนต์ช่วยลดเวลาได้เท่าไร'] };
 var _showTab = showTab;
 showTab = function (tok) {
-  _showTab(tok);
+  _showTab(tok); jobCard();
   $('live').hidden = (tok === 'compare'); /* สถานะ Takt เทียบ Cycle เป็นของโมเดล Line Balance ไม่เกี่ยวกับหน้านี้ */
   var has = !!(S || D || SC);
   $('welcome').hidden = has; $('hdrUpload').hidden = !has;
@@ -2331,8 +2331,15 @@ showTab = function (tok) {
   if (!PG[tok]) tok = 'flow';
   $('pgT').textContent = $('crumb').textContent = PG[tok][0]; $('pgS').textContent = PG[tok][1];
 };
+function jobCard() {
+  var el = $('gJob'); if (!el) return;
+  var P = D && D.part, nm = P && (P.partName || ''), md = P && (P.model || ''), no = P && (P.partNo || '');
+  var show = !!(nm || md || no); el.hidden = !show; if (!show) return;
+  $('gjName').textContent = nm || no || md; $('gjName').title = nm || '';
+  $('gjModel').textContent = md || '—'; $('gjNo').textContent = no || '—';
+}
 function liveChip() {
-  if (!S) return;
+  jobCard(); if (!S) return;
   var m = compute(), lv = $('live'), g = $('gauge'), t = +m.takt || 0, pp = m.perPiece || 0, d = t - pp;
   $('gT').textContent = t ? fmt(t) + ' s' : '—'; $('gC').textContent = pp ? fmt(pp) + ' s' : '—';
   $('gF').style.width = t && pp ? Math.min(100, pp / (t * 1.3) * 100) + '%' : '0';
@@ -2552,6 +2559,18 @@ body.viewer .tabpanel td input, body.viewer .tabpanel .field input { opacity: .8
 .bar #live.good::before { color:#06211c; background:#5fe39a; }
 @keyframes liveShimmer { from { background-position:120% 0; } to { background-position:-120% 0; } }
 @media (prefers-reduced-motion:reduce) { #live, #live::before { animation:none !important; } }
+</style>
+<style>
+/* การ์ดข้อมูลงานบน Sidebar: Part Name / Model / Part No. */
+.gjob { display:flex; flex-direction:column; gap:6px; padding-bottom:12px; margin-bottom:4px; border-bottom:1px dashed rgba(255,255,255,.16); animation:gjIn .35s ease both; }
+.gjob[hidden] { display:none; }
+.gjob .gj-name { color:#fff; font-size:15px; font-weight:700; line-height:1.35; overflow-wrap:anywhere; }
+.gjob .gj-meta { display:grid; grid-template-columns:auto 1fr; gap:6px 16px; }
+.gjob .gj-meta > div { min-width:0; display:flex; flex-direction:column; gap:1px; }
+.gjob .gj-meta small { color:#8da3bf; font-size:10.5px; font-weight:600; letter-spacing:.5px; text-transform:uppercase; }
+.gjob .gj-meta span { color:#e8c97d; font-family:var(--font-data,inherit); font-size:13.5px; font-weight:600; overflow-wrap:anywhere; }
+@keyframes gjIn { from { opacity:0; transform:translateY(-4px); } to { opacity:1; transform:none; } }
+@media (prefers-reduced-motion:reduce) { .gjob { animation:none; } }
 </style>
 <div id="lbGate" role="dialog" aria-modal="true" aria-label="เข้าสู่ระบบ">
   <div class="gate-wrap">
