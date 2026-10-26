@@ -2512,6 +2512,16 @@ body.viewer .tabpanel td input, body.viewer .tabpanel .field input { opacity: .8
 @page { size:A4 landscape; margin:10mm; }
 @media print { body.rpt-print > *:not(#lbReport) { display:none !important; } body.rpt-print #lbReport { display:block; padding:0; } }
 </style>
+<style>
+/* Sidebar ลอยโค้งมน ให้เข้ากับ Header (มุม 20px เหมือนกัน) */
+@media (min-width:961px) {
+  .app { grid-template-columns:280px minmax(0,1fr); }
+  .app.collapsed { grid-template-columns:84px minmax(0,1fr); }
+  .side { top:12px; height:calc(100vh - 24px); margin:12px 0 12px 12px; border-radius:20px; box-shadow:0 8px 26px hsla(210,60%,12%,.28), inset 0 0 0 1px hsla(38,55%,48%,.22); }
+  .side::after { content:""; position:absolute; left:24px; right:24px; bottom:0; height:2px; background:linear-gradient(90deg,transparent 0%,var(--brand-gold,#b8903a) 18%,var(--brand-gold,#b8903a) 82%,transparent 100%); opacity:.85; pointer-events:none; }
+}
+@media (max-width:960px) { .side { border-radius:16px; margin:8px 12px 0; } }
+</style>
 <div id="lbGate" role="dialog" aria-modal="true" aria-label="เข้าสู่ระบบ">
   <div class="gate-wrap">
     <aside class="gate-brand" aria-hidden="true">
