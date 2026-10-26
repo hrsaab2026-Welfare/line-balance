@@ -519,7 +519,17 @@ th { background:var(--th-bg); color:var(--muted); font-weight:600; font-size:12p
       <div id="loadChart"></div>
     </div>
     <div class="panel scroll"><table id="resTable"></table></div>
-    <p class="help">โหลด = ผลรวมเวลางานของคนหรือเครื่องนั้น × จำนวนชิ้นที่ดูแลต่อรอบ (ช่อง ×) ค่า × ถูกอ่านจากแถว Sumary Total ในไฟล์ แก้ได้ในตาราง</p>
+    <p class="help" id="loadHelp">โหลด = ผลรวมเวลางานของคนหรือเครื่องนั้น × จำนวนชิ้นที่ดูแลต่อรอบ (ช่อง ×) ค่า × ถูกอ่านจากแถว Sumary Total ในไฟล์ แก้ได้ในตาราง</p>
+  </section>
+
+  <section class="sec" id="yzSec">
+    <div class="sec-head"><h2>Yamazumi Chart (งานเพิ่มคุณค่า เทียบงานสูญเปล่า)</h2><span class="note" id="yzNote"></span></div>
+    <div class="panel">
+      <div class="legend"><span><i style="background:var(--accent)"></i>VA งานเพิ่มคุณค่า (เช่น Weld, Ass'y)</span><span><i style="background:var(--warn)"></i>NVA งานจำเป็นแต่ไม่เพิ่มคุณค่า (Set, Move, Check)</span><span><i style="background:var(--bad)"></i>Waste ความสูญเปล่า (เดิน, รอ)</span><span><span class="ln"></span>Takt × ชิ้นต่อรอบ</span></div>
+      <div id="yzChart"></div>
+    </div>
+    <div class="panel" id="yzSug"></div>
+    <details class="panel" id="yzCfg"><summary>ปรับการจัดหมวด VA / NVA / Waste</summary><p class="help">ระบบเดาจากชื่อหมวดของงาน ถ้าไม่ตรงกับหน้างาน เลือกใหม่ได้ ค่าที่เลือกจำไว้ในเครื่องนี้</p><div id="yzMap"></div></details>
   </section>
 
   <section class="sec">
@@ -560,6 +570,7 @@ th { background:var(--th-bg); color:var(--muted); font-weight:600; font-size:12p
 
 <script src="js/parse.js"></script>
 <script src="js/calc.js"></script>
+<script src="js/yamazumi.js"></script>
 <script>
 var SAMPLE = {"sheet":"Process Line RG21 Concept 3","elements":[{"station":"Station 1","step":"Step 1","cat":"Set","name":"1.1 Set Part Ornament (RH)","time":10,"vals":{"r3":10,"r4":10,"r5":10,"r6":10}},{"station":"Station 1","step":"Step 1","cat":"Ass'y","name":"1.2 Apply glue Primer on Ornament (RH)","time":10,"vals":{"r3":10,"r4":10,"r5":10,"r6":10}},{"station":"Station 1","step":"Step 1","cat":"Ass'y","name":"1.3 Robot Apply glue Adhesive on Ornament (RH)","time":10,"vals":{"r0":10}},{"station":"Station 1","step":"Step 1","cat":"Move","name":"1.4 Tack Off","time":5,"vals":{"r3":5,"r4":5,"r5":5,"r6":5}},{"station":"Station 2","step":"Step 2","cat":"Set","name":"2.1 Set Side Step CTR (RH)","time":10,"vals":{"r3":10,"r4":10,"r5":10,"r6":10}},{"station":"Station 2","step":"Step 2","cat":"Set","name":"2.2 Set BRK'T FR , CTR , RR (RH)","time":10,"vals":{"r3":10,"r4":10,"r5":10,"r6":10}},{"station":"Station 2","step":"Step 2","cat":"Ass'y","name":"2.3 Ass'y BOLT M8 : 6 Pcs.","time":25,"vals":{"r3":25,"r4":25,"r5":25,"r6":25}},{"station":"Station 2","step":"Step 2","cat":"Ass'y","name":"2.4 Test Torque M8 : 6 Point","time":20,"vals":{"r3":20,"r4":20,"r5":20,"r6":20}},{"station":"Station 2","step":"Step 2","cat":"Move","name":"2.5 Tack Off ( Rotate Jig )","time":5,"vals":{"r1":5,"r2":5}},{"station":"Station 2","step":"Step 3","cat":"Ass'y","name":"3.1 Apply glue Primer on side step (RH)","time":10,"vals":{"r3":10,"r4":10,"r5":10,"r6":10}},{"station":"Station 2","step":"Step 3","cat":"Ass'y","name":"3.2 Ass'y Ornament With Side Step CTR (RH)","time":15,"vals":{"r3":15,"r4":15,"r5":15,"r6":15}},{"station":"Station 2","step":"Step 3","cat":"Ass'y","name":"3.3 Ass'y Collar : 6 Point And Bolt M6 : 6 Point (RH)","time":30,"vals":{"r3":30,"r4":30,"r5":30,"r6":30}},{"station":"Station 2","step":"Step 3","cat":"Ass'y","name":"3.4 Test Torque M6 : 6 Point (RH)","time":20,"vals":{"r3":20,"r4":20,"r5":20,"r6":20}},{"station":"Station 2","step":"Step 3","cat":"Move","name":"3.5 Rotate Jig","time":5,"vals":{"r1":5,"r2":5}},{"station":"Station 2","step":"Step 3","cat":"Move","name":"3.6 Tack Off","time":5,"vals":{"r3":5,"r4":5,"r5":5,"r6":5}},{"station":"Station 2","step":"Step 4","cat":"Check","name":"4.1 Cleaning","time":10,"vals":{"r7":10,"r8":10}},{"station":"Station 2","step":"Step 4","cat":"Check","name":"4.2 Check & Mark","time":50,"vals":{"r7":50,"r8":50}},{"station":"Station 2","step":"Step 4","cat":"Move","name":"4.3 Tack off to Rack","time":20,"vals":{"r7":20,"r8":20}}],"resources":[{"id":"r0","col":6,"name":"Robot","kind":"robot","tag":"","mult":1},{"id":"r1","col":7,"name":"Jig 1","kind":"jig","tag":"","mult":1},{"id":"r2","col":8,"name":"Jig 2","kind":"jig","tag":"","mult":1},{"id":"r3","col":11,"name":"Man 1","kind":"man","tag":"R","mult":1},{"id":"r4","col":12,"name":"Man 2","kind":"man","tag":"L","mult":1},{"id":"r5","col":13,"name":"Man 3","kind":"man","tag":"R","mult":1},{"id":"r6","col":14,"name":"Man 4","kind":"man","tag":"L","mult":1},{"id":"r7","col":15,"name":"Man 5","kind":"man","tag":"R/R","mult":2},{"id":"r8","col":16,"name":"Man 6","kind":"man","tag":"L/L","mult":2}],"takt":100,"pcs":2,"cycle":190};
 var SAMPLE_SC = {"scenarios":[{"name":"Manual","steps":[{"name":"Set Part","time":10},{"name":"Grinding (Manual)","time":480},{"name":"Check","time":210},{"name":"Take Off","time":10},{"name":"Move","time":0}]},{"name":"Robot","steps":[{"name":"Set Part","time":10},{"name":"Robot Grinding","time":220},{"name":"Check","time":0},{"name":"Take Off","time":10},{"name":"Move","time":10}]}],"sheet":"Man-Machine"};
@@ -768,7 +779,7 @@ function patchElem(m) {
 
 function renderAll(activeBox) {
   var m = compute();
-  renderVerdict(m); renderKpi(m); renderLoadChart(m); renderGantt(m);
+  renderVerdict(m); renderKpi(m); renderLoadChart(m); if (window.renderYamazumi) renderYamazumi(m); renderGantt(m);
   if (activeBox === 'res') patchRes(m); else renderResTable(m);
   if (activeBox === 'elem') patchElem(m); else renderElemTable(m);
 }
@@ -1752,6 +1763,9 @@ body.viewer .tabpanel td input, body.viewer .tabpanel .field input { opacity: .8
 .gate-card p { color: var(--fg2); }
 .gate-card input { width: 100%; padding: 10px 12px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--bg); text-align: left; }
 .gate-card .btn { justify-content: center; padding: 10px 14px; }
+.yz-sug { margin: 6px 0 0; padding-left: 20px; display: grid; gap: 6px; }
+.yz-cfg { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; margin-bottom: 8px; }
+.yz-cfg label { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 /* ---------- มือถือ / แท็บเล็ต ---------- */
 @media (pointer: coarse) {
   .btn, .linkbtn, .tab { min-height: 44px; }
@@ -2323,6 +2337,7 @@ body.viewer .tabpanel td input, body.viewer .tabpanel .field input { opacity: .8
       (meta.length ? '<div class="rp-part">' + meta.map(function (x) { return '<span><b>' + x[0] + ':</b> ' + esc(x[1]) + '</span>'; }).join('') + '</div>' : '') +
       '<div class="rp-sec"><div class="' + v.className + '">' + v.innerHTML + '</div><div class="kpis">' + $('kpis').innerHTML + '</div></div>' +
       '<div class="rp-sec"><h2>โหลดงานต่อรอบ (Line Balance) · ' + esc($('loadNote').textContent) + '</h2>' + (lc.previousElementSibling ? lc.previousElementSibling.outerHTML : '') + lc.innerHTML + '</div>' +
+      '<div class="rp-sec"><h2>Yamazumi Chart · ' + esc($('yzNote').textContent) + '</h2>' + $('yzChart').innerHTML + $('yzSug').innerHTML + '</div>' +
       '<div class="rp-pb"><h2>Man-Machine Chart · ' + esc($('ganttNote').textContent) + '</h2>' + $('ganttLegend').outerHTML + '<div id="rpGantt">' + $('gantt').innerHTML + '</div></div>' +
       (st.note ? '<p style="margin-top:10px">' + esc(st.note) + '</p>' : '') +
       '<div class="rp-f"><span>สร้างจาก Line Balance Chart</span><span>Takt ' + fmt(m.takt) + ' s · Cycle/ชิ้น ' + fmt(m.perPiece) + ' s · ' + esc(date) + '</span></div>';
@@ -2389,4 +2404,5 @@ body.viewer .tabpanel td input, body.viewer .tabpanel .field input { opacity: .8
   if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js').catch(function () {});
 })();
 </script>
+<script src="js/yamazumi-ui.js"></script>
 </body></html>
