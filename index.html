@@ -2430,11 +2430,51 @@ body.viewer .tabpanel td input, body.viewer .tabpanel .field input { opacity: .8
 #gF { transition: width .4s ease; }
 @media (prefers-reduced-motion: reduce) { #gF { transition: none; } }
 #lbGate { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 16px; background: var(--bg); }
-.gate-card { width: min(380px, 100%); display: flex; flex-direction: column; gap: 12px; padding: 24px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
-.gate-card h1 { font-size: 22px; }
-.gate-card p { color: var(--fg2); }
-.gate-card input { width: 100%; padding: 10px 12px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--bg); text-align: left; }
-.gate-card .btn { justify-content: center; padding: 10px 14px; }
+#lbGate { overflow-y: auto; background: radial-gradient(900px 500px at 12% 8%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 60%), radial-gradient(800px 480px at 92% 96%, color-mix(in srgb, #e0b95a 16%, transparent), transparent 60%), var(--bg); }
+.gate-wrap { width: min(900px, 100%); margin: auto; display: grid; grid-template-columns: 1.05fr 1fr; border-radius: 22px; overflow: hidden; background: var(--surface); border: 1px solid var(--line); box-shadow: 0 30px 80px rgba(10,22,40,.22), 0 2px 6px rgba(10,22,40,.08); animation: gIn .5s cubic-bezier(.2,.8,.2,1) both; }
+.gate-brand { position: relative; display: flex; flex-direction: column; gap: 18px; padding: 34px 32px; color: #fff; background: linear-gradient(150deg, var(--brand-navy-900,#0f2137) 0%, var(--brand-navy-700,#1e3a5f) 100%); overflow: hidden; }
+.gate-brand::before { content: ""; position: absolute; width: 320px; height: 320px; right: -120px; top: -120px; border-radius: 50%; background: radial-gradient(circle, rgba(224,185,90,.28), transparent 70%); }
+.gb-logo { display: flex; align-items: center; gap: 12px; font-weight: 700; font-size: 18px; letter-spacing: .2px; position: relative; }
+.gb-mark { width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.22); }
+.gb-mark svg { width: 24px; height: 24px; }
+.gate-brand h2 { margin: 0; font-size: 22px; line-height: 1.45; font-weight: 700; position: relative; }
+.gb-bars { position: relative; height: 130px; display: flex; align-items: flex-end; gap: 14px; padding: 0 6px 0; border-bottom: 1.5px solid rgba(255,255,255,.28); margin-top: auto; }
+.gb-bars i { flex: 1; height: var(--h); border-radius: 8px 8px 0 0; background: linear-gradient(180deg, rgba(255,255,255,.95), rgba(255,255,255,.55)); transform-origin: bottom; animation: gBar .9s cubic-bezier(.2,.9,.3,1) both; animation-delay: var(--d); }
+.gb-bars i.hot { background: linear-gradient(180deg, #f3d27a, #d9a93f); }
+.gb-takt { position: absolute; left: 0; right: 0; bottom: 78px; border-top: 2px dashed rgba(243,210,122,.85); }
+.gb-takt::after { content: "Takt"; position: absolute; right: 0; top: -20px; font-size: 11px; font-weight: 600; color: #f3d27a; }
+.gate-brand ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; font-size: 13px; color: rgba(255,255,255,.82); position: relative; }
+.gate-brand li::before { content: "✓"; display: inline-grid; place-items: center; width: 18px; height: 18px; margin-right: 9px; border-radius: 50%; font-size: 11px; background: rgba(243,210,122,.22); color: #f3d27a; }
+.gate-card { display: flex; flex-direction: column; gap: 14px; padding: 38px 34px 30px; justify-content: center; }
+.gate-card .gc-eyebrow { margin: 0; font-size: 12.5px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: var(--accent); }
+.gate-card h1 { margin: 0; font-size: 26px; line-height: 1.3; }
+.gate-card .gc-sub { margin: -4px 0 6px; color: var(--fg2); font-size: 14px; }
+.gf { display: grid; gap: 6px; }
+.gf > span { font-size: 13px; font-weight: 600; }
+.gf-in { position: relative; display: flex; align-items: center; }
+.gf-in > svg { position: absolute; left: 14px; width: 18px; height: 18px; color: var(--fg2); pointer-events: none; transition: color .15s; }
+.gate-card input { width: 100%; height: 48px; padding: 0 44px 0 44px; border: 1.5px solid var(--line-strong, var(--line)); border-radius: 12px; background: var(--bg); color: var(--fg); font: inherit; font-size: 15px; text-align: left; transition: border-color .15s, box-shadow .15s, background .15s; }
+.gate-card input:focus { outline: none; border-color: var(--accent); background: var(--surface); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 20%, transparent); }
+.gf-in:focus-within > svg { color: var(--accent); }
+.gf-eye { position: absolute; right: 6px; width: 36px; height: 36px; display: grid; place-items: center; border: 0; border-radius: 9px; background: transparent; color: var(--fg2); cursor: pointer; }
+.gf-eye:hover { background: color-mix(in srgb, var(--fg) 8%, transparent); }
+.gf-eye svg { width: 19px; height: 19px; }
+.gate-card #gGo { position: relative; height: 50px; margin-top: 6px; justify-content: center; border: 0; border-radius: 12px; font-size: 16px; font-weight: 700; letter-spacing: .2px; background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 70%, #000)); color: var(--accent-fg, #fff); box-shadow: 0 8px 20px color-mix(in srgb, var(--accent) 35%, transparent); transition: transform .12s, box-shadow .12s, filter .12s; cursor: pointer; }
+.gate-card #gGo:hover { transform: translateY(-1px); box-shadow: 0 12px 26px color-mix(in srgb, var(--accent) 42%, transparent); filter: none; }
+.gate-card #gGo:active { transform: translateY(0) scale(.99); }
+.gate-card #gGo:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 50%, transparent); outline-offset: 3px; }
+.gate-card #gGo.busy { pointer-events: none; opacity: .85; }
+.gate-card #gGo.busy::after { content: ""; width: 18px; height: 18px; margin-left: 10px; border-radius: 50%; border: 2.5px solid rgba(255,255,255,.4); border-top-color: #fff; animation: gSpin .7s linear infinite; }
+.gate-card #gMsg { min-height: 20px; margin: 0; font-size: 13px; text-align: center; color: var(--fg2); }
+.gate-card #gMsg.err { color: var(--bad-text, var(--bad)); font-weight: 600; }
+.gate-card .gc-foot { margin: 0; text-align: center; font-size: 12px; color: var(--fg2); opacity: .8; }
+.gate-card.shake { animation: gShake .4s; }
+@keyframes gIn { from { opacity: 0; transform: translateY(18px) scale(.98); } to { opacity: 1; transform: none; } }
+@keyframes gBar { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes gSpin { to { transform: rotate(360deg); } }
+@keyframes gShake { 20%, 60% { transform: translateX(-7px); } 40%, 80% { transform: translateX(7px); } }
+@media (max-width: 760px) { .gate-wrap { grid-template-columns: 1fr; max-width: 440px; } .gate-brand { padding: 22px 22px 20px; gap: 12px; } .gate-brand h2 { font-size: 17px; } .gb-bars, .gate-brand ul { display: none; } .gate-card { padding: 26px 22px 24px; } }
+@media (prefers-reduced-motion: reduce) { .gate-wrap, .gb-bars i, .gate-card.shake { animation: none; } .gate-card #gGo.busy::after { animation-duration: 1.6s; } }
 .yz-sug { margin: 6px 0 0; padding-left: 20px; display: grid; gap: 6px; }
 .yz-cfg { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; margin-bottom: 8px; }
 .yz-cfg label { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
@@ -2473,15 +2513,29 @@ body.viewer .tabpanel td input, body.viewer .tabpanel .field input { opacity: .8
 @media print { body.rpt-print > *:not(#lbReport) { display:none !important; } body.rpt-print #lbReport { display:block; padding:0; } }
 </style>
 <div id="lbGate" role="dialog" aria-modal="true" aria-label="เข้าสู่ระบบ">
-  <form class="gate-card" id="gForm" onsubmit="return false">
-    <h1>Line Balance</h1>
-    <p>เข้าสู่ระบบเพื่อใช้งาน</p>
-    <input id="gUser" type="text" placeholder="ชื่อผู้ใช้" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false">
-    <input id="gPass" type="password" placeholder="รหัสผ่าน" autocomplete="current-password">
-    <button class="btn" id="gGo" type="submit">เข้าสู่ระบบ</button>
-    <p class="cd-msg" id="gMsg" role="status" aria-live="polite"></p>
-  </form>
+  <div class="gate-wrap">
+    <aside class="gate-brand" aria-hidden="true">
+      <div class="gb-logo"><span class="gb-mark"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M5 20V12M10 20V6M15 20V10M20 20V15"/></svg></span>Line Balance</div>
+      <h2>ออกแบบไลน์ผลิตให้สมดุล<br>ลดคอขวด เพิ่มผลผลิต</h2>
+      <div class="gb-bars"><i style="--h:52%;--d:.15s"></i><i style="--h:78%;--d:.25s"></i><i class="hot" style="--h:96%;--d:.35s"></i><i style="--h:64%;--d:.45s"></i><i style="--h:84%;--d:.55s"></i><span class="gb-takt"></span></div>
+      <ul><li>Yamazumi และ Man-Machine Chart</li><li>ข้อเสนอแนะย้ายงานลดคอขวด</li><li>บันทึกบน Cloud พร้อมย้อนกลับได้</li></ul>
+    </aside>
+    <form class="gate-card" id="gForm" onsubmit="return false">
+      <p class="gc-eyebrow">Line Balance</p>
+      <h1>ยินดีต้อนรับกลับมา 👋</h1>
+      <p class="gc-sub">เข้าสู่ระบบเพื่อเริ่มใช้งาน</p>
+      <label class="gf"><span>ชื่อผู้ใช้</span><span class="gf-in"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg><input id="gUser" type="text" placeholder="ชื่อผู้ใช้" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false"></span></label>
+      <label class="gf"><span>รหัสผ่าน</span><span class="gf-in"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg><input id="gPass" type="password" placeholder="รหัสผ่าน" autocomplete="current-password"><button type="button" class="gf-eye" id="gEye" aria-label="แสดงรหัสผ่าน"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button></span></label>
+      <button class="btn" id="gGo" type="submit">เข้าสู่ระบบ</button>
+      <p class="cd-msg" id="gMsg" role="status" aria-live="polite"></p>
+      <p class="gc-foot">🔒 สำหรับผู้ที่ได้รับสิทธิ์เท่านั้น</p>
+    </form>
+  </div>
 </div>
+<script>
+(function () { var b = document.getElementById('gEye'), i = document.getElementById('gPass'); if (!b || !i) return;
+  b.addEventListener('click', function () { var s = i.type === 'password'; i.type = s ? 'text' : 'password'; b.setAttribute('aria-label', s ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'); i.focus(); }); })();
+</script>
 <dialog id="cloudDlg" aria-labelledby="cdTitle">
   <div class="cd">
     <div class="cd-row" style="justify-content:space-between"><h2 id="cdTitle">งานที่บันทึกบน Cloud</h2><button class="btn ghost sm" id="cdClose" type="button">ปิด</button></div>
@@ -2596,16 +2650,18 @@ window.lbConfirm = function (o) {
   function toEmail(u) { u = String(u || '').trim(); return u.indexOf('@') >= 0 ? u : u.toLowerCase() + DOM; }
   function shortName(e) { e = String(e || ''); return e.slice(-DOM.length) === DOM ? e.slice(0, -DOM.length) : e; }
   function gate(show) { $('lbGate').hidden = !show; }
-  function gm(t, err) { var el = $('gMsg'); el.textContent = t || ''; el.className = 'cd-msg' + (err ? ' err' : ''); }
+  function gm(t, err) { var el = $('gMsg'), c = $('gForm'); el.textContent = t || ''; el.className = 'cd-msg' + (err ? ' err' : ''); c.classList.remove('shake'); if (err) { void c.offsetWidth; c.classList.add('shake'); } }
+  function gbusy(on) { var b = $('gGo'); b.classList.toggle('busy', !!on); b.disabled = !!on; b.textContent = on ? 'กำลังเข้าสู่ระบบ' : 'เข้าสู่ระบบ'; }
   function login() {
     var u = $('gUser').value.trim(), pw = $('gPass').value;
     if (!sb) { gm('ยังไม่ได้ตั้งค่า Supabase ใน config.js', true); return; }
     if (!u || !pw) { gm('ใส่ชื่อผู้ใช้และรหัสผ่านก่อน', true); return; }
-    gm('กำลังเข้าสู่ระบบ…');
+    gm(''); gbusy(true);
     sb.auth.signInWithPassword({ email: toEmail(u), password: pw }).then(function (r) {
+      gbusy(false);
       if (r.error) { gm(/invalid login/i.test(r.error.message) ? 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' : r.error.message, true); return; }
       user = r.data.session.user; $('gPass').value = ''; gm(''); gate(false); afterAuth(); syncOut();
-    }).catch(function () { gm('เชื่อมต่อไม่ได้ ตรวจอินเทอร์เน็ตแล้วลองใหม่', true); });
+    }).catch(function () { gbusy(false); gm('เชื่อมต่อไม่ได้ ตรวจอินเทอร์เน็ตแล้วลองใหม่', true); });
   }
   function stat(t, err) { var el = $('cloudStat'); if (!el) return; el.hidden = !t; el.textContent = t || ''; el.className = 'live' + (err ? ' bad' : ''); }
   function hhmm() { var d = new Date(); return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); }
