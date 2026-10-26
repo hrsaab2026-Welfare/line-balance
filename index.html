@@ -407,6 +407,35 @@ th { background:var(--th-bg); color:var(--muted); font-weight:600; font-size:12p
 .rs-av { background:var(--brand-navy-700); } .rs-av.robot { background:var(--c1); }
 @media (max-width:960px) { .bar { margin:8px 12px 0; position:static; } }
 </style>
+<style>
+/* ===== ย่อ/ขยาย sidebar + ปุ่มออกจากระบบ ===== */
+.app { transition:grid-template-columns .22s ease; }
+.app.collapsed { grid-template-columns:72px minmax(0,1fr); }
+.side { overflow:hidden; }
+.sideuser { display:flex; align-items:center; gap:10px; padding:10px; border-radius:12px; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.08); }
+.sideuser[hidden] { display:none; }
+.sideuser .su-name { flex:1; min-width:0; font-size:13px; color:#fff; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.sideuser .su-name small { display:block; font-weight:400; font-size:11px; color:#8fb0a8; }
+.sideuser button { flex:none; width:34px; height:34px; display:grid; place-items:center; border-radius:9px; border:1px solid rgba(255,255,255,.16); background:rgba(255,255,255,.08); color:#cfe0db; cursor:pointer; }
+.sideuser button:hover { color:#ff9d9d; border-color:#ff9d9d; }
+.sideuser svg, #logoutBtn svg, #sideToggle svg { width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+#logoutBtn:hover { color:#ff9d9d; border-color:#ff9d9d; }
+.app.collapsed .side { padding:22px 14px; align-items:stretch; }
+.app.collapsed .brand { justify-content:center; padding:0; }
+.app.collapsed .brand > div:last-child,
+.app.collapsed .navlabel,
+.app.collapsed .gauge,
+.app.collapsed .nav .tab span,
+.app.collapsed .sideuser .su-name { display:none; }
+.app.collapsed .nav .tab { justify-content:center; padding:11px 0; }
+.app.collapsed .sideuser { justify-content:center; padding:8px 0; background:none; border:0; }
+@media (max-width:960px) {
+  .app.collapsed { grid-template-columns:1fr; }
+  .app.collapsed .side { display:none; }
+  .sideuser { display:none !important; }
+}
+@media (prefers-reduced-motion:reduce) { .app { transition:none; } }
+</style>
 <div class="app">
 <aside class="side">
   <div class="brand"><div class="logo"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#06211c" stroke-width="2.2" stroke-linecap="round"><path d="M5 20v-7M12 20V6M19 20v-10"/><path d="M3 9h18" stroke-dasharray="2.5 3" stroke-width="1.6"/></svg></div><div><b>Line Balance</b><small>Man-Machine Studio</small></div></div>
@@ -420,9 +449,11 @@ th { background:var(--th-bg); color:var(--muted); font-weight:600; font-size:12p
     <div class="gr"><span>Takt Time</span><b id="gT">—</b></div>
     <div class="gtrack"><i id="gF" style="width:0"></i><u></u></div>
     <div class="gr"><span>Cycle ต่อชิ้น</span><b id="gC">—</b></div><div class="gstate" id="gS">รอข้อมูล</div></div>
+  <div class="sideuser" id="sideUser" hidden><div class="su-name"><span id="suName"></span><small>เข้าสู่ระบบอยู่</small></div><button id="sideSignOut" type="button" aria-label="ออกจากระบบ" title="ออกจากระบบ"><svg viewBox="0 0 24 24"><path d="M9 4H5v16h4M16 8l4 4-4 4M20 12H9"/></svg></button></div>
 </aside>
 <div class="main">
 <header class="bar">
+  <button class="icbtn" id="sideToggle" type="button" aria-label="ย่อ/ขยายเมนูด้านข้าง" aria-expanded="true" title="ย่อ/ขยายเมนู"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
   <div class="crumb">พื้นที่ทำงาน <span aria-hidden="true">/</span> <b id="crumb">สร้างจาก Process Flow</b></div>
   <div class="file-chip" id="fileChip"></div>
   <span class="live" id="live">รอข้อมูล</span>
@@ -437,6 +468,7 @@ th { background:var(--th-bg); color:var(--muted); font-weight:600; font-size:12p
   <span class="live" id="roleChip" hidden></span>
   <button class="btn ghost" id="installBtn" type="button" hidden>ติดตั้งแอป</button>
   <button class="icbtn" id="themeBtn" type="button" aria-label="สลับโหมดสว่าง/มืด"><svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg></button>
+  <button class="icbtn" id="logoutBtn" type="button" aria-label="ออกจากระบบ" title="ออกจากระบบ" hidden><svg viewBox="0 0 24 24"><path d="M9 4H5v16h4M16 8l4 4-4 4M20 12H9"/></svg></button>
 </header>
 <div class="wrap">
   <div class="pagehead"><h1 id="pgT">สร้างจาก Process Flow</h1><p id="pgS"></p></div>
@@ -1707,6 +1739,15 @@ $('themeBtn').addEventListener('click', function () {
   var r = document.documentElement, cur = r.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
   r.dataset.theme = cur === 'dark' ? 'light' : 'dark';
 });
+/* ย่อ/ขยาย sidebar (จำค่าไว้ในเครื่อง) */
+(function () {
+  var app = document.querySelector('.app'), btn = $('sideToggle'), K = 'lbSide';
+  document.querySelectorAll('.nav .tab').forEach(function (t) { var s = t.querySelector('span'); if (s && s.firstChild) t.title = s.firstChild.textContent.trim(); });
+  function set(on) { app.classList.toggle('collapsed', on); btn.setAttribute('aria-expanded', on ? 'false' : 'true'); try { localStorage.setItem(K, on ? '1' : '0'); } catch (e) {} }
+  var init = false; try { init = localStorage.getItem(K) === '1'; } catch (e) {}
+  app.classList.toggle('collapsed', init); btn.setAttribute('aria-expanded', init ? 'false' : 'true');
+  btn.addEventListener('click', function () { set(!app.classList.contains('collapsed')); });
+})();
 /* เปิดมาเจอหน้าเริ่มต้น (ไม่โหลดข้อมูลตัวอย่างให้เอง) */
 try { showTab((location.hash || '').replace('#', '')); } catch (e) { showTab('flow'); }
 </script>
@@ -1872,7 +1913,7 @@ body.viewer .tabpanel td input, body.viewer .tabpanel .field input { opacity: .8
     gm('กำลังเข้าสู่ระบบ…');
     sb.auth.signInWithPassword({ email: toEmail(u), password: pw }).then(function (r) {
       if (r.error) { gm(/invalid login/i.test(r.error.message) ? 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' : r.error.message, true); return; }
-      user = r.data.session.user; $('gPass').value = ''; gm(''); gate(false); afterAuth();
+      user = r.data.session.user; $('gPass').value = ''; gm(''); gate(false); afterAuth(); syncOut();
     }).catch(function () { gm('เชื่อมต่อไม่ได้ ตรวจอินเทอร์เน็ตแล้วลองใหม่', true); });
   }
   function stat(t, err) { var el = $('cloudStat'); if (!el) return; el.hidden = !t; el.textContent = t || ''; el.className = 'live' + (err ? ' bad' : ''); }
@@ -1905,7 +1946,7 @@ body.viewer .tabpanel td input, body.viewer .tabpanel .field input { opacity: .8
   if (!sb) gate(false);
   $('gForm').addEventListener('submit', function (e) { e.preventDefault(); login(); });
   if (sb) {
-    sb.auth.getSession().then(function (r) { user = r.data && r.data.session ? r.data.session.user : null; if (user) { gate(false); afterAuth(); } else { gate(true); $('gUser').focus(); } });
+    sb.auth.getSession().then(function (r) { user = r.data && r.data.session ? r.data.session.user : null; if (user) { gate(false); afterAuth(); syncOut(); } else { gate(true); $('gUser').focus(); } });
     sb.auth.onAuthStateChange(function (ev, sess) { user = sess ? sess.user : null; if (ev === 'SIGNED_OUT') { location.reload(); return; } if (dlg.open) view(); });
   }
 
@@ -2073,6 +2114,19 @@ body.viewer .tabpanel td input, body.viewer .tabpanel .field input { opacity: .8
   dlg.addEventListener('click', function (e) { if (e.target === dlg) dlg.close(); });
 
   $('cdSignOut').addEventListener('click', function () { clearTimeout(saveT); sb.auth.signOut().then(function () { location.reload(); }); });
+  function syncOut() {
+    var on = !!(sb && user);
+    $('logoutBtn').hidden = !on; $('sideUser').hidden = !on;
+    if (on) $('suName').textContent = shortName(user.email);
+  }
+  function askSignOut() {
+    if (!sb) return;
+    if (!confirm('ออกจากระบบใช่ไหม?')) return;
+    clearTimeout(saveT);
+    sb.auth.signOut().then(function () { location.reload(); }, function () { location.reload(); });
+  }
+  $('logoutBtn').addEventListener('click', askSignOut);
+  $('sideSignOut').addEventListener('click', askSignOut);
 
   $('cdSave').addEventListener('click', function () {
     if (!canEdit()) { cm('บัญชีนี้ดูได้อย่างเดียว บันทึกไม่ได้', true); return; }
