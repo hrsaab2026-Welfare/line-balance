@@ -2631,7 +2631,8 @@ body.viewer .tabpanel td input, body.viewer .tabpanel .field input { opacity: .8
       applyRole();
     }, function () { rolesOn = true; role = 'viewer'; applyRole(); });
   }
-  function afterAuth() { loadRole().then(function () { openLatest(); }); }
+  /* ไม่เปิดงานล่าสุดให้อัตโนมัติ: เข้าหน้าเริ่มต้นก่อน แล้วเลือกงานเองที่ Cloud > งานที่บันทึกไว้ (openLatest() ยังอยู่ ถ้าอยากเปิดคืนให้เรียกใน then) */
+  function afterAuth() { loadRole().then(function () { purgeOld(); }); }
   function purgeOld() {
     if (!canEdit() || trashOk !== true) return;
     sb.from(TBL).delete().lt('deleted_at', new Date(Date.now() - TRASH_DAYS * 864e5).toISOString()).then(function () {});
