@@ -541,7 +541,7 @@ th { background:var(--th-bg); color:var(--muted); font-weight:600; font-size:12p
     </div>
     <span class="bar-sep" aria-hidden="true"></span>
     <div class="bar-grp">
-      <label class="btn" for="fileInput"><svg viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></svg>อัปโหลด Excel</label>
+      <label class="btn" id="hdrUpload" for="fileInput" hidden><svg viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></svg>อัปโหลด Excel</label>
       <input id="fileInput" type="file" accept=".xlsx,.xlsm,.xls" hidden>
       <div class="menu">
         <button class="btn ghost" id="cloudMenuBtn" type="button" data-menu aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 24 24"><path d="M7 18a4 4 0 0 1-.6-7.96A6 6 0 0 1 18 9.5a4.2 4.2 0 0 1-.5 8.5z"/></svg>Cloud<svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
@@ -2321,7 +2321,7 @@ var _showTab = showTab;
 showTab = function (tok) {
   _showTab(tok);
   var has = !!(S || D || SC);
-  $('welcome').hidden = has;
+  $('welcome').hidden = has; $('hdrUpload').hidden = !has;
   if (!has) {
     Object.keys(TAB_PANELS).forEach(function (k) { TAB_PANELS[k].forEach(function (id) { $(id).hidden = true; }); });
     $('pgT').textContent = $('crumb').textContent = 'เริ่มต้นใช้งาน';
@@ -2733,7 +2733,7 @@ body.viewer .tabpanel td input, body.viewer .tabpanel .field input { opacity: .8
   });
   $('fileInput').addEventListener('change', function () { cur = null; });
   /* ปิดไฟล์ / ยกเลิกไฟล์ที่เปิดอยู่ กลับหน้าเริ่มต้น (ไม่ลบงานที่บันทึกบน Cloud ไปแล้ว) */
-  function syncClose() { $('closeFileBtn').hidden = !(S || D || SC); }
+  function syncClose() { var has = !!(S || D || SC); $('closeFileBtn').hidden = !has; $('hdrUpload').hidden = !has; }
   function closeFile() {
     if (!(S || D || SC)) return;
     if (!confirm('ปิดไฟล์นี้และกลับหน้าเริ่มต้นใช่ไหม?\nข้อมูลที่ยังไม่ได้บันทึกจะหายไป (งานที่บันทึกบน Cloud แล้วยังอยู่ เปิดได้จาก "งานที่บันทึกไว้")')) return;
