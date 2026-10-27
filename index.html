@@ -678,7 +678,8 @@ th { background:var(--th-bg); color:var(--muted); font-weight:600; font-size:12p
       <button class="btn ghost sm swc-edit" type="button" data-sw="sample">ตัวอย่าง</button>
       <button class="btn ghost sm swc-edit" type="button" data-sw="clear">ล้างฟอร์ม</button>
       <span class="sp"></span>
-      <button class="btn ghost sm" type="button" data-sw="print">พิมพ์ / PDF</button>
+      <button class="btn ghost sm" type="button" data-sw="print">พิมพ์</button>
+      <button class="btn ghost sm" type="button" data-sw="pdf">ดาวน์โหลด PDF</button>
       <button class="btn sm" type="button" data-sw="xlsx">ดาวน์โหลด Excel</button>
     </div>
     <div class="panel"><div class="swc-info" id="swcInfo">
@@ -2637,18 +2638,21 @@ body.viewer #tab-swc .swc-edit { pointer-events:none; opacity:.35; }
 #swcPrint { display:none; }
 @media print {
   body.swc-print > *:not(#swcPrint) { display:none !important; }
-  body.swc-print #swcPrint { display:block; color:#000; background:#fff; font-family:Arial,'Noto Sans Thai',sans-serif; font-size:9.5px; }
-  .swp h1 { margin:0 0 6px; text-align:center; font-size:16px; letter-spacing:.5px; }
-  .swp-info { display:grid; grid-template-columns:repeat(4,1fr); gap:3px 14px; margin-bottom:6px; }
-  .swp-info div { border-bottom:1px solid #888; padding:1px 0; } .swp-info b { font-weight:700; margin-right:4px; }
-  .swp-leg { display:flex; gap:14px; margin-bottom:6px; } .swp-leg i { display:inline-block; width:11px; height:11px; margin-right:4px; vertical-align:-2px; border:1px solid #666; }
-  .swp-main { display:grid; grid-template-columns:1.05fr 1fr; gap:10px; align-items:start; }
-  .swp table { border-collapse:collapse; width:100%; } .swp th, .swp td { border:1px solid #888; padding:2px 4px; text-align:right; white-space:normal; font-size:9.5px; }
-  .swp td.l, .swp th.l { text-align:left; } .swp th { background:#fbe3c8; } .swp tfoot td { background:#fff3a8; font-weight:700; }
-  .swp-foot { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:8px; align-items:start; }
-  .swp-foot img { max-width:100%; max-height:230px; border:1px solid #888; }
-  .swp-sum { margin-top:6px; font-weight:700; }
+  body.swc-print #swcPrint { display:block; }
 }
+.swp, .swp-pdf { color:#000; background:#fff; font-family:Arial,'Noto Sans Thai',sans-serif; font-size:9.5px; }
+.swp-pdf { position:absolute; left:-10000px; top:0; width:1123px; padding:30px 34px; box-sizing:border-box; }
+.swp h1 { margin:0 0 6px; text-align:center; font-size:16px; letter-spacing:.5px; }
+.swp-info { display:grid; grid-template-columns:repeat(4,1fr); gap:3px 14px; margin-bottom:6px; }
+.swp-info div { border-bottom:1px solid #888; padding:1px 0; } .swp-info b { font-weight:700; margin-right:4px; }
+.swp-leg { display:flex; gap:14px; margin-bottom:6px; } .swp-leg i { display:inline-block; width:11px; height:11px; margin-right:4px; vertical-align:-2px; border:1px solid #666; }
+.swp-main { display:grid; grid-template-columns:1.05fr 1fr; gap:10px; align-items:start; }
+.swp table { border-collapse:collapse; width:100%; } .swp th, .swp td { border:1px solid #888; padding:2px 4px; text-align:right; white-space:normal; font-size:9.5px; color:#000; }
+.swp td.l, .swp th.l { text-align:left; } .swp th { background:#fbe3c8; } .swp tfoot td { background:#fff3a8; font-weight:700; }
+.swp svg { width:100%; height:auto; display:block; }
+.swp-foot { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:8px; align-items:start; }
+.swp-foot img { max-width:100%; max-height:230px; border:1px solid #888; }
+.swp-sum { margin-top:6px; font-weight:700; }
 </style>
 <script>
 /* ---------- Standard Work Chart (ฟอร์มมาตรฐานงานของพนักงาน 1 คน) ---------- */
@@ -2825,6 +2829,32 @@ function swcPrint() {
   var done = function () { document.body.classList.remove('swc-print'); box.remove(); window.removeEventListener('afterprint', done); };
   window.addEventListener('afterprint', done); setTimeout(function () { window.print(); }, 60);
 }
+/* ดาวน์โหลด PDF ตรงๆ: วาดฟอร์มเป็นภาพด้วย html2canvas แล้วใส่ลง PDF A4 แนวนอนด้วย jsPDF (ใช้ฟอนต์ของเบราว์เซอร์ จึงแสดงภาษาไทยได้ครบ) */
+var SW_H2C = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js', SW_PDF = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+function swcLoadJs(url, has) {
+  return new Promise(function (ok) {
+    if (has()) { ok(true); return; }
+    var s = document.createElement('script'); s.src = url; s.onload = function () { ok(true); }; s.onerror = function () { s.remove(); ok(false); }; document.head.appendChild(s);
+  });
+}
+function swcPdf() {
+  var btn = document.querySelector('[data-sw="pdf"]'), box = null;
+  var end = function () { if (box) box.remove(); if (btn) btn.disabled = false; };
+  if (btn) btn.disabled = true; msg('กำลังสร้าง PDF…');
+  Promise.all([swcLoadJs(SW_H2C, function () { return !!window.html2canvas; }), swcLoadJs(SW_PDF, function () { return !!(window.jspdf && window.jspdf.jsPDF); })]).then(function (r) {
+    if (!r[0] || !r[1]) { msg('โหลดตัวช่วยสร้าง PDF ไม่สำเร็จ ตรวจอินเทอร์เน็ตแล้วลองใหม่ หรือกด "พิมพ์" แล้วเลือกบันทึกเป็น PDF', true); end(); return; }
+    box = document.createElement('div'); box.className = 'swp-pdf'; box.innerHTML = swcPrintHtml(swcCalc()); document.body.appendChild(box);
+    var imgs = Array.prototype.slice.call(box.querySelectorAll('img')), I = SWC.info;
+    return Promise.all(imgs.map(function (im) { return im.decode ? im.decode().catch(function () {}) : Promise.resolve(); }).concat([document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()]))
+      .then(function () { return window.html2canvas(box, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false }); })
+      .then(function (cv) {
+        var pdf = new window.jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' }), pw = 297, ph = 210, m = 8, k = Math.min((pw - 2 * m) / cv.width, (ph - 2 * m) / cv.height), w = cv.width * k, h = cv.height * k;
+        pdf.addImage(cv.toDataURL('image/jpeg', 0.92), 'JPEG', (pw - w) / 2, m, w, h);
+        pdf.save('StandardWorkChart_' + String(I.process || I.product || 'งานใหม่').replace(/[\\/:*?"<>|]+/g, '_') + '.pdf');
+        msg('ดาวน์โหลด PDF แล้ว'); end();
+      });
+  }).catch(function (e) { msg('สร้าง PDF ไม่สำเร็จ: ' + (e && e.message || e), true); end(); });
+}
 function swcPng(svg, w, h) {
   return new Promise(function (ok) {
     var im = new Image();
@@ -2901,6 +2931,7 @@ $('tab-swc').addEventListener('click', function (e) {
   var b = e.target.closest('[data-sw]'); if (!b) return;
   var a = b.getAttribute('data-sw'), tr = b.closest('tr'), i = tr && tr.hasAttribute('data-i') ? +tr.getAttribute('data-i') : -1, j = tr && tr.hasAttribute('data-j') ? +tr.getAttribute('data-j') : -1, R = SWC.rows;
   if (a === 'print') { swcPrint(); return; }
+  if (a === 'pdf') { swcPdf(); return; }
   if (a === 'xlsx') { swcExcel(); return; }
   if (a === 'import') { swcImport($('swcRes').value); return; }
   if (a === 'add') { if (R.length >= SW_MAXROWS) { msg('ฟอร์มมาตรฐานรองรับสูงสุด ' + SW_MAXROWS + ' ขั้นตอน', true); return; } R.push(swcRow()); }
