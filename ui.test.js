@@ -73,3 +73,21 @@ test('ui: ชื่องานที่มี HTML ไม่ถูกตีค�
   assert.equal(tip.textContent, bad);
   assert.equal(w.__x, undefined);
 });
+
+test('ui: เมนู Forecast เปิดได้โดยไม่ต้องมีงาน Line Balance และคำนวณ Work load ได้', async () => {
+  const { w, d, errors } = await open();
+  click(w, d.getElementById('tabbtn-fc'));
+  assert.equal(d.getElementById('tab-fc').hidden, false); assert.equal(d.getElementById('welcome').hidden, true);
+  const rows = [['Item', 'Part Number', null, 'Part Name', 'Model', new Date(2026, 9, 1), new Date(2026, 10, 1)],
+    [1, 1111111111, null, 'A', 'M1', 3600, 7200], ['GROUP B'], [2, 2222222222, null, 'B', 'M2', 1800, 0]];
+  assert.ok(w.lbFc.importRows(rows, 'x.xlsx'));
+  assert.equal(d.querySelectorAll('#fcPT tbody tr').length, 2);
+  const t = d.querySelector('#fcPT tr input[data-f="time"]'); t.value = '10'; t.dispatchEvent(new w.Event('input', { bubbles: true }));
+  assert.ok(d.querySelectorAll('#fcRes svg rect').length > 0, 'กราฟ Work load ต้องมีแท่ง');
+  assert.ok(!/undefined|NaN/.test(d.getElementById('tab-fc').textContent));
+  click(w, d.querySelector('[data-fc="addh"]'));
+  assert.equal(d.querySelectorAll('#fcHol tr[data-h]').length, 1);
+  click(w, d.querySelector('[data-fc="addln"]'));
+  assert.equal(w.lbFc.state().lines.length, 1);
+  assert.deepEqual(errors, []);
+});
