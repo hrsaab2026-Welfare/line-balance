@@ -517,6 +517,7 @@ th { background:var(--th-bg); color:var(--muted); font-weight:600; font-size:12p
     <button class="tab on" id="tabbtn-flow" role="tab" type="button" aria-selected="true"><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="12" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M8.5 6H12a3 3 0 0 1 3 3v.5M8.5 18H12a3 3 0 0 0 3-3v-.5"/></svg><span>สร้างจาก Process Flow<small>แตกงานย่อย จัดคนและสถานี</small></span></button>
     <button class="tab" id="tabbtn-balance" role="tab" type="button" aria-selected="false"><svg viewBox="0 0 24 24"><path d="M5 20V11M11 20V4M17 20v-6M3 20h18"/></svg><span>Line Balance และ Man-Machine<small>โหลดต่อคน เทียบ Takt</small></span></button>
     <button class="tab" id="tabbtn-compare" role="tab" type="button" aria-selected="false"><svg viewBox="0 0 24 24"><path d="M7 7h12M15 3l4 4-4 4M17 17H5M9 13l-4 4 4 4"/></svg><span>เทียบ Manual กับ Robot<small>เวลาต่อชิ้นที่ลดได้</small></span></button>
+    <button class="tab" id="tabbtn-swc" role="tab" type="button" aria-selected="false"><svg viewBox="0 0 24 24"><path d="M4 6h9M8 12h12M4 18h7M14 18h6"/></svg><span>Standard Work Chart<small>ลำดับงานและเวลาของพนักงาน</small></span></button>
   </nav></div>
   <div class="gauge" id="gauge"><div class="gjob" id="gJob" hidden><span class="gt">งานที่กำลังดู</span><b class="gj-name" id="gjName"></b><div class="gj-meta"><div><small>Model</small><span id="gjModel">—</span></div><div><small>Part No.</small><span id="gjNo">—</span></div></div></div><span class="gt">Takt vs Cycle ตอนนี้</span>
     <div class="gr"><span>Takt Time</span><b id="gT">—</b></div>
@@ -579,7 +580,7 @@ th { background:var(--th-bg); color:var(--muted); font-weight:600; font-size:12p
         <label class="btn wl-big" for="fileInput">เริ่มงานใหม่จากไฟล์ Excel</label>
         <button class="btn ghost wl-big" id="wlSample" type="button">ดูตัวอย่างก่อน</button>
       </div>
-      <p class="wl-drop">ลากไฟล์ .xlsx มาวางที่หน้านี้ได้เลย · ยังไม่มีไฟล์? <button class="linkbtn" type="button" data-ea="tpl">ดาวน์โหลดแม่แบบ Excel</button></p>
+      <p class="wl-drop">ลากไฟล์ .xlsx มาวางที่หน้านี้ได้เลย · ยังไม่มีไฟล์? <button class="linkbtn" type="button" data-ea="tpl">ดาวน์โหลดแม่แบบ Excel</button> · หรือ <button class="linkbtn" type="button" id="wlSwc">เริ่ม Standard Work Chart เปล่า</button></p>
     </div>
     <ol class="wl-steps">
       <li><b>อัปโหลดไฟล์</b><span>ใช้ไฟล์ Process Flow, Process Line หรือ Man-Machine ระบบดูรูปแบบให้เอง</span></li>
@@ -669,6 +670,39 @@ th { background:var(--th-bg); color:var(--muted); font-weight:600; font-size:12p
 
   </div>
 
+<div class="tabpanel" id="tab-swc" hidden>
+  <section class="sec" id="swcSec">
+    <div class="sec-head"><h2>Standard Work Chart</h2><span class="note">ลำดับงานและเวลามาตรฐานของพนักงาน 1 คน · แก้เวลาในช่องแล้วกราฟคำนวณใหม่ทันที</span></div>
+    <div class="swc-tools">
+      <span id="swcImpBox" hidden style="display:inline-flex;gap:6px;align-items:center"><select id="swcRes" class="swc-edit" aria-label="เลือกพนักงานจากโมเดล Line Balance"></select><button class="btn ghost sm swc-edit" type="button" data-sw="import">ดึงจาก Line Balance</button></span>
+      <button class="btn ghost sm swc-edit" type="button" data-sw="sample">ตัวอย่าง</button>
+      <button class="btn ghost sm swc-edit" type="button" data-sw="clear">ล้างฟอร์ม</button>
+      <span class="sp"></span>
+      <button class="btn ghost sm" type="button" data-sw="print">พิมพ์ / PDF</button>
+      <button class="btn sm" type="button" data-sw="xlsx">ดาวน์โหลด Excel</button>
+    </div>
+    <div class="panel"><div class="swc-info" id="swcInfo">
+      <div class="field"><label for="swi-analyst">ผู้วิเคราะห์ (Analyst)</label><input id="swi-analyst" type="text" autocomplete="off"></div>
+      <div class="field"><label for="swi-project">โครงการ (Project)</label><input id="swi-project" type="text" autocomplete="off"></div>
+      <div class="field"><label for="swi-product">ผลิตภัณฑ์ (Product)</label><input id="swi-product" type="text" autocomplete="off"></div>
+      <div class="field"><label for="swi-date">วันที่ (Date)</label><input id="swi-date" type="date"></div>
+      <div class="field"><label for="swi-process">ชื่อกระบวนการ (Process name)</label><input id="swi-process" type="text" autocomplete="off"></div>
+      <div class="field"><label for="swi-volume">ปริมาณต่อปี (Annual volume)</label><input id="swi-volume" type="text" inputmode="decimal" autocomplete="off"></div>
+      <div class="field"><label for="swi-takt">Takt Time (วินาที)</label><input id="swi-takt" type="text" inputmode="decimal" autocomplete="off"></div>
+      <div class="field"><label for="swi-shift">เวลาทำงานต่อกะ (วินาที/กะ)</label><input id="swi-shift" type="text" inputmode="decimal" placeholder="เช่น 27000" autocomplete="off"></div>
+    </div></div>
+    <div class="kpis" id="swcKpis"></div>
+    <div class="swc-grid">
+      <div class="panel scroll"><table class="swc-t" id="swcTable"></table><div class="swc-addrow"><button class="btn ghost sm swc-edit" type="button" data-sw="add">+ เพิ่มขั้นตอน</button></div></div>
+      <div class="panel"><div class="legend" id="swcLegend"></div><div id="swcChart"></div></div>
+    </div>
+    <div class="swc-grid">
+      <div class="panel scroll"><div class="swc-sub">งานที่ทำเป็นรอบๆ (Non-cyclical) · เช่น เปลี่ยนอุปกรณ์ เติมวัตถุดิบ</div><table class="swc-t" id="swcNc"></table><div class="swc-addrow"><button class="btn ghost sm swc-edit" type="button" data-sw="addnc">+ เพิ่มรายการ</button></div></div>
+      <div class="panel"><div class="swc-sub">ผังการทำงาน (Layout)</div><div class="swc-lay" id="swcLayout"></div></div>
+    </div>
+    <p class="help">เวลานาฬิกา (Operator Clock) คือเวลาที่พนักงานเริ่มขั้นตอนนั้น ไม่นับเวลาเครื่อง เพราะเครื่องเดินไปพร้อมกับที่พนักงานทำงานอื่น · เวลาเครื่องจึงแสดงเป็นแท่งสีม่วงต่อจากงานมือในแถวเดียวกัน</p>
+  </section>
+</div>
   <div class="tabpanel" id="tab-compare" hidden>
   <section class="sec" id="scSec">
     <div class="sec-head"><h2>เทียบ Manual กับ Robot</h2><span class="note" id="scNote"></span></div>
@@ -1529,6 +1563,7 @@ function patchSc(M) {
   });
 }
 
+function lbHas() { return !!(S || D || SC || window.SWCOPEN); } /* มีงานเปิดอยู่ไหม (รวม Standard Work Chart ที่เริ่มเปล่า) */
 /* ---------- tabs ---------- */
 var TAB_PANELS = { flow: ['tab-flow'], balance: ['tab-balance', 'tab-balance2'], compare: ['tab-compare'] };
 function showTab(tok) {
@@ -2319,8 +2354,8 @@ var PG = { flow: ['สร้างจาก Process Flow', 'ใส่เวล�
 var _showTab = showTab;
 showTab = function (tok) {
   _showTab(tok); jobCard();
-  $('live').hidden = (tok === 'compare'); /* สถานะ Takt เทียบ Cycle เป็นของโมเดล Line Balance ไม่เกี่ยวกับหน้านี้ */
-  var has = !!(S || D || SC);
+  $('live').hidden = (tok === 'compare' || tok === 'swc'); /* สถานะ Takt เทียบ Cycle เป็นของโมเดล Line Balance ไม่เกี่ยวกับหน้านี้ */
+  var has = lbHas();
   $('welcome').hidden = has; $('hdrUpload').hidden = !has;
   if (!has) {
     Object.keys(TAB_PANELS).forEach(function (k) { TAB_PANELS[k].forEach(function (id) { $(id).hidden = true; }); });
@@ -2572,6 +2607,318 @@ body.viewer .tabpanel td input, body.viewer .tabpanel .field input { opacity: .8
 @keyframes gjIn { from { opacity:0; transform:translateY(-4px); } to { opacity:1; transform:none; } }
 @media (prefers-reduced-motion:reduce) { .gjob { animation:none; } }
 </style>
+<style>
+/* Standard Work Chart */
+.swc-tools { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+.swc-tools select { max-width:220px; min-height:36px; padding:0 10px; border:1px solid var(--line-strong); border-radius:10px; background:var(--bg-input,var(--surface)); color:var(--fg); font:inherit; font-size:13px; }
+.swc-tools .sp { flex:1; }
+.swc-info { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:12px 16px; }
+.swc-info .field input { width:100%; text-align:left; }
+.swc-grid { display:grid; grid-template-columns:minmax(0,1.2fr) minmax(0,1fr); gap:16px; align-items:start; }
+@media (max-width:1180px) { .swc-grid { grid-template-columns:minmax(0,1fr); } }
+.swc-t td, .swc-t th { padding:5px 6px; }
+.swc-t th { text-align:center; white-space:normal; line-height:1.25; }
+.swc-t th i { display:block; width:100%; height:4px; border-radius:2px; margin-bottom:5px; }
+.swc-t td input.tm { width:62px; padding:6px 6px; font-size:14px; text-align:right; }
+.swc-t td input.nm { min-width:180px; }
+.swc-t .swc-clk { color:var(--fg2); font-family:var(--font-data,inherit); }
+.swc-t tfoot td { font-weight:700; background:color-mix(in srgb,var(--brand-gold,#b8903a) 12%,var(--surface)); border-top:1px solid var(--line-strong); text-align:right; }
+.swc-t tfoot td:first-child { text-align:right; }
+.swc-mini { width:26px; height:26px; border:1px solid var(--line); border-radius:7px; background:var(--surface); color:var(--fg2); cursor:pointer; font-size:12px; line-height:1; }
+.swc-mini:hover { border-color:var(--accent); color:var(--accent); }
+.swc-mini.x:hover { border-color:var(--bad); color:var(--bad); }
+.swc-act { display:flex; gap:4px; }
+.swc-addrow { margin-top:10px; }
+.swc-sub { font-weight:700; font-size:13px; margin-bottom:10px; }
+.swc-lay img { display:block; max-width:100%; max-height:340px; margin:0 auto 10px; border:1px solid var(--line); border-radius:10px; }
+.swc-lay .drop { display:grid; place-items:center; gap:8px; min-height:150px; border:2px dashed var(--line-strong); border-radius:12px; color:var(--fg2); text-align:center; padding:16px; font-size:13px; }
+.swc-lay input[type=file] { display:none; }
+body.viewer #tab-swc .swc-edit { pointer-events:none; opacity:.35; }
+#swcPrint { display:none; }
+@media print {
+  body.swc-print > *:not(#swcPrint) { display:none !important; }
+  body.swc-print #swcPrint { display:block; color:#000; background:#fff; font-family:Arial,'Noto Sans Thai',sans-serif; font-size:9.5px; }
+  .swp h1 { margin:0 0 6px; text-align:center; font-size:16px; letter-spacing:.5px; }
+  .swp-info { display:grid; grid-template-columns:repeat(4,1fr); gap:3px 14px; margin-bottom:6px; }
+  .swp-info div { border-bottom:1px solid #888; padding:1px 0; } .swp-info b { font-weight:700; margin-right:4px; }
+  .swp-leg { display:flex; gap:14px; margin-bottom:6px; } .swp-leg i { display:inline-block; width:11px; height:11px; margin-right:4px; vertical-align:-2px; border:1px solid #666; }
+  .swp-main { display:grid; grid-template-columns:1.05fr 1fr; gap:10px; align-items:start; }
+  .swp table { border-collapse:collapse; width:100%; } .swp th, .swp td { border:1px solid #888; padding:2px 4px; text-align:right; white-space:normal; font-size:9.5px; }
+  .swp td.l, .swp th.l { text-align:left; } .swp th { background:#fbe3c8; } .swp tfoot td { background:#fff3a8; font-weight:700; }
+  .swp-foot { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:8px; align-items:start; }
+  .swp-foot img { max-width:100%; max-height:230px; border:1px solid #888; }
+  .swp-sum { margin-top:6px; font-weight:700; }
+}
+</style>
+<script>
+/* ---------- Standard Work Chart (ฟอร์มมาตรฐานงานของพนักงาน 1 คน) ---------- */
+var SW_KEYS = ['man', 'insp', 'mach', 'walk', 'wait'];
+var SW_COL = { man: '#f0615a', insp: '#4fc85a', mach: '#8f8ff0', walk: '#4cbbee', wait: '#d46fe0' };
+var SW_NAME = { man: 'งานมือ', insp: 'ตรวจ', mach: 'เครื่อง', walk: 'เดิน', wait: 'คอย' };
+var SW_EN = { man: 'Manual', insp: 'Inspection', mach: 'Machine', walk: 'Walking', wait: 'Wait' };
+var SW_MAXROWS = 26, SW_MAXNC = 7;
+var SWCOPEN = false, SWC = swcBlank();
+TAB_PANELS.swc = ['tab-swc'];
+PG.swc = ['Standard Work Chart', 'กำหนดลำดับงานและเวลามาตรฐานของพนักงาน 1 คน เทียบกับ Takt Time'];
+
+function swcRow() { return { desc: '', man: '', insp: '', mach: '', walk: '', wait: '' }; }
+function swcBlank() { return { info: { analyst: '', project: '', product: '', date: '', process: '', volume: '', takt: '', shift: '' }, rows: [swcRow()], nc: [{ desc: '', time: '', pcs: '' }], layout: '' }; }
+function swcNorm(o) {
+  var b = swcBlank(); o = o || {};
+  Object.keys(b.info).forEach(function (k) { if (o.info && o.info[k] != null) b.info[k] = String(o.info[k]); });
+  if (Array.isArray(o.rows) && o.rows.length) b.rows = o.rows.slice(0, SW_MAXROWS).map(function (r) { var x = swcRow(); Object.keys(x).forEach(function (k) { if (r && r[k] != null) x[k] = String(r[k]); }); return x; });
+  if (Array.isArray(o.nc) && o.nc.length) b.nc = o.nc.slice(0, SW_MAXNC).map(function (r) { return { desc: r && r.desc != null ? String(r.desc) : '', time: r && r.time != null ? String(r.time) : '', pcs: r && r.pcs != null ? String(r.pcs) : '' }; });
+  b.layout = typeof o.layout === 'string' && /^data:image\//.test(o.layout) ? o.layout : '';
+  return b;
+}
+function swcUsed() {
+  var s = SWC; if (s.layout) return true;
+  if (Object.keys(s.info).some(function (k) { return s.info[k] !== ''; })) return true;
+  return s.rows.some(function (r) { return Object.keys(r).some(function (k) { return r[k] !== ''; }); }) || s.nc.some(function (r) { return r.desc !== '' || r.time !== '' || r.pcs !== ''; });
+}
+function swn(v) { v = parseFloat(String(v).replace(',', '.')); return isFinite(v) && v > 0 ? v : 0; }
+
+/* คำนวณ: เวลานาฬิกาของพนักงานเดินหน้าด้วย งานมือ+ตรวจ+เดิน+คอย (เวลาเครื่องไม่นับ) ตรงกับสูตรในฟอร์ม Excel */
+function swcCalc() {
+  var t = 0, tot = { man: 0, insp: 0, mach: 0, walk: 0, wait: 0 }, rows = [];
+  SWC.rows.forEach(function (r, i) {
+    var v = {}; SW_KEYS.forEach(function (k) { v[k] = swn(r[k]); tot[k] += v[k]; });
+    var adv = v.man + v.insp + v.walk + v.wait;
+    rows.push({ i: i, desc: r.desc, start: t, v: v, adv: adv, end: t + adv + v.mach }); t += adv;
+  });
+  var nc = 0; SWC.nc.forEach(function (c) { var p = swn(c.pcs); nc += p ? swn(c.time) / p : 0; });
+  var op = t + nc, shift = swn(SWC.info.shift), takt = swn(SWC.info.takt);
+  return { rows: rows, tot: tot, cyc: t, nc: nc, op: op, shift: shift, takt: takt, thru: op && shift ? shift / op : 0 };
+}
+function swStep(max) { var c = [1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000, 2000, 5000]; for (var i = 0; i < c.length; i++) if (max / c[i] <= 10) return c[i]; return 10000; }
+function swDims(c) { return { W: 640, H: 30 + Math.max(c.rows.length, 1) * 26 + 10 }; }
+
+/* กราฟแท่งซ้อนแนวนอน: เว้นช่วงเริ่ม (เวลานาฬิกา) แล้วต่อด้วย งานมือ ตรวจ เครื่อง เดิน คอย */
+function swChart(c, lit) {
+  var d = swDims(c), W = d.W, H = d.H, left = 34, right = 16, top = 30, rh = 26, pw = W - left - right, end = 0;
+  c.rows.forEach(function (r) { if (r.end > end) end = r.end; });
+  var max = Math.max(end, c.cyc, c.takt) * 1.04 || 10, step = swStep(max); max = Math.ceil(max / step) * step;
+  function X(v) { return left + v / max * pw; }
+  var TXT = lit ? '#333' : 'currentColor', GRID = lit ? '#ddd' : 'var(--line)', MUT = lit ? '#666' : 'var(--fg2)', g = '', s = '', tv;
+  for (tv = 0; tv <= max + 1e-9; tv += step) g += '<line x1="' + X(tv) + '" x2="' + X(tv) + '" y1="' + (top - 4) + '" y2="' + (H - 6) + '" stroke="' + GRID + '"/><text x="' + X(tv) + '" y="' + (top - 10) + '" text-anchor="middle" fill="' + MUT + '" style="font-size:10.5px">' + tv + '</text>';
+  c.rows.forEach(function (r, i) {
+    var y = top + i * rh, x = r.start;
+    s += '<text x="' + (left - 7) + '" y="' + (y + rh / 2 + 4) + '" text-anchor="end" fill="' + TXT + '" style="font-size:11px">' + (i + 1) + '</text>';
+    SW_KEYS.forEach(function (k) {
+      var v = r.v[k]; if (!(v > 0)) return;
+      var tip = esc('ขั้น ' + (i + 1) + (r.desc ? ' · ' + r.desc : '') + ' · ' + SW_NAME[k] + ' ' + fmt(v) + ' วินาที (เริ่มที่ ' + fmt(x) + ')');
+      s += '<rect' + (lit ? '' : ' data-tip="' + tip + '"') + ' x="' + X(x) + '" y="' + (y + 4) + '" width="' + Math.max(1.5, X(x + v) - X(x)) + '" height="' + (rh - 8) + '" rx="2" fill="' + SW_COL[k] + '" stroke="' + (lit ? '#fff' : 'var(--surface)') + '" stroke-width=".8"/>';
+      x += v;
+    });
+  });
+  var tk = c.takt ? '<line x1="' + X(c.takt) + '" x2="' + X(c.takt) + '" y1="' + (top - 4) + '" y2="' + (H - 6) + '" stroke="#d62d2d" stroke-width="2" stroke-dasharray="5 3"/><text x="' + Math.min(X(c.takt) + 4, W - 40) + '" y="' + (H - 9) + '" fill="#d62d2d" style="font-size:10.5px;font-weight:700">Takt ' + fmt(c.takt) + '</text>' : '';
+  var attr = lit ? ' xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H + '" font-family="Arial,sans-serif"' : ' width="100%" role="img" aria-label="Standard Work Chart แสดงเวลาของแต่ละขั้นตอนของพนักงาน"';
+  return '<svg viewBox="0 0 ' + W + ' ' + H + '"' + attr + '>' + (lit ? '<rect width="' + W + '" height="' + H + '" fill="#fff"/>' : '') + g + s + tk + '</svg>';
+}
+
+function swcBuild() {
+  var I = SWC.info; Object.keys(I).forEach(function (k) { var el = $('swi-' + k); if (el && el.value !== I[k]) el.value = I[k]; });
+  var th = SW_KEYS.map(function (k) { return '<th><i style="background:' + SW_COL[k] + '"></i>' + SW_NAME[k] + '<br><span class="mut" style="font-weight:400">' + SW_EN[k] + '</span></th>'; }).join('');
+  $('swcTable').innerHTML = '<thead><tr><th>ID</th><th class="l" style="text-align:left">รายละเอียดงานของพนักงาน</th>' + th + '<th>เวลานาฬิกา<br><span class="mut" style="font-weight:400">Clock</span></th><th class="swc-edit"></th></tr></thead><tbody>' +
+    SWC.rows.map(function (r, i) {
+      return '<tr data-i="' + i + '"><td class="r num">' + (i + 1) + '</td><td class="wrapcell"><input class="nm" data-k="desc" type="text" value="' + esc(r.desc) + '" placeholder="เช่น หยิบชิ้นงานวางที่ Jig" aria-label="รายละเอียดงานขั้นที่ ' + (i + 1) + '"></td>' +
+        SW_KEYS.map(function (k) { return '<td><input class="tm" data-k="' + k + '" inputmode="decimal" value="' + esc(r[k]) + '" placeholder="0" aria-label="' + SW_NAME[k] + ' ขั้นที่ ' + (i + 1) + '"></td>'; }).join('') +
+        '<td class="r num swc-clk"></td><td><span class="swc-act swc-edit"><button class="swc-mini" type="button" data-sw="up" aria-label="เลื่อนขึ้น" title="เลื่อนขึ้น">↑</button><button class="swc-mini" type="button" data-sw="down" aria-label="เลื่อนลง" title="เลื่อนลง">↓</button><button class="swc-mini x" type="button" data-sw="del" aria-label="ลบขั้นตอน" title="ลบ">×</button></span></td></tr>';
+    }).join('') + '</tbody><tfoot><tr><td colspan="2">รวมเวลาตามประเภท</td>' + SW_KEYS.map(function (k) { return '<td class="num" data-t="' + k + '"></td>'; }).join('') + '<td colspan="2"></td></tr>' +
+    '<tr><td colspan="2">% ของเวลาพนักงาน</td>' + SW_KEYS.map(function (k) { return '<td class="num" data-p="' + k + '"></td>'; }).join('') + '<td colspan="2"></td></tr></tfoot>';
+  $('swcNc').innerHTML = '<thead><tr><th>ID</th><th style="text-align:left">รายการ</th><th>เวลา (วินาที)</th><th>ต่อกี่ชิ้น</th><th>วินาที/ชิ้น</th><th class="swc-edit"></th></tr></thead><tbody>' +
+    SWC.nc.map(function (r, j) {
+      return '<tr data-j="' + j + '"><td class="r num">' + (j + 1) + '</td><td class="wrapcell"><input class="nm" data-nk="desc" type="text" value="' + esc(r.desc) + '" placeholder="เช่น เปลี่ยนปลายทิปเชื่อม" aria-label="รายการนอกรอบที่ ' + (j + 1) + '"></td><td><input class="tm" data-nk="time" inputmode="decimal" value="' + esc(r.time) + '" placeholder="0"></td><td><input class="tm" data-nk="pcs" inputmode="decimal" value="' + esc(r.pcs) + '" placeholder="0"></td><td class="r num swc-rate"></td><td><button class="swc-mini x swc-edit" type="button" data-sw="delnc" aria-label="ลบรายการ" title="ลบ">×</button></td></tr>';
+    }).join('') + '</tbody><tfoot><tr><td colspan="4">รวมเวลานอกรอบต่อชิ้น</td><td class="num" id="swcNcTot"></td><td></td></tr></tfoot>';
+  $('swcLegend').innerHTML = SW_KEYS.map(function (k) { return '<span><i style="background:' + SW_COL[k] + '"></i>' + SW_NAME[k] + ' (' + SW_EN[k] + ')</span>'; }).join('') + '<span><span class="ln dash" style="border-top-color:#d62d2d"></span>Takt Time</span>';
+  $('swcLayout').innerHTML = SWC.layout ? '<img src="' + SWC.layout + '" alt="ผังการทำงาน Layout"><button class="btn ghost sm swc-edit" type="button" data-sw="layoutRm">ลบรูป</button>' :
+    '<label class="drop swc-edit"><span>วางรูปผังการทำงาน (Layout) ของสถานี<br>เช่น ภาพถ่าย หรือภาพวาดตำแหน่งเครื่อง Jig และเส้นทางเดิน</span><span class="btn ghost sm">เลือกรูป</span><input id="swcLayoutFile" type="file" accept="image/*"></label>';
+  var box = $('swcImpBox'), men = (window.S && S.resources) ? S.resources.filter(function (r) { return r.kind === 'man'; }) : [];
+  box.hidden = !men.length; box.style.display = men.length ? 'inline-flex' : 'none';
+  $('swcRes').innerHTML = men.map(function (r) { return '<option value="' + esc(r.id) + '">' + esc(r.name) + '</option>'; }).join('');
+  $('swcAdd') && ($('swcAdd').disabled = SWC.rows.length >= SW_MAXROWS);
+}
+function swcLive(c) {
+  var tb = $('swcTable'); if (!tb) return;
+  var clk = tb.querySelectorAll('tr[data-i] .swc-clk');
+  c.rows.forEach(function (r, i) { if (clk[i]) clk[i].textContent = fmt(r.start); });
+  SW_KEYS.forEach(function (k) {
+    var a = tb.querySelector('[data-t="' + k + '"]'), p = tb.querySelector('[data-p="' + k + '"]');
+    if (a) a.textContent = fmt(c.tot[k]); if (p) p.textContent = c.cyc ? pct(c.tot[k] / c.cyc) : '0%';
+  });
+  var rt = $('swcNc').querySelectorAll('tr[data-j] .swc-rate');
+  SWC.nc.forEach(function (r, j) { var p = swn(r.pcs); if (rt[j]) rt[j].textContent = p ? fmt(swn(r.time) / p, 2) : '—'; });
+  $('swcNcTot').textContent = fmt(c.nc, 2);
+  var gap = c.takt ? c.takt - c.op : null, ok = gap != null && gap >= 0;
+  var k = [
+    ['เวลารอบของพนักงาน (Cyclical)', fmt(c.cyc) + ' s', 'งานมือ + ตรวจ + เดิน + คอย'],
+    ['เวลานอกรอบต่อชิ้น (Non-cyclical)', fmt(c.nc, 2) + ' s', 'เฉลี่ยจากรายการนอกรอบ'],
+    ['เวลาดำเนินการรวม (Total OP time)', fmt(c.op) + ' s', 'รอบ + นอกรอบ ต่อชิ้น'],
+    ['ผลผลิตต่อกะ', c.thru ? fmt(c.thru, 0) + ' ชิ้น' : '—', c.shift ? 'จาก ' + fmt(c.shift, 0) + ' วินาที/กะ' : 'ใส่เวลาทำงานต่อกะเพื่อคำนวณ'],
+    ['เทียบ Takt Time', c.takt && c.op ? (ok ? 'ทัน' : 'ไม่ทัน') : '—', c.takt && c.op ? (ok ? 'เหลือ ' + fmt(gap) + ' วินาที' : 'ช้า ' + fmt(-gap) + ' วินาที') : 'ใส่ Takt Time เพื่อเทียบ']
+  ];
+  $('swcKpis').innerHTML = k.map(function (x) { return '<div class="kpi"><span class="k">' + x[0] + '</span><span class="v"' + (x[0] === 'เทียบ Takt Time' && c.takt && c.op ? ' style="color:' + (ok ? 'var(--good-text)' : 'var(--bad-text)') + '"' : '') + '>' + x[1] + '</span><span class="s">' + x[2] + '</span></div>'; }).join('');
+  $('swcChart').innerHTML = swChart(c, false);
+}
+function swcDraw(mode) { if (!$('swcTable')) return; if (mode !== 'live') swcBuild(); swcLive(swcCalc()); }
+/* renderSwc: ถูกห่อโดยระบบ Cloud เพื่อบันทึกอัตโนมัติ/ย้อนกลับ (เรียกเฉพาะตอนผู้ใช้แก้ข้อมูล) */
+function renderSwc(mode) { swcDraw(mode); }
+
+function swcOpen() { SWCOPEN = true; swcDraw(); showTab('swc'); }
+$('tabbtn-swc').addEventListener('click', swcOpen);
+if ($('wlSwc')) $('wlSwc').addEventListener('click', swcOpen);
+
+function swcSample() {
+  var r = function (d, k, v, m) { var o = swcRow(); o.desc = d; o[k] = String(v); if (m) o.mach = String(m); return o; };
+  var s = swcBlank(), t = new Date(), p = function (n) { return (n < 10 ? '0' : '') + n; };
+  s.info = { analyst: '', project: 'ตัวอย่าง', product: 'ชิ้นงานเชื่อมสปอต', date: t.getFullYear() + '-' + p(t.getMonth() + 1) + '-' + p(t.getDate()), process: 'เชื่อมสปอต 1 คน', volume: '120000', takt: '55', shift: '27000' };
+  s.rows = [r('หยิบชิ้นงาน A วางที่ Jig', 'man', 6), r('หยิบชิ้นงาน B ประกอบเข้า Jig', 'man', 5), r('กดปุ่ม Start เครื่องเชื่อม', 'man', 2, 18), r('เดินไปจุดตรวจ', 'walk', 3), r('ตรวจรอยเชื่อมด้วยสายตา', 'insp', 6), r('เดินกลับ', 'walk', 3), r('ถอดชิ้นงานวางลงพาเลท', 'man', 4), r('รอเครื่องเชื่อมทำงานเสร็จ', 'wait', 4)];
+  s.nc = [{ desc: 'เปลี่ยนปลายทิปเชื่อม', time: '60', pcs: '100' }, { desc: 'เติมชิ้นงานลงพาเลท', time: '120', pcs: '50' }];
+  return s;
+}
+/* ดึงลำดับงานของพนักงาน 1 คนจากโมเดล Line Balance เป็นร่างเริ่มต้น (แก้ต่อได้) */
+function swcImport(id) {
+  var res = S.resources.filter(function (x) { return x.id === id; })[0]; if (!res) return;
+  var WALK = /^walk|^เดิน(?![\u0E00-\u0E7F])/i, WAIT = /^(wait|idle)|^(รอ|คอย)(?![\u0E00-\u0E7F])/i, INSP = /^(check|inspect)|^ตรวจ/i, rows = [];
+  S.elements.forEach(function (e) {
+    var v = +e.vals[id]; if (!(v > 0)) return;
+    var t = v * res.mult, cat = String(e.cat || ''), nm = String(e.name || ''), row = swcRow();
+    var key = WALK.test(cat) || WALK.test(nm) ? 'walk' : WAIT.test(cat) || WAIT.test(nm) ? 'wait' : INSP.test(cat) || INSP.test(nm) ? 'insp' : 'man';
+    row.desc = nm || cat; row[key] = fmt(t, 2);
+    var mx = 0; S.resources.forEach(function (q) { if (q.kind === 'man') return; var w = +e.vals[q.id]; if (w > 0) mx = Math.max(mx, w * q.mult); });
+    if (mx > t + 1e-9) row.mach = fmt(mx - t, 2); /* เครื่องเดินต่อหลังพนักงานทำส่วนของตัวเองเสร็จ */
+    rows.push(row);
+  });
+  if (!rows.length) { msg('พนักงานคนนี้ยังไม่มีงานในโมเดล', true); return; }
+  var cut = rows.length > SW_MAXROWS; SWC.rows = rows.slice(0, SW_MAXROWS);
+  var I = SWC.info, P = window.D && D.part, t = new Date(), p = function (n) { return (n < 10 ? '0' : '') + n; };
+  I.process = res.name; if (!I.takt && S.takt) I.takt = String(S.takt);
+  if (!I.product && P) I.product = P.partName || P.partNo || ''; if (!I.project && P && P.model) I.project = P.model;
+  if (!I.date) I.date = t.getFullYear() + '-' + p(t.getMonth() + 1) + '-' + p(t.getDate());
+  SWCOPEN = true; renderSwc();
+  msg('ดึง ' + SWC.rows.length + ' ขั้นตอนของ ' + res.name + ' แล้ว' + (cut ? ' (ตัดเหลือ ' + SW_MAXROWS + ' ขั้นตามฟอร์ม)' : '') + ' ตรวจและแก้เวลาได้เลย');
+}
+function swcImg(file, cb) {
+  var fr = new FileReader();
+  fr.onload = function () {
+    var im = new Image();
+    im.onload = function () { var M = 900, k = Math.min(1, M / Math.max(im.width, im.height)), cv = document.createElement('canvas'); cv.width = Math.round(im.width * k); cv.height = Math.round(im.height * k); var cx = cv.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0, 0, cv.width, cv.height); cx.drawImage(im, 0, 0, cv.width, cv.height); cb(cv.toDataURL('image/jpeg', .8)); };
+    im.onerror = function () { msg('อ่านไฟล์รูปไม่ได้ ลองไฟล์ .jpg หรือ .png', true); };
+    im.src = fr.result;
+  };
+  fr.readAsDataURL(file);
+}
+
+function swcPrintHtml(c) {
+  var I = SWC.info, e = esc, fld = function (l, v) { return '<div><b>' + l + '</b>' + e(v || '') + '</div>'; };
+  var rows = c.rows.map(function (r, i) { return '<tr><td>' + (i + 1) + '</td><td class="l">' + e(SWC.rows[i].desc) + '</td>' + SW_KEYS.map(function (k) { return '<td>' + (r.v[k] ? fmt(r.v[k]) : '') + '</td>'; }).join('') + '<td>' + fmt(r.start) + '</td></tr>'; }).join('');
+  var nc = SWC.nc.map(function (r, j) { var p = swn(r.pcs); return '<tr><td>' + (j + 1) + '</td><td class="l">' + e(r.desc) + '</td><td>' + (r.time || '') + '</td><td>' + (r.pcs || '') + '</td><td>' + (p ? fmt(swn(r.time) / p, 2) : '') + '</td></tr>'; }).join('');
+  return '<div class="swp"><h1>STANDARD WORK CHART</h1><div class="swp-info">' + fld('Analyst:', I.analyst) + fld('Project:', I.project) + fld('Product:', I.product) + fld('Date:', I.date) + fld('Process Name:', I.process) + fld('Annual Volume:', I.volume) + fld('Takt Time (s):', I.takt) + fld('Seconds/Shift:', I.shift) + '</div>' +
+    '<div class="swp-leg">' + SW_KEYS.map(function (k) { return '<span><i style="background:' + SW_COL[k] + '"></i>' + SW_NAME[k] + ' ' + SW_EN[k] + '</span>'; }).join('') + '</div>' +
+    '<div class="swp-main"><table><thead><tr><th>ID</th><th class="l">DESCRIPTION OF OPERATOR WORK</th>' + SW_KEYS.map(function (k) { return '<th>' + SW_NAME[k] + '</th>'; }).join('') + '<th>Clock</th></tr></thead><tbody>' + rows + '</tbody><tfoot><tr><td colspan="2">TOTAL TIME BY CATEGORY</td>' + SW_KEYS.map(function (k) { return '<td>' + fmt(c.tot[k]) + '</td>'; }).join('') + '<td></td></tr><tr><td colspan="2">% OPERATOR TIME</td>' + SW_KEYS.map(function (k) { return '<td>' + (c.cyc ? pct(c.tot[k] / c.cyc) : '0%') + '</td>'; }).join('') + '<td></td></tr></tfoot></table><div>' + swChart(c, true) + '</div></div>' +
+    '<div class="swp-foot"><div><table><thead><tr><th>ID</th><th class="l">NON-CYCLICAL WORK</th><th>Sec</th><th>Pcs</th><th>Rate</th></tr></thead><tbody>' + nc + '</tbody><tfoot><tr><td colspan="4">TOTAL NON-CYCLICAL TIME</td><td>' + fmt(c.nc, 2) + '</td></tr></tfoot></table>' +
+    '<div class="swp-sum">TOTAL CYCLICAL TIME ' + fmt(c.cyc) + ' s · TOTAL OP TIME ' + fmt(c.op) + ' s' + (c.takt ? ' · TAKT ' + fmt(c.takt) + ' s' : '') + (c.thru ? ' · THROUGHPUT/SHIFT ' + fmt(c.thru, 0) + ' pcs' : '') + '</div></div><div><b>LAYOUT</b><br>' + (SWC.layout ? '<img src="' + SWC.layout + '" alt="">' : '') + '</div></div></div>';
+}
+function swcPrint() {
+  var box = document.createElement('div'); box.id = 'swcPrint'; box.innerHTML = swcPrintHtml(swcCalc()); document.body.appendChild(box);
+  document.body.classList.add('swc-print');
+  var done = function () { document.body.classList.remove('swc-print'); box.remove(); window.removeEventListener('afterprint', done); };
+  window.addEventListener('afterprint', done); setTimeout(function () { window.print(); }, 60);
+}
+function swcPng(svg, w, h) {
+  return new Promise(function (ok) {
+    var im = new Image();
+    im.onload = function () { var cv = document.createElement('canvas'); cv.width = w * 2; cv.height = h * 2; var cx = cv.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0, 0, cv.width, cv.height); cx.drawImage(im, 0, 0, cv.width, cv.height); try { ok(cv.toDataURL('image/png')); } catch (e) { ok(null); } };
+    im.onerror = function () { ok(null); };
+    im.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+  });
+}
+/* ส่งออก Excel: ตารางพร้อมสูตร (แก้เลขใน Excel แล้วคำนวณใหม่ได้) + รูปกราฟ + รูป Layout */
+function swcExcel() {
+  if (!lbLoaded(['exceljs'])) msg('กำลังโหลดตัวช่วย Excel…');
+  lbLoad(['exceljs']).then(function () {
+    if (!window.ExcelJS) { msg('โหลดตัวช่วย Excel ไม่สำเร็จ ตรวจอินเทอร์เน็ตแล้วลองใหม่', true); return; }
+    var c = swcCalc(), I = SWC.info, n = SWC.rows.length, wb = new ExcelJS.Workbook(), ws = wb.addWorksheet('Standard Work Chart', { views: [{ showGridLines: false }], pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 } });
+    var F = { name: 'Arial', size: 10 }, B = { name: 'Arial', size: 10, bold: true }, thin = { style: 'thin', color: { argb: 'FF999999' } }, bd = { top: thin, bottom: thin, left: thin, right: thin };
+    [3, 6, 38, 10, 10, 10, 10, 10, 14, 3].forEach(function (w, i) { ws.getColumn(i + 1).width = w; });
+    ws.mergeCells('B1:I1'); ws.getCell('B1').value = 'STANDARD WORK CHART'; ws.getCell('B1').font = { name: 'Arial', size: 16, bold: true }; ws.getCell('B1').alignment = { horizontal: 'center' };
+    var info = [['Analyst', I.analyst], ['Project', I.project], ['Product', I.product], ['Date', I.date], ['Process Name', I.process], ['Annual Volume', swn(I.volume) || I.volume], ['Takt Time (s)', swn(I.takt) || ''], ['Seconds/Shift', swn(I.shift) || '']];
+    info.forEach(function (x, i) { var r = 2 + i; ws.mergeCells('B' + r + ':C' + r); ws.mergeCells('D' + r + ':I' + r); ws.getCell('B' + r).value = x[0]; ws.getCell('B' + r).font = B; ws.getCell('D' + r).value = x[1]; ws.getCell('D' + r).font = F; ws.getCell('D' + r).alignment = { horizontal: 'left' }; ws.getCell('D' + r).border = { bottom: thin }; });
+    var h = 11, hd = ['ID', 'DESCRIPTION OF OPERATOR WORK'].concat(SW_KEYS.map(function (k) { return SW_NAME[k] + ' / ' + SW_EN[k]; }), ['Operator Clock Time']);
+    hd.forEach(function (t, i) { var cl = ws.getCell(h, 2 + i); cl.value = t; cl.font = B; cl.border = bd; cl.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }; cl.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: i >= 2 && i <= 6 ? 'FF' + SW_COL[SW_KEYS[i - 2]].slice(1).toUpperCase() : 'FFFCD5B4' } }; });
+    ws.getRow(h).height = 32;
+    var f0 = h + 1, fN = h + n;
+    SWC.rows.forEach(function (r, i) {
+      var y = f0 + i; ws.getCell(y, 2).value = i + 1; ws.getCell(y, 3).value = r.desc;
+      SW_KEYS.forEach(function (k, j) { ws.getCell(y, 4 + j).value = swn(r[k]) || null; });
+      ws.getCell(y, 9).value = i ? { formula: 'I' + (y - 1) + '+D' + (y - 1) + '+E' + (y - 1) + '+G' + (y - 1) + '+H' + (y - 1), result: c.rows[i].start } : 0;
+      for (var q = 2; q <= 9; q++) { var cl = ws.getCell(y, q); cl.font = F; cl.border = bd; if (q > 3) cl.numFmt = '0.0'; }
+    });
+    var t1 = fN + 1, t2 = t1 + 1, t3 = t2 + 1;
+    ws.getCell(t1, 3).value = 'TOTAL TIME BY CATEGORY ==>'; ws.getCell(t2, 3).value = '% OPERATOR TIME BY CATEGORY ==>'; ws.getCell(t3, 3).value = 'TOTAL CYCLICAL TIME ==> (sec)';
+    SW_KEYS.forEach(function (k, j) { var col = String.fromCharCode(68 + j); ws.getCell(t1, 4 + j).value = { formula: 'SUM(' + col + f0 + ':' + col + fN + ')', result: c.tot[k] }; ws.getCell(t2, 4 + j).value = { formula: 'IF($D$' + t3 + '=0,0,' + col + t1 + '/$D$' + t3 + ')', result: c.cyc ? c.tot[k] / c.cyc : 0 }; ws.getCell(t1, 4 + j).numFmt = '0.0'; ws.getCell(t2, 4 + j).numFmt = '0.0%'; });
+    ws.getCell(t3, 4).value = { formula: 'SUM(D' + t1 + ':E' + t1 + ',G' + t1 + ':H' + t1 + ')', result: c.cyc }; ws.getCell(t3, 4).numFmt = '0.0';
+    [t1, t2, t3].forEach(function (y) { for (var q = 3; q <= 9; q++) { var cl = ws.getCell(y, q); cl.font = B; cl.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF3A8' } }; if (q === 3) cl.alignment = { horizontal: 'right' }; } });
+    var n0 = t3 + 2; ['ID', 'NON-CYCLICAL WORK', 'Sec', 'Pcs', 'Rate (s/pc)'].forEach(function (t, i) { var cl = ws.getCell(n0, 2 + i); cl.value = t; cl.font = B; cl.border = bd; cl.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFCD5B4' } }; cl.alignment = { horizontal: 'center' }; });
+    var m = SWC.nc.length; SWC.nc.forEach(function (r, j) { var y = n0 + 1 + j; ws.getCell(y, 2).value = j + 1; ws.getCell(y, 3).value = r.desc; ws.getCell(y, 4).value = swn(r.time) || null; ws.getCell(y, 5).value = swn(r.pcs) || null; ws.getCell(y, 6).value = { formula: 'IF(E' + y + '=0,0,D' + y + '/E' + y + ')', result: swn(r.pcs) ? swn(r.time) / swn(r.pcs) : 0 }; ws.getCell(y, 6).numFmt = '0.00'; for (var q = 2; q <= 6; q++) { ws.getCell(y, q).font = F; ws.getCell(y, q).border = bd; } });
+    var ne = n0 + m + 1; ws.getCell(ne, 3).value = 'TOTAL NON-CYCLICAL TIME ==> (sec/pc)'; ws.getCell(ne, 6).value = { formula: 'SUM(F' + (n0 + 1) + ':F' + (n0 + m) + ')', result: c.nc }; ws.getCell(ne, 6).numFmt = '0.00';
+    var s1 = ne + 2; ws.getCell(s1, 3).value = 'TOTAL OP TIME (sec) ==>'; ws.getCell(s1, 4).value = { formula: 'D' + t3 + '+F' + ne, result: c.op };
+    ws.getCell(s1 + 1, 3).value = 'THROUGHPUT/SHIFT (pcs) ==>'; ws.getCell(s1 + 1, 4).value = { formula: 'IF(D' + s1 + '=0,0,D9/D' + s1 + ')', result: c.thru };
+    ws.getCell(s1 + 2, 3).value = 'TAKT TIME (sec) / VS TAKT ==>'; ws.getCell(s1 + 2, 4).value = { formula: 'IF(D8=0,"",D8)', result: c.takt || '' }; ws.getCell(s1 + 2, 5).value = { formula: 'IF(OR(D8=0,D' + s1 + '=0),"",IF(D' + s1 + '<=D8,"ทัน Takt","ไม่ทัน Takt"))', result: c.takt && c.op ? (c.op <= c.takt ? 'ทัน Takt' : 'ไม่ทัน Takt') : '' };
+    [ne, s1, s1 + 1, s1 + 2].forEach(function (y) { ws.getCell(y, 3).font = B; ws.getCell(y, 3).alignment = { horizontal: 'right' }; ws.getCell(y, 4).font = B; ws.getCell(y, 6).font = B; ws.getCell(y, 5).font = B; });
+    ws.getCell(s1, 4).numFmt = '0.0'; ws.getCell(s1 + 1, 4).numFmt = '#,##0'; ws.getCell(s1 + 2, 4).numFmt = '0.0';
+    ws.getCell(s1 + 4, 3).value = 'หมายเหตุ: เวลานาฬิกา = เวลาที่พนักงานเริ่มขั้นตอนนั้น (ไม่นับเวลาเครื่อง) · แก้ตัวเลขในช่องเวลา สูตรจะคำนวณใหม่เอง'; ws.getCell(s1 + 4, 3).font = { name: 'Arial', size: 9, italic: true, color: { argb: 'FF666666' } };
+    var d = swDims(c), done = function (png) {
+      var y0 = h - 1;
+      if (png) { var id = wb.addImage({ base64: png, extension: 'png' }); ws.addImage(id, { tl: { col: 10, row: y0 }, ext: { width: d.W, height: d.H } }); }
+      var after = function () {
+        wb.xlsx.writeBuffer().then(function (buf) {
+          var url = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })), a = document.createElement('a');
+          a.href = url; a.download = 'StandardWorkChart_' + String(I.process || I.product || 'งานใหม่').replace(/[\\/:*?"<>|]+/g, '_') + '.xlsx'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(url); }, 3000);
+          msg('ดาวน์โหลด Excel แล้ว');
+        }, function (err) { msg('ส่งออก Excel ไม่สำเร็จ: ' + (err && err.message || err), true); });
+      };
+      if (SWC.layout) { try { var id2 = wb.addImage({ base64: SWC.layout, extension: 'jpeg' }); ws.addImage(id2, { tl: { col: 10, row: y0 + Math.ceil(d.H / 20) + 2 }, ext: { width: 420, height: 300 } }); ws.getCell(y0 + Math.ceil(d.H / 20) + 2, 11).value = 'ผังการทำงาน (Layout)'; } catch (e) {} }
+      after();
+    };
+    swcPng(swChart(c, true), d.W, d.H).then(done);
+  });
+}
+
+$('tab-swc').addEventListener('input', function (e) {
+  var el = e.target, tr = el.closest('tr'), id = el.id || '', k;
+  if (id.indexOf('swi-') === 0) SWC.info[id.slice(4)] = el.value;
+  else if (tr && tr.hasAttribute('data-i') && (k = el.getAttribute('data-k'))) SWC.rows[+tr.getAttribute('data-i')][k] = el.value;
+  else if (tr && tr.hasAttribute('data-j') && (k = el.getAttribute('data-nk'))) SWC.nc[+tr.getAttribute('data-j')][k] = el.value;
+  else return;
+  renderSwc('live');
+});
+$('tab-swc').addEventListener('change', function (e) {
+  if (e.target.id !== 'swcLayoutFile' || !e.target.files || !e.target.files[0]) return;
+  swcImg(e.target.files[0], function (u) { SWC.layout = u; renderSwc(); });
+});
+$('tab-swc').addEventListener('click', function (e) {
+  var b = e.target.closest('[data-sw]'); if (!b) return;
+  var a = b.getAttribute('data-sw'), tr = b.closest('tr'), i = tr && tr.hasAttribute('data-i') ? +tr.getAttribute('data-i') : -1, j = tr && tr.hasAttribute('data-j') ? +tr.getAttribute('data-j') : -1, R = SWC.rows;
+  if (a === 'print') { swcPrint(); return; }
+  if (a === 'xlsx') { swcExcel(); return; }
+  if (a === 'import') { swcImport($('swcRes').value); return; }
+  if (a === 'add') { if (R.length >= SW_MAXROWS) { msg('ฟอร์มมาตรฐานรองรับสูงสุด ' + SW_MAXROWS + ' ขั้นตอน', true); return; } R.push(swcRow()); }
+  else if (a === 'del' && i >= 0) { if (R.length > 1) R.splice(i, 1); else R[0] = swcRow(); }
+  else if (a === 'up' && i > 0) { R.splice(i - 1, 0, R.splice(i, 1)[0]); }
+  else if (a === 'down' && i >= 0 && i < R.length - 1) { R.splice(i + 1, 0, R.splice(i, 1)[0]); }
+  else if (a === 'addnc') { if (SWC.nc.length >= SW_MAXNC) { msg('เพิ่มรายการนอกรอบได้สูงสุด ' + SW_MAXNC + ' รายการ', true); return; } SWC.nc.push({ desc: '', time: '', pcs: '' }); }
+  else if (a === 'delnc' && j >= 0) { if (SWC.nc.length > 1) SWC.nc.splice(j, 1); else SWC.nc[0] = { desc: '', time: '', pcs: '' }; }
+  else if (a === 'layoutRm') SWC.layout = '';
+  else if (a === 'sample' || a === 'clear') {
+    var go = function () { SWC = a === 'sample' ? swcSample() : swcBlank(); SWCOPEN = true; renderSwc(); };
+    if (swcUsed()) lbConfirm(a === 'sample' ? { tone: 'warn', title: 'แทนที่ด้วยข้อมูลตัวอย่าง?', msg: 'ข้อมูลที่กรอกไว้ในฟอร์มนี้จะถูกแทนที่', ok: 'ใช้ตัวอย่าง', cancel: 'ยกเลิก' } : { tone: 'danger', title: 'ล้างฟอร์ม Standard Work Chart?', msg: 'ข้อมูลทั้งหมดในฟอร์มนี้จะถูกลบ', ok: 'ล้างฟอร์ม', cancel: 'ยกเลิก' }).then(function (y) { if (y) go(); }); else go();
+    return;
+  } else return;
+  renderSwc();
+});
+swcDraw();
+</script>
 <div id="lbGate" role="dialog" aria-modal="true" aria-label="เข้าสู่ระบบ">
   <div class="gate-wrap">
     <aside class="gate-brand" aria-hidden="true">
@@ -2764,13 +3111,14 @@ window.lbConfirm = function (o) {
     var flow = D ? JSON.parse(JSON.stringify(D, function (k, v) { return k === 'res' ? undefined : v; })) : null;
     return {
       v: 1, tab: tabEl ? tabEl.id.replace('tabbtn-', '') : 'flow', file: FILE, fromFile: fromFile,
-      model: fromFile ? JSON.parse(JSON.stringify(S)) : null, flow: flow, sc: SC ? JSON.parse(JSON.stringify(SC)) : null
+      model: fromFile ? JSON.parse(JSON.stringify(S)) : null, flow: flow, sc: SC ? JSON.parse(JSON.stringify(SC)) : null, swc: swcUsed() ? JSON.parse(JSON.stringify(SWC)) : null
     };
   }
   function restore(s, keep) {
     if (!s || s.v !== 1) throw new Error('รูปแบบข้อมูลไม่ถูกต้อง');
     if (!keep) { quiet = Date.now() + 4000; clearTimeout(saveT); }
     if (s.sc) setScenarios(s.sc);
+    if (s.swc) { SWC = swcNorm(s.swc); SWCOPEN = true; } else { SWC = swcBlank(); SWCOPEN = false; } swcDraw();
     if (s.flow) { D = s.flow; renderFlow(); flowUpdate(); }
     if (s.fromFile && s.model) { clearTimeout(flTimer); setModel(s.model, s.file || 'งานที่บันทึกไว้'); }
     showTab(s.tab || 'flow');
@@ -2908,21 +3256,21 @@ window.lbConfirm = function (o) {
     clearTimeout(saveT); saveT = setTimeout(function () { doSave(); }, 2000);
     stat(online() ? 'รอบันทึก…' : 'ออฟไลน์ · ยังไม่ได้บันทึก', !online());
   }
-  ['renderAll', 'flowUpdate', 'renderSc'].forEach(function (n) {
+  ['renderAll', 'flowUpdate', 'renderSc', 'renderSwc'].forEach(function (n) {
     var f = window[n];
     if (typeof f === 'function') window[n] = function () { var r = f.apply(this, arguments); try { insight(); } catch (e) {} try { syncClose(); } catch (e) {} pushHist(); schedule(); return r; };
   });
   $('fileInput').addEventListener('change', function () { cur = null; });
   /* ปิดไฟล์ / ยกเลิกไฟล์ที่เปิดอยู่ กลับหน้าเริ่มต้น (ไม่ลบงานที่บันทึกบน Cloud ไปแล้ว) */
-  function syncClose() { var has = !!(S || D || SC); $('closeFileBtn').hidden = !has; $('hdrUpload').hidden = !has; }
+  function syncClose() { var has = lbHas(); $('closeFileBtn').hidden = !has; $('hdrUpload').hidden = !has; }
   function closeFile() {
-    if (!(S || D || SC)) return;
+    if (!lbHas()) return;
     lbConfirm({ tone: 'warn', title: 'ปิดไฟล์และกลับหน้าเริ่มต้น?', msg: 'ข้อมูลที่ยังไม่ได้บันทึกจะหายไป', hint: 'งานที่บันทึกบน Cloud แล้วยังอยู่ เปิดได้จาก “งานที่บันทึกไว้”', ok: 'ปิดไฟล์', cancel: 'อยู่ต่อ' }).then(function (y) { if (y) closeFileNow(); });
   }
   function closeFileNow() {
     clearTimeout(saveT); clearTimeout(histT); clearTimeout(flTimer);
     quiet = Date.now() + 4000; cur = null; dirty = false;
-    S = null; D = null; SC = null; FILE = ''; FILE_CYCLE = 0;
+    S = null; D = null; SC = null; FILE = ''; FILE_CYCLE = 0; SWCOPEN = false; SWC = swcBlank(); swcDraw();
     hist = []; hi = -1; histSync();
     $('fileChip').innerHTML = '';
     $('live').className = 'live'; $('live').textContent = 'รอข้อมูล';
@@ -3042,7 +3390,7 @@ window.lbConfirm = function (o) {
   var hist = [], hi = -1, histBusy = 0, histT = null;
   function histSync() { $('undoBtn').disabled = hi <= 0; $('redoBtn').disabled = hi >= hist.length - 1; }
   function pushHist() {
-    if (histBusy > Date.now() || !(S || D || SC)) return;
+    if (histBusy > Date.now() || !lbHas()) return;
     clearTimeout(histT);
     histT = setTimeout(function () {
       var j; try { j = JSON.stringify(snapshot()); } catch (e) { return; }
