@@ -40,6 +40,19 @@
 
   /* ---------- 2) วันหยุดบริษัท + วันทำงานต่อเดือน ---------- */
   function hDays(h) { var x = Lib.expandHolidays([h]); return Object.keys(x.off).length + Object.keys(x.work).length; }
+  function rCal() {
+    var el = $('fcCal'); if (!el) return;
+    var ms = F.months.length ? F.months : [0, 1, 2, 3, 4, 5].map(function (i) { return Lib.addMonth(curMonth(), i); }), hx = Lib.expandHolidays(F.holidays);
+    el.innerHTML = '<div class="fc-leg"><span><i class="fc-cd h"></i>วันหยุดบริษัท</span><span><i class="fc-cd w"></i>วันทำงานพิเศษ</span><span><i class="fc-cd x"></i>วันหยุดประจำสัปดาห์</span><span class="note">กดที่วันเพื่อเพิ่ม กดซ้ำเพื่อยกเลิก</span></div><div class="fc-cals">' + ms.map(function (k) {
+      var y = +k.slice(0, 4), m = +k.slice(5), first = new Date(Date.UTC(y, m - 1, 1)).getUTCDay(), dim = Lib.daysIn(k), cells = '', d, wd;
+      for (d = 0; d < first; d++) cells += '<span></span>';
+      for (d = 1; d <= dim; d++) {
+        var ds = k + '-' + (d < 10 ? '0' : '') + d, wdn = (first + d - 1) % 7, st = hx.off[ds] != null ? 'h' : hx.work[ds] != null ? 'w' : F.weekdays[wdn] ? '' : 'x', nm = hx.off[ds] != null ? hx.off[ds] : hx.work[ds];
+        cells += '<button type="button" class="fc-cd ' + st + '" data-fc="cal" data-d="' + ds + '"' + (nm ? ' title="' + va(nm) + '"' : '') + ' aria-label="' + ds + (st === 'h' ? ' วันหยุด' : st === 'w' ? ' ทำงานพิเศษ' : '') + '" aria-pressed="' + (st === 'h' || st === 'w' ? 'true' : 'false') + '">' + d + '</button>';
+      }
+      return '<div class="panel fc-cal"><div class="fc-cal-h"><b>' + Lib.monthLabel(k) + '</b><span class="note">' + Lib.workDays(F, k, hx).n + ' วันทำงาน</span></div><div class="fc-cal-g">' + WD.map(function (n, i) { return '<em' + (F.weekdays[i] ? '' : ' class="off"') + '>' + n + '</em>'; }).join('') + cells + '</div></div>';
+    }).join('') + '</div>';
+  }
   function rHol() {
     var rows = F.holidays.map(function (h) {
       return '<tr data-h="' + va(h.id) + '"><td><input type="date" class="fc-dt" data-f="hd" value="' + va(h.date) + '" aria-label="จากวันที่"></td><td><input type="date" class="fc-dt" data-f="ht" value="' + va(h.to) + '" aria-label="ถึงวันที่"></td>' +
@@ -47,10 +60,10 @@
         '<td><select data-f="hy" aria-label="ประเภท">' + opt('off', 'วันหยุด (ไม่ทำงาน)', h.type) + opt('work', 'วันทำงานพิเศษ (ทำงานในวันที่ปกติหยุด)', h.type) + '</select></td>' +
         '<td class="r num" data-hc>' + (hDays(h) || '—') + '</td><td><button class="fc-x" type="button" data-fc="delh" title="ลบ" aria-label="ลบวันหยุด">×</button></td></tr>';
     }).join('');
-    $('fcHol').innerHTML = '<div class="panel scroll"><table class="fc-h-t"><thead><tr><th>จากวันที่</th><th>ถึงวันที่ (ถ้าหยุดต่อเนื่อง)</th><th>ชื่อ / เหตุผล</th><th>ประเภท</th><th class="r">วัน</th><th></th></tr></thead><tbody>' +
+    $('fcHol').innerHTML = '<div id="fcCal"></div><div class="fc-h" style="margin-top:14px">รายการวันหยุด <span class="note">แก้ชื่อ หรือกำหนดช่วงวันที่ต่อเนื่องได้ที่ตารางนี้</span></div><div class="panel scroll"><table class="fc-h-t"><thead><tr><th>จากวันที่</th><th>ถึงวันที่ (ถ้าหยุดต่อเนื่อง)</th><th>ชื่อ / เหตุผล</th><th>ประเภท</th><th class="r">วัน</th><th></th></tr></thead><tbody>' +
       (rows || '<tr><td colspan="6" class="mut">ยังไม่มีวันหยุดบริษัท กดเพิ่มด้านล่าง ระบบจะหักออกจากวันทำงานของเดือนนั้น</td></tr>') + '</tbody></table></div>' +
       '<div class="fc-bar"><button class="btn ghost sm" type="button" data-fc="addh">+ เพิ่มวันหยุด</button></div><div id="fcDays"></div>';
-    rDays();
+    rCal(); rDays();
   }
   function rDays() {
     var el = $('fcDays'); if (!el) return;
@@ -224,15 +237,15 @@
     else if (f === 'lvh') { L = lvOf(t); if (L) { L.hpd = num(t.value) || 0; afterEdit(); } }
     else if (f === 'hd' || f === 'ht' || f === 'hn') {
       h = hOf(t); if (!h) return; h[f === 'hd' ? 'date' : f === 'ht' ? 'to' : 'name'] = t.value;
-      if (f !== 'hn') { var c = tr.querySelector('[data-hc]'); if (c) c.textContent = hDays(h) || '—'; rDays(); afterEdit(); } else keep();
+      if (f !== 'hn') { var c = tr.querySelector('[data-hc]'); if (c) c.textContent = hDays(h) || '—'; rCal(); rDays(); afterEdit(); } else keep();
     } else if (f === 'dov') { v = num(t.value); if (v != null && v >= 0) F.dayOv[t.getAttribute('data-k')] = v; else delete F.dayOv[t.getAttribute('data-k')]; afterEdit(); }
     else if (f === 'ln') { var l = F.lines.filter(function (x) { return x.id === tr.getAttribute('data-ln'); })[0]; if (l) { l.name = t.value; keep(); } }
   });
   root.addEventListener('change', function (e) {
     var f = fld(e), t = e.target, tr = t.closest && t.closest('tr'), p, h, ids;
     if (f === 'unit') { F.unit = t.value === 'min' ? 'min' : 'sec'; renderAll(); keep(); return; }
-    if (f === 'wd') { F.weekdays[+t.getAttribute('data-i')] = t.checked ? 1 : 0; rDays(); afterEdit(); return; }
-    if (f === 'hy') { h = hOf(t); if (h) { h.type = t.value === 'work' ? 'work' : 'off'; tr.querySelector('[data-hc]').textContent = hDays(h) || '—'; rDays(); afterEdit(); } return; }
+    if (f === 'wd') { F.weekdays[+t.getAttribute('data-i')] = t.checked ? 1 : 0; rCal(); rDays(); afterEdit(); return; }
+    if (f === 'hy') { h = hOf(t); if (h) { h.type = t.value === 'work' ? 'work' : 'off'; tr.querySelector('[data-hc]').textContent = hDays(h) || '—'; rCal(); rDays(); afterEdit(); } return; }
     if (f === 'ln') { rFilter(); rParts(); rRes(); keep(); return; }
     if (f === 'line') { p = part(tr.getAttribute('data-id')); if (p) { p.line = t.value; afterEdit(tr); rLines(); } return; }
     if (f === 'scope') { scope = t.value; rRes(); return; }
@@ -245,6 +258,7 @@
   root.addEventListener('click', function (e) {
     var b = e.target.closest && e.target.closest('[data-fc]'); if (!b) return;
     var a = b.getAttribute('data-fc'), tr = b.closest('tr'), id = tr && (tr.getAttribute('data-id') || tr.getAttribute('data-ln') || tr.getAttribute('data-lv') || tr.getAttribute('data-h')), i, p, n;
+    if (a === 'cal') { Lib.toggleDay(F, b.getAttribute('data-d')); rHol(); afterEdit(); return; }
     if (a === 'addlv') { var last = F.levels[F.levels.length - 1]; F.levels.push({ id: Lib.uid('n'), name: 'N' + (F.levels.length + 1), hpd: last ? last.hpd : 8 }); rCond(); afterEdit(); }
     else if (a === 'dellv') { if (F.levels.length <= 1) { msg('ต้องมีระดับ N อย่างน้อย 1 ระดับ', true); return; } F.levels = F.levels.filter(function (L) { return L.id !== id; }); rCond(); afterEdit(); }
     else if (a === 'addh') { var o = { id: Lib.uid('h'), date: '', to: '', name: '', type: 'off' }; F.holidays.push(o); rHol(); keep(); var el = root.querySelector('tr[data-h="' + o.id + '"] input'); if (el) el.focus(); }

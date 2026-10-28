@@ -62,6 +62,26 @@ function workDays(F, key, hx) {
   return { auto: n, n: ov != null && ov >= 0 ? ov : n, ov: ov != null && ov >= 0 };
 }
 
+/* ปฏิทิน: กดวัน = เพิ่มวันหยุด (วันทำงานปกติ) หรือวันทำงานพิเศษ (วันที่ปกติหยุด) กดซ้ำ = ยกเลิก (ถ้าอยู่ในช่วงยาว จะตัดเฉพาะวันนั้นออก) */
+function dayAdd(d, n) { return new Date(Date.parse(d + 'T00:00:00Z') + n * 86400000).toISOString().slice(0, 10); }
+function toggleDay(F, date) {
+  if (!isDate(date)) return null;
+  var hit = F.holidays.filter(function (h) { var x = expandHolidays([h]); return x.off[date] != null || x.work[date] != null; });
+  if (hit.length) {
+    hit.forEach(function (h) {
+      var a = h.date, b = isDate(h.to) && h.to >= h.date ? h.to : h.date, i = F.holidays.indexOf(h), keep = [];
+      if (a < date) keep.push({ id: uid('h'), date: a, to: dayAdd(date, -1) === a ? '' : dayAdd(date, -1), name: h.name, type: h.type });
+      if (b > date) keep.push({ id: uid('h'), date: dayAdd(date, 1), to: dayAdd(date, 1) === b ? '' : b, name: h.name, type: h.type });
+      F.holidays.splice.apply(F.holidays, [i, 1].concat(keep));
+    });
+    return 'removed';
+  }
+  var wd = new Date(Date.parse(date + 'T00:00:00Z')).getUTCDay(), work = !F.weekdays[wd];
+  F.holidays.push({ id: uid('h'), date: date, to: '', name: work ? 'ทำงานพิเศษ' : 'วันหยุดบริษัท', type: work ? 'work' : 'off' });
+  F.holidays.sort(function (x, y) { return x.date < y.date ? -1 : x.date > y.date ? 1 : 0; });
+  return work ? 'work' : 'off';
+}
+
 /* ---------- อ่านไฟล์ Forecast ---------- */
 function cellText(v) { return v == null ? '' : String(v).replace(/\s+/g, ' ').trim(); }
 function partNo(v) { if (typeof v === 'number') return isFinite(v) ? String(Math.round(v)) : ''; var s = cellText(v); return /\d/.test(s) ? s : ''; }
@@ -175,6 +195,6 @@ function norm(o) {
 }
 
 var api = { DEF_LEVELS: DEF_LEVELS, uid: uid, blank: blank, norm: norm, monthKey: monthKey, addMonth: addMonth, daysIn: daysIn, monthLabel: monthLabel, parseMonthCell: parseMonthCell,
-  expandHolidays: expandHolidays, workDays: workDays, parseForecast: parseForecast, applyImport: applyImport, demo: demo, compute: compute, fitLevel: fitLevel, partHrs: partHrs };
+  expandHolidays: expandHolidays, workDays: workDays, toggleDay: toggleDay, parseForecast: parseForecast, applyImport: applyImport, demo: demo, compute: compute, fitLevel: fitLevel, partHrs: partHrs };
 if (typeof module !== 'undefined' && module.exports) module.exports = api; else Object.assign(root, { lbFcLib: api });
 })(typeof window !== 'undefined' ? window : globalThis);

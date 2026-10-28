@@ -109,3 +109,16 @@ test('demo: ข้อมูลจำลองคำนวณได้ ทุก�
   assert.ok(f.months.every(k => c.total[k] > 100 && c.total[k] < 1000));
   const g = F.blank(); F.demo(g, '2026-10'); assert.equal(g.holidays.length, 2);
 });
+
+test('toggleDay: กดเพิ่ม/กดซ้ำยกเลิก วันอาทิตย์เป็นวันทำงานพิเศษ และตัดวันออกจากช่วงยาว', () => {
+  const f = F.blank();
+  assert.equal(F.toggleDay(f, '2026-10-13'), 'off'); assert.equal(F.workDays(f, '2026-10').n, 26);
+  assert.equal(F.toggleDay(f, '2026-10-13'), 'removed'); assert.equal(f.holidays.length, 0); assert.equal(F.workDays(f, '2026-10').n, 27);
+  assert.equal(F.toggleDay(f, '2026-10-04'), 'work'); assert.equal(f.holidays[0].type, 'work'); assert.equal(F.workDays(f, '2026-10').n, 28);
+  const g = F.blank(); g.holidays = [{ id: 'a', date: '2026-10-12', to: '2026-10-16', name: 'ยาว', type: 'off' }];
+  assert.equal(F.toggleDay(g, '2026-10-14'), 'removed');
+  assert.deepEqual(g.holidays.map(h => [h.date, h.to, h.name]), [['2026-10-12', '2026-10-13', 'ยาว'], ['2026-10-15', '2026-10-16', 'ยาว']]);
+  assert.equal(F.workDays(g, '2026-10').n, 27 - 4);
+  F.toggleDay(g, '2026-10-12'); assert.deepEqual(g.holidays.map(h => [h.date, h.to]), [['2026-10-13', ''], ['2026-10-15', '2026-10-16']]);
+  assert.equal(F.toggleDay(g, 'bad'), null);
+});
