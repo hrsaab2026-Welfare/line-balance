@@ -63,18 +63,27 @@
         '<td><select data-f="hy" aria-label="ประเภท">' + opt('off', 'วันหยุด (ไม่ทำงาน)', h.type) + opt('work', 'วันทำงานพิเศษ (ทำงานในวันที่ปกติหยุด)', h.type) + '</select></td>' +
         '<td class="r num" data-hc>' + (hDays(h) || '—') + '</td><td><button class="fc-x" type="button" data-fc="delh" title="ลบ" aria-label="ลบวันหยุด">×</button></td></tr>';
     }).join('');
-    $('fcHol').innerHTML = '<div id="fcCal"></div><div class="fc-h" style="margin-top:14px">รายการวันหยุด <span class="note">แก้ชื่อ หรือกำหนดช่วงวันที่ต่อเนื่องได้ที่ตารางนี้</span></div><div class="panel scroll"><table class="fc-h-t"><thead><tr><th>จากวันที่</th><th>ถึงวันที่ (ถ้าหยุดต่อเนื่อง)</th><th>ชื่อ / เหตุผล</th><th>ประเภท</th><th class="r">วัน</th><th></th></tr></thead><tbody>' +
+    $('fcHol').innerHTML = '<div class="fc-hol-top"><div id="fcCal"></div><div id="fcDays"></div></div><div class="fc-h" style="margin-top:14px">รายการวันหยุด <span class="note">แก้ชื่อ หรือกำหนดช่วงวันที่ต่อเนื่องได้ที่ตารางนี้</span></div><div class="panel scroll"><table class="fc-h-t"><thead><tr><th>จากวันที่</th><th>ถึงวันที่ (ถ้าหยุดต่อเนื่อง)</th><th>ชื่อ / เหตุผล</th><th>ประเภท</th><th class="r">วัน</th><th></th></tr></thead><tbody>' +
       (rows || '<tr><td colspan="6" class="mut">ยังไม่มีวันหยุดบริษัท กดเพิ่มด้านล่าง ระบบจะหักออกจากวันทำงานของเดือนนั้น</td></tr>') + '</tbody></table></div>' +
-      '<div class="fc-bar"><button class="btn ghost sm" type="button" data-fc="addh">+ เพิ่มวันหยุด</button></div><div id="fcDays"></div>';
+      '<div class="fc-bar"><button class="btn ghost sm" type="button" data-fc="addh">+ เพิ่มวันหยุด</button></div>';
     rCal(); rDays();
   }
   function rDays() {
     var el = $('fcDays'); if (!el) return;
-    if (!F.months.length) { el.innerHTML = '<p class="note">ตารางวันทำงานต่อเดือนจะแสดงหลังอัปโหลด Forecast</p>'; return; }
-    var hx = Lib.expandHolidays(F.holidays), w = {}; F.months.forEach(function (k) { w[k] = Lib.workDays(F, k, hx); });
-    el.innerHTML = '<div class="panel scroll"><table class="fc-days"><thead><tr><th>วันทำงานต่อเดือน</th>' + F.months.map(function (k) { return '<th class="r">' + Lib.monthLabel(k) + '</th>'; }).join('') + '</tr></thead><tbody>' +
-      '<tr><td>คำนวณจากปฏิทิน</td>' + F.months.map(function (k) { return '<td class="r num">' + w[k].auto + '</td>'; }).join('') + '</tr>' +
-      '<tr><td>ใช้คำนวณจริง <span class="note">(กรอกทับได้ เว้นว่าง = ใช้ค่าจากปฏิทิน)</span></td>' + F.months.map(function (k) { return '<td class="r"><input class="fc-q" data-f="dov" data-k="' + k + '" inputmode="numeric" placeholder="' + w[k].auto + '" value="' + (w[k].ov ? va(w[k].n) : '') + '" aria-label="วันทำงาน ' + Lib.monthLabel(k) + '"></td>'; }).join('') + '</tr></tbody></table></div>';
+    var real = F.months.length > 0, ms = real ? F.months : [0, 1, 2, 3, 4, 5].map(function (i) { return Lib.addMonth(curMonth(), i); }), hx = Lib.expandHolidays(F.holidays), tot = 0;
+    var rows = ms.map(function (k) {
+      var dim = Lib.daysIn(k), y = +k.slice(0, 4), m = +k.slice(5), wk = 0, co = 0, sp = 0, d, ds, wo, w = Lib.workDays(F, k, hx);
+      for (d = 1; d <= dim; d++) {
+        ds = k + '-' + (d < 10 ? '0' : '') + d; wo = !F.weekdays[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
+        if (hx.off[ds] != null) { if (wo) wk++; else co++; } else if (wo) { if (hx.work[ds] != null) sp++; else wk++; }
+      }
+      tot += w.n;
+      return '<tr' + (k === calK ? ' class="cur"' : '') + '><td><button class="linkbtn" type="button" data-fc="calgo" data-k="' + k + '" title="ดูเดือนนี้ในปฏิทิน">' + Lib.monthLabel(k) + '</button></td><td class="r num">' + dim + '</td><td class="r num">' + (wk || '—') + '</td><td class="r num">' + (co || '—') + '</td><td class="r num">' + (sp || '—') + '</td><td class="r num strong">' + w.auto + '</td>' +
+        '<td class="r">' + (real ? '<input class="fc-q" data-f="dov" data-k="' + k + '" inputmode="numeric" placeholder="' + w.auto + '" value="' + (w.ov ? va(w.n) : '') + '" aria-label="วันทำงานที่ใช้จริง ' + Lib.monthLabel(k) + '">' : '<span class="num">' + w.auto + '</span>') + '</td></tr>';
+    }).join('');
+    el.innerHTML = '<div class="panel scroll"><div class="fc-h">จำนวนวันทำงานของแต่ละเดือน</div><table class="fc-days"><thead><tr><th>เดือน</th><th class="r">วันในเดือน</th><th class="r">หยุดประจำสัปดาห์</th><th class="r">หยุดบริษัท</th><th class="r">ทำงานพิเศษ</th><th class="r">วันทำงาน (คำนวณ)</th><th class="r">ใช้คำนวณจริง</th></tr></thead><tbody>' + rows +
+      '<tr class="fc-hl"><td class="lbl">รวม</td><td></td><td></td><td></td><td></td><td></td><td class="r num strong">' + tot + '</td></tr></tbody></table>' +
+      '<p class="note">วันทำงาน = วันในเดือน − หยุดประจำสัปดาห์ − หยุดบริษัท (วันทำงานพิเศษนับเป็นวันทำงาน) ช่อง “ใช้คำนวณจริง” กรอกทับได้ เว้นว่าง = ใช้ค่าที่คำนวณ' + (real ? '' : ' · กรอกทับได้หลังอัปโหลด Forecast') + ' · กดชื่อเดือนเพื่อดูในปฏิทิน</p></div>';
   }
 
   /* ---------- 3) ไลน์ (Line group) ---------- */
@@ -261,7 +270,8 @@
   root.addEventListener('click', function (e) {
     var b = e.target.closest && e.target.closest('[data-fc]'); if (!b) return;
     var a = b.getAttribute('data-fc'), tr = b.closest('tr'), id = tr && (tr.getAttribute('data-id') || tr.getAttribute('data-ln') || tr.getAttribute('data-lv') || tr.getAttribute('data-h')), i, p, n;
-    if (a === 'calprev' || a === 'calnext') { calK = Lib.addMonth(calK, a === 'calnext' ? 1 : -1); rCal(); return; }
+    if (a === 'calprev' || a === 'calnext') { calK = Lib.addMonth(calK, a === 'calnext' ? 1 : -1); rCal(); rDays(); return; }
+    if (a === 'calgo') { calK = b.getAttribute('data-k'); rCal(); rDays(); return; }
     if (a === 'cal') { Lib.toggleDay(F, b.getAttribute('data-d')); rHol(); afterEdit(); return; }
     if (a === 'addlv') { var last = F.levels[F.levels.length - 1]; F.levels.push({ id: Lib.uid('n'), name: 'N' + (F.levels.length + 1), hpd: last ? last.hpd : 8 }); rCond(); afterEdit(); }
     else if (a === 'dellv') { if (F.levels.length <= 1) { msg('ต้องมีระดับ N อย่างน้อย 1 ระดับ', true); return; } F.levels = F.levels.filter(function (L) { return L.id !== id; }); rCond(); afterEdit(); }
