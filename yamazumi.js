@@ -18,7 +18,7 @@ function lbYzClass(cat, override) {
 function lbYamazumi(S, override) {
   var rows = S.resources.map(function (r) { return { id: r.id, name: r.name, kind: r.kind, va: 0, nva: 0, waste: 0, total: 0, cats: {} }; });
   var by = {}; rows.forEach(function (x, i) { by[x.id] = i; });
-  var mult = {}; S.resources.forEach(function (r) { mult[r.id] = r.mult; });
+  var mult = {}; S.resources.forEach(function (r) { mult[r.id] = r.mult == null ? 1 : r.mult; });
   S.elements.forEach(function (e) {
     var cl = lbYzClass(e.cat, override);
     Object.keys(e.vals).forEach(function (id) {
@@ -44,9 +44,9 @@ function lbSuggest(S, m, override) {
     if (wi < men.length - 1) cands.push({ e: mine[mine.length - 1], to: men[wi + 1], pos: 'งานสุดท้าย' });
   }
   cands.forEach(function (c) {
-    var raw = c.e.vals[worst.id], nw = m.loads[worst.id] - raw * worst.mult, nt = m.loads[c.to.id] + raw * c.to.mult;
+    var raw = c.e.vals[worst.id], wm = worst.mult == null ? 1 : worst.mult, nw = m.loads[worst.id] - raw * wm, nt = m.loads[c.to.id] + raw * (c.to.mult == null ? 1 : c.to.mult);
     var newMax = Math.max.apply(null, men.map(function (r) { return r === worst ? nw : r === c.to ? nt : m.loads[r.id]; }));
-    if (newMax < oldMax - 1e-9) out.push({ type: 'move', name: c.e.name, cat: c.e.cat, pos: c.pos, time: raw * worst.mult, raw: raw, from: worst.name, to: c.to.name, oldMax: oldMax, newMax: newMax, gain: oldMax - newMax, meetsTakt: cap ? newMax <= cap + 1e-9 : null });
+    if (newMax < oldMax - 1e-9) out.push({ type: 'move', name: c.e.name, cat: c.e.cat, pos: c.pos, time: raw * wm, raw: raw, from: worst.name, to: c.to.name, oldMax: oldMax, newMax: newMax, gain: oldMax - newMax, meetsTakt: cap ? newMax <= cap + 1e-9 : null });
   });
   out.sort(function (a, b) { return b.gain - a.gain; });
   var y = lbYamazumi(S, override).filter(function (x) { return x.id === worst.id; })[0];

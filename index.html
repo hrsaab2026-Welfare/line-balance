@@ -1243,7 +1243,7 @@ function bandsOf(m) {
 function lbCompute(S, par) {
   var E = S.elements, R = S.resources, cycle = +S.cycle || 0, pcs = Math.max(1, +S.pcs || 1), takt = +S.takt || 0;
   var loads = {}, m = { perPiece: cycle / pcs, cycle: cycle, pcs: pcs, takt: takt };
-  R.forEach(function (r) { loads[r.id] = E.reduce(function (a, e) { return a + (e.vals[r.id] || 0); }, 0) * r.mult; });
+  R.forEach(function (r) { loads[r.id] = E.reduce(function (a, e) { return a + (e.vals[r.id] || 0); }, 0) * (r.mult == null ? 1 : r.mult); });
   m.loads = loads;
   var men = R.filter(function (r) { return r.kind === 'man'; });
   var manSum = men.reduce(function (a, r) { return a + loads[r.id]; }, 0);
@@ -1297,7 +1297,7 @@ function lbYzClass(cat, override) {
 function lbYamazumi(S, override) {
   var rows = S.resources.map(function (r) { return { id: r.id, name: r.name, kind: r.kind, va: 0, nva: 0, waste: 0, total: 0, cats: {} }; });
   var by = {}; rows.forEach(function (x, i) { by[x.id] = i; });
-  var mult = {}; S.resources.forEach(function (r) { mult[r.id] = r.mult; });
+  var mult = {}; S.resources.forEach(function (r) { mult[r.id] = r.mult == null ? 1 : r.mult; });
   S.elements.forEach(function (e) {
     var cl = lbYzClass(e.cat, override);
     Object.keys(e.vals).forEach(function (id) {
@@ -1323,9 +1323,9 @@ function lbSuggest(S, m, override) {
     if (wi < men.length - 1) cands.push({ e: mine[mine.length - 1], to: men[wi + 1], pos: 'งานสุดท้าย' });
   }
   cands.forEach(function (c) {
-    var raw = c.e.vals[worst.id], nw = m.loads[worst.id] - raw * worst.mult, nt = m.loads[c.to.id] + raw * c.to.mult;
+    var raw = c.e.vals[worst.id], wm = worst.mult == null ? 1 : worst.mult, nw = m.loads[worst.id] - raw * wm, nt = m.loads[c.to.id] + raw * (c.to.mult == null ? 1 : c.to.mult);
     var newMax = Math.max.apply(null, men.map(function (r) { return r === worst ? nw : r === c.to ? nt : m.loads[r.id]; }));
-    if (newMax < oldMax - 1e-9) out.push({ type: 'move', name: c.e.name, cat: c.e.cat, pos: c.pos, time: raw * worst.mult, raw: raw, from: worst.name, to: c.to.name, oldMax: oldMax, newMax: newMax, gain: oldMax - newMax, meetsTakt: cap ? newMax <= cap + 1e-9 : null });
+    if (newMax < oldMax - 1e-9) out.push({ type: 'move', name: c.e.name, cat: c.e.cat, pos: c.pos, time: raw * wm, raw: raw, from: worst.name, to: c.to.name, oldMax: oldMax, newMax: newMax, gain: oldMax - newMax, meetsTakt: cap ? newMax <= cap + 1e-9 : null });
   });
   out.sort(function (a, b) { return b.gain - a.gain; });
   var y = lbYamazumi(S, override).filter(function (x) { return x.id === worst.id; })[0];
@@ -3275,7 +3275,10 @@ window.lbConfirm = function (o) {
   }
   function restore(s, keep) {
     if (!s || s.v !== 1) throw new Error('รูปแบบข้อมูลไม่ถูกต้อง');
-    if (!keep) { quiet = Date.now() + 4000; clearTimeout(saveT); }
+    if (!keep) { /* เปิดงานอื่น: ล้างสถานะ + ประวัติ Undo ของงานก่อนหน้า ไม่งั้น flow/sc/hist ของงานเดิมจะค้างและถูกบันทึกทับงานนี้ */
+      quiet = Date.now() + 4000; clearTimeout(saveT); clearTimeout(histT); clearTimeout(flTimer);
+      S = null; D = null; SC = null; SWC = swcBlank(); SWCOPEN = false; hist = []; hi = -1; histSync();
+    }
     if (s.sc) setScenarios(s.sc);
     if (s.swc) { SWC = swcNorm(s.swc); SWCOPEN = true; } else { SWC = swcBlank(); SWCOPEN = false; } swcDraw();
     if (s.flow) { D = s.flow; renderFlow(); flowUpdate(); }

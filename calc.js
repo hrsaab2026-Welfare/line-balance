@@ -34,7 +34,7 @@ function bandsOf(m) {
 function lbCompute(S, par) {
   var E = S.elements, R = S.resources, cycle = +S.cycle || 0, pcs = Math.max(1, +S.pcs || 1), takt = +S.takt || 0;
   var loads = {}, m = { perPiece: cycle / pcs, cycle: cycle, pcs: pcs, takt: takt };
-  R.forEach(function (r) { loads[r.id] = E.reduce(function (a, e) { return a + (e.vals[r.id] || 0); }, 0) * r.mult; });
+  R.forEach(function (r) { loads[r.id] = E.reduce(function (a, e) { return a + (e.vals[r.id] || 0); }, 0) * (r.mult == null ? 1 : r.mult); });
   m.loads = loads;
   var men = R.filter(function (r) { return r.kind === 'man'; });
   var manSum = men.reduce(function (a, r) { return a + loads[r.id]; }, 0);

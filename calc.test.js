@@ -77,3 +77,8 @@ test('schedule: งานเดียวกันบนทรัพยากร�
   md.resources[0].mult = 3;
   assert.deepEqual(C.lbCompute(md, true).sched.map(o => [o.start, o.end]), [[0, 30], [30, 45]]);
 });
+
+test('lbCompute: resource ไม่มี mult ถือเป็น 1 (ไม่เป็น NaN)', () => {
+  const m = C.lbCompute({ cycle: 10, pcs: 1, takt: 0, resources: [{ id: 'a', name: 'A', kind: 'man' }, { id: 'b', name: 'B', kind: 'man', mult: 1 }], elements: [{ cat: 'x', name: 'e', time: 10, vals: { a: 10, b: 4 } }] }, true);
+  assert.equal(m.loads.a, 10); assert.ok(Number.isFinite(m.balEff));
+});
