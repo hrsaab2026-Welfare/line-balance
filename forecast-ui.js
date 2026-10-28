@@ -40,18 +40,21 @@
 
   /* ---------- 2) วันหยุดบริษัท + วันทำงานต่อเดือน ---------- */
   function hDays(h) { var x = Lib.expandHolidays([h]); return Object.keys(x.off).length + Object.keys(x.work).length; }
+  var calK = '', TM = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
   function rCal() {
     var el = $('fcCal'); if (!el) return;
-    var ms = F.months.length ? F.months : [0, 1, 2, 3, 4, 5].map(function (i) { return Lib.addMonth(curMonth(), i); }), hx = Lib.expandHolidays(F.holidays);
-    el.innerHTML = '<div class="fc-leg"><span><i class="fc-cd h"></i>วันหยุดบริษัท</span><span><i class="fc-cd w"></i>วันทำงานพิเศษ</span><span><i class="fc-cd x"></i>วันหยุดประจำสัปดาห์</span><span class="note">กดที่วันเพื่อเพิ่ม กดซ้ำเพื่อยกเลิก</span></div><div class="fc-cals">' + ms.map(function (k) {
-      var y = +k.slice(0, 4), m = +k.slice(5), first = new Date(Date.UTC(y, m - 1, 1)).getUTCDay(), dim = Lib.daysIn(k), cells = '', d, wd;
-      for (d = 0; d < first; d++) cells += '<span></span>';
-      for (d = 1; d <= dim; d++) {
-        var ds = k + '-' + (d < 10 ? '0' : '') + d, wdn = (first + d - 1) % 7, st = hx.off[ds] != null ? 'h' : hx.work[ds] != null ? 'w' : F.weekdays[wdn] ? '' : 'x', nm = hx.off[ds] != null ? hx.off[ds] : hx.work[ds];
-        cells += '<button type="button" class="fc-cd ' + st + '" data-fc="cal" data-d="' + ds + '"' + (nm ? ' title="' + va(nm) + '"' : '') + ' aria-label="' + ds + (st === 'h' ? ' วันหยุด' : st === 'w' ? ' ทำงานพิเศษ' : '') + '" aria-pressed="' + (st === 'h' || st === 'w' ? 'true' : 'false') + '">' + d + '</button>';
-      }
-      return '<div class="panel fc-cal"><div class="fc-cal-h"><b>' + Lib.monthLabel(k) + '</b><span class="note">' + Lib.workDays(F, k, hx).n + ' วันทำงาน</span></div><div class="fc-cal-g">' + WD.map(function (n, i) { return '<em' + (F.weekdays[i] ? '' : ' class="off"') + '>' + n + '</em>'; }).join('') + cells + '</div></div>';
-    }).join('') + '</div>';
+    if (!calK) calK = F.months.length ? F.months[0] : curMonth();
+    var k = calK, hx = Lib.expandHolidays(F.holidays), y = +k.slice(0, 4), m = +k.slice(5), first = new Date(Date.UTC(y, m - 1, 1)).getUTCDay(), dim = Lib.daysIn(k), cells = '', d, n = 0;
+    for (d = 0; d < first; d++) cells += '<span></span>';
+    for (d = 1; d <= dim; d++) {
+      var ds = k + '-' + (d < 10 ? '0' : '') + d, st = hx.off[ds] != null ? 'h' : hx.work[ds] != null ? 'w' : F.weekdays[(first + d - 1) % 7] ? '' : 'x', nm = hx.off[ds] != null ? hx.off[ds] : hx.work[ds];
+      if (st === 'h' || st === 'w') n++;
+      cells += '<button type="button" class="fc-cd ' + st + '" data-fc="cal" data-d="' + ds + '"' + (nm ? ' title="' + va(nm) + '"' : '') + ' aria-label="' + ds + (st === 'h' ? ' วันหยุด' : st === 'w' ? ' ทำงานพิเศษ' : '') + '" aria-pressed="' + (st === 'h' || st === 'w' ? 'true' : 'false') + '">' + d + '</button>';
+    }
+    el.innerHTML = '<div class="panel fc-cal"><div class="fc-cal-nav"><button class="fc-nv" type="button" data-fc="calprev" aria-label="เดือนก่อนหน้า">‹</button><div class="fc-cal-t"><b>' + TM[m - 1] + ' ' + y + '</b><span class="note">' + Lib.workDays(F, k, hx).n + ' วันทำงาน' + (n ? ' · ปรับเอง ' + n + ' วัน' : '') + '</span></div><button class="fc-nv" type="button" data-fc="calnext" aria-label="เดือนถัดไป">›</button></div>' +
+      '<div class="fc-cal-g">' + WD.map(function (x, i) { return '<em' + (F.weekdays[i] ? '' : ' class="off"') + '>' + x + '</em>'; }).join('') + cells + '</div>' +
+      '<div class="fc-leg"><span><i class="fc-cd h"></i>วันหยุดบริษัท</span><span><i class="fc-cd w"></i>ทำงานพิเศษ</span><span><i class="fc-cd x"></i>หยุดประจำสัปดาห์</span></div>' +
+      '<p class="note" style="margin:8px 0 0">กดที่วันเพื่อเพิ่ม กดซ้ำเพื่อยกเลิก</p></div>';
   }
   function rHol() {
     var rows = F.holidays.map(function (h) {
@@ -176,7 +179,7 @@
   }
   function cnt() { var a = $('fcCnt'), b = $('fcSelN'); if (a) a.textContent = 'แสดง ' + F.parts.filter(visible).length + ' จาก ' + F.parts.length + ' ชิ้นงาน'; if (b) b.textContent = selCount() + ' รายการ'; }
 
-  function renderAll() { rFile(); rCond(); rHol(); rLines(); var c = rRes(); rWarn(c); rFilter(); rParts(); }
+  function renderAll() { calK = ''; rFile(); rCond(); rHol(); rLines(); var c = rRes(); rWarn(c); rFilter(); rParts(); }
   function afterEdit(tr) { var c = rRes(); rWarn(c); if (tr) { var cell = tr.querySelector('[data-ph]'), p = c.parts[tr.getAttribute('data-id')]; if (cell && p) cell.textContent = nf(p.total, 1); } keep(); }
   function ensureMonth() { if (!F.months.length) { F.months.push(curMonth()); F.parts.forEach(function (p) { p.qty[F.months[0]] = 0; }); } }
 
@@ -258,6 +261,7 @@
   root.addEventListener('click', function (e) {
     var b = e.target.closest && e.target.closest('[data-fc]'); if (!b) return;
     var a = b.getAttribute('data-fc'), tr = b.closest('tr'), id = tr && (tr.getAttribute('data-id') || tr.getAttribute('data-ln') || tr.getAttribute('data-lv') || tr.getAttribute('data-h')), i, p, n;
+    if (a === 'calprev' || a === 'calnext') { calK = Lib.addMonth(calK, a === 'calnext' ? 1 : -1); rCal(); return; }
     if (a === 'cal') { Lib.toggleDay(F, b.getAttribute('data-d')); rHol(); afterEdit(); return; }
     if (a === 'addlv') { var last = F.levels[F.levels.length - 1]; F.levels.push({ id: Lib.uid('n'), name: 'N' + (F.levels.length + 1), hpd: last ? last.hpd : 8 }); rCond(); afterEdit(); }
     else if (a === 'dellv') { if (F.levels.length <= 1) { msg('ต้องมีระดับ N อย่างน้อย 1 ระดับ', true); return; } F.levels = F.levels.filter(function (L) { return L.id !== id; }); rCond(); afterEdit(); }
