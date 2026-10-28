@@ -724,9 +724,12 @@ body.viewer #tab-fc input, body.viewer #tab-fc select { pointer-events:auto !imp
       <div id="yzChart"></div>
     </div>
     <div class="panel" id="yzSug"></div>
-    <div class="panel" id="aiBox">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px"><b>วิเคราะห์ด้วย AI <span id="aiState"></span></b><button class="btn" id="aiGo" type="button">วิเคราะห์ด้วย AI</button></div>
-      <div id="aiOut"><p class="mut" style="margin:0">กดปุ่มเพื่อให้ AI เสนอวิธีปรับปรุงจากตัวเลขของไลน์นี้ (ส่งเฉพาะตัวเลขสรุป ไม่ส่ง Part No. หรือชื่อลูกค้า)</p></div>
+    <div class="panel ai" id="aiBox">
+      <div class="ai-head">
+        <div class="ai-id"><span class="ai-mark"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M11 2l1.9 5.6 5.6 1.9-5.6 1.9L11 17l-1.9-5.6L3.5 9.5l5.6-1.9z"/><path d="M19 14l.9 2.6 2.6.9-2.6.9L19 21l-.9-2.6-2.6-.9 2.6-.9z" opacity=".75"/></svg></span><div><b>ที่ปรึกษา AI</b><small>เสนอวิธีปรับปรุงจากตัวเลขของไลน์นี้</small></div></div>
+        <div class="ai-act"><span id="aiState"></span><button class="btn" id="aiGo" type="button">วิเคราะห์ด้วย AI</button></div>
+      </div>
+      <div class="ai-body"><div id="aiMeter"></div><div id="aiOut"></div></div>
     </div>
     <details class="panel" id="yzCfg"><summary>ปรับการจัดหมวด VA / NVA / Waste</summary><p class="help">ระบบเดาจากชื่อหมวดของงาน ถ้าไม่ตรงกับหน้างาน เลือกใหม่ได้ ค่าที่เลือกจำไว้ในเครื่องนี้</p><div id="yzMap"></div></details>
   </section>
@@ -2653,6 +2656,54 @@ body.viewer .tabpanel td input, body.viewer .tabpanel .field input { opacity: .8
 @media (max-width: 760px) { .gate-wrap { grid-template-columns: 1fr; max-width: 440px; } .gate-brand { padding: 22px 22px 20px; gap: 12px; } .gate-brand h2 { font-size: 17px; } .gb-bars, .gate-brand ul { display: none; } .gate-card { padding: 26px 22px 24px; } }
 @media (prefers-reduced-motion: reduce) { .gate-wrap, .gb-bars i, .gate-card.shake { animation: none; } .gate-card #gGo.busy::after { animation-duration: 1.6s; } }
 .yz-sug { margin: 6px 0 0; padding-left: 20px; display: grid; gap: 6px; }
+/* ---------- การ์ด AI วิเคราะห์ Line Balance ---------- */
+.ai { padding: 0 !important; overflow: hidden; }
+.ai-head { display: flex; align-items: center; justify-content: space-between; gap: 12px 16px; flex-wrap: wrap; padding: 14px 18px; color: #fff; background: linear-gradient(115deg, #0E2036 0%, #15304F 100%); box-shadow: inset 0 -2px 0 rgba(242,169,59,.75); }
+.ai-id { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.ai-mark { flex: none; width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; color: #2A1A00; background: linear-gradient(145deg, #FFD688, #F2A93B 60%, #D98A12); box-shadow: 0 8px 20px -8px rgba(242,169,59,.8), inset 0 1px 0 rgba(255,255,255,.5); }
+.ai-id b { display: block; font-size: 16px; font-weight: 700; letter-spacing: -.01em; }
+.ai-id small { display: block; color: #B9C8DC; font-size: 12.5px; }
+.ai-act { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ai-act .btn { background: linear-gradient(180deg, #FFC766, #F2A93B); color: #2A1A00; border-color: #D98A12; box-shadow: inset 0 1px 0 rgba(255,255,255,.5), 0 10px 22px -12px rgba(242,169,59,.9); }
+.ai-act .btn:disabled { opacity: .55; cursor: default; transform: none; filter: none; }
+.ai-body { padding: 18px; display: grid; gap: 18px; }
+.ai-gauge { display: grid; gap: 8px; }
+.ai-gt { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; color: var(--fg2); }
+.ai-gt b { color: var(--text-heading); }
+.ai-gv { font-family: var(--font-data); font-variant-numeric: tabular-nums; font-size: 20px; font-weight: 600; color: var(--text-heading); letter-spacing: -.02em; }
+.ai-gv small { font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--muted); letter-spacing: 0; }
+.ai-track { position: relative; height: 14px; margin-top: 20px; border-radius: 999px; background: var(--th-bg); border: 1px solid var(--line); }
+.ai-track i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 999px; background: var(--ai-c); transition: width .6s cubic-bezier(.2,.8,.2,1); }
+.ai-track u { position: absolute; top: -7px; bottom: -7px; width: 2px; margin-left: -1px; background: var(--fg); text-decoration: none; border-radius: 1px; }
+.ai-track em { position: absolute; bottom: calc(100% + 3px); left: 50%; transform: translateX(-50%); font-style: normal; font-size: 11.5px; font-weight: 600; white-space: nowrap; color: var(--fg); }
+.ai-gs { display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 13px; color: var(--fg2); }
+.ai-gs b { color: var(--text-heading); font-family: var(--font-data); font-variant-numeric: tabular-nums; }
+#aiOut > * + * { margin-top: 14px; }
+.ai-lead { margin: 0; padding: 2px 0 2px 14px; border-left: 4px solid var(--signal); font-size: 15.5px; line-height: 1.65; font-weight: 500; color: var(--text-heading); }
+.ai-list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; animation: aiIn .45s ease-out both; }
+.ai-list.old { opacity: .55; }
+.ai-item { display: grid; gap: 6px; padding: 14px 16px; border-top: 1px solid var(--line); }
+.ai-item:first-child { border-top: 0; }
+.ai-item.top { background: color-mix(in srgb, var(--accent) 6%, var(--surface)); box-shadow: inset 4px 0 0 var(--accent); }
+.ai-ti { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ai-ti b { font-size: 15px; color: var(--text-heading); }
+.ai-item p { margin: 0; line-height: 1.65; color: var(--fg2); }
+.ai-gain { display: inline-flex; align-items: center; gap: 6px; justify-self: start; padding: 3px 10px; border-radius: 6px; font-size: 12.5px; font-weight: 600; color: var(--good-text); background: color-mix(in srgb, var(--good) 14%, var(--surface)); }
+.ai-foot { margin: 0; font-size: 12px; color: var(--muted); }
+.ai-stale { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-radius: 10px; font-size: 13px; color: var(--warn-text); background: color-mix(in srgb, var(--warn) 14%, var(--surface)); border: 1px solid color-mix(in srgb, var(--warn) 40%, var(--line)); }
+.ai-empty p { margin: 0 0 8px; line-height: 1.65; color: var(--fg2); }
+.ai-priv { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); }
+.ai-note { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg-input); color: var(--fg2); line-height: 1.6; }
+.ai-note svg { flex: none; margin-top: 3px; }
+.ai-note small { display: block; margin-top: 2px; font-size: 12px; color: var(--muted); }
+.ai-note.err { border-color: color-mix(in srgb, var(--bad) 40%, var(--line)); background: color-mix(in srgb, var(--bad) 7%, var(--surface)); color: var(--bad-text); }
+.ai-skel { display: grid; gap: 10px; }
+.ai-skel span { font-size: 13px; color: var(--muted); }
+.ai-skel i { display: block; height: 12px; border-radius: 6px; background: linear-gradient(90deg, var(--th-bg) 25%, color-mix(in srgb, var(--accent) 14%, var(--th-bg)) 50%, var(--th-bg) 75%); background-size: 200% 100%; animation: aiSh 1.3s linear infinite; }
+@keyframes aiSh { to { background-position: -200% 0; } }
+@keyframes aiIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .ai-list, .ai-skel i, .ai-track i { animation: none; transition: none; } }
+@media (max-width: 560px) { .ai-act { width: 100%; justify-content: space-between; } .ai-body { padding: 14px; } }
 .yz-cfg { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; margin-bottom: 8px; }
 .yz-cfg label { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 /* ---------- มือถือ / แท็บเล็ต ---------- */
@@ -3929,6 +3980,12 @@ if (typeof document === 'undefined' || !document.getElementById('aiBox')) return
 var $ = function (id) { return document.getElementById(id); }, E = function (t) { return String(t == null ? '' : t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
 var cache = {}, cur = '', busy = false, lastKey = null;
 var VT = { over: ['bad', 'เกิน Takt'], near: ['warn', 'ใกล้เต็ม Takt'], ok: ['good', 'ทัน Takt'], no_takt: ['acc', 'ยังไม่ได้ใส่ Takt'] };
+var COL = { over: 'var(--bad)', near: 'var(--warn)', ok: 'var(--good)', no_takt: 'var(--bar)' };
+var IC = {
+  warn: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18.5v.01"/></svg>',
+  lock: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg>',
+  down: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7l6 6 4-4 8 8"/><path d="M15 17h6v-6"/></svg>'
+};
 
 function payloadNow() {
   if (!root.S || !root.compute) return null;
@@ -3936,32 +3993,55 @@ function payloadNow() {
   return lbAiPayload(root.S, m, rows, root.lbSuggest(root.S, m, null));
 }
 function show(html) { $('aiOut').innerHTML = html; }
+function note(html, err, small) {
+  show('<div class="ai-note' + (err ? ' err' : '') + '">' + (err ? IC.warn : IC.lock) + '<div>' + html + (small ? '<small>' + small + '</small>' : '') + '</div></div>');
+}
+function empty() {
+  show('<div class="ai-empty"><p>กดปุ่ม <b>วิเคราะห์ด้วย AI</b> ให้ AI อ่านโหลดของแต่ละคนและเครื่อง แล้วเสนอวิธีปรับปรุงพร้อมผลที่คาดว่าจะได้</p><span class="ai-priv">' + IC.lock + ' ส่งเฉพาะตัวเลขสรุป ไม่ส่ง Part No. และชื่อลูกค้า</span></div>');
+}
+function loading() {
+  show('<div class="ai-skel" role="status" aria-live="polite"><span>AI กำลังอ่านตัวเลขของไลน์ อาจใช้เวลาสักครู่</span><i style="width:92%"></i><i style="width:78%"></i><i style="width:85%"></i><i style="width:60%"></i></div>');
+}
+function gauge(p) {
+  var cap = p.cap, mx = p.maxLoad, scale = Math.max(cap, mx) * 1.15 || 1, fmt = root.fmt, pct = root.pct;
+  var w = Math.min(100, mx / scale * 100), tick = cap ? cap / scale * 100 : null;
+  var line = p.verdict === 'over' ? 'เกิน Takt อยู่ <b>' + fmt(mx - cap) + '</b> วินาที (' + pct((mx - cap) / cap) + ')'
+    : p.verdict === 'no_takt' ? 'ใส่ Takt Time เพื่อให้เทียบกับเป้าได้' : 'เหลือเวลา <b>' + fmt(cap - mx) + '</b> วินาที ก่อนถึง Takt';
+  var extra = '';
+  if (p.minMen != null) extra += '<span>ต้องใช้คนอย่างน้อย <b>' + p.minMen + '</b> คน (ตอนนี้ ' + p.men + ')</span>';
+  if (p.balanceEff != null) extra += '<span>Balance efficiency <b>' + p.balanceEff + '%</b></span>';
+  return '<div class="ai-gauge" style="--ai-c:' + COL[p.verdict] + '"><div class="ai-gt"><span>คอขวด <b>' + E(p.bottleneck.join(', ') || '-') + '</b></span><span class="ai-gv">' + fmt(mx) + (cap ? ' / ' + fmt(cap) : '') + ' <small>วินาที</small></span></div>' +
+    '<div class="ai-track" role="img" aria-label="โหลดคอขวด ' + fmt(mx) + ' วินาที เทียบกับ Takt ' + fmt(cap) + ' วินาที"><i style="width:' + w.toFixed(1) + '%"></i>' + (tick == null ? '' : '<u style="left:' + tick.toFixed(1) + '%"><em>Takt ' + fmt(cap) + '</em></u>') + '</div>' +
+    '<div class="ai-gs"><span>' + line + '</span>' + extra + '</div></div>';
+}
 function result(r, stale) {
-  var a = (r.actions || []).map(function (x) {
-    return '<li><b>' + E(x.title) + '</b><br>' + E(x.detail) + (x.gain ? '<br><span class="mut">ผลที่คาด: ' + E(x.gain) + '</span>' : '') + '</li>';
+  var a = (r.actions || []).map(function (x, i) {
+    return '<li class="ai-item' + (i === 0 ? ' top' : '') + '"><div class="ai-ti"><b>' + E(x.title) + '</b>' + (i === 0 ? '<span class="pill acc">ทำก่อน</span>' : '') + '</div><p>' + E(x.detail) + '</p>' + (x.gain ? '<span class="ai-gain">' + IC.down + E(x.gain) + '</span>' : '') + '</li>';
   }).join('');
-  show((stale ? '<p class="mut" style="margin:0 0 6px">ข้อมูลเปลี่ยนไปแล้ว กดวิเคราะห์ใหม่เพื่ออัปเดต</p>' : '') +
-    '<p style="margin:0 0 8px">' + E(r.summary) + '</p><ol class="yz-sug">' + a + '</ol>' +
-    '<p class="mut" style="margin:8px 0 0;font-size:12px">AI เสนอจากตัวเลขสรุปเท่านั้น ต้องตรวจความเป็นไปได้หน้างานก่อนลงมือเสมอ</p>');
+  show((stale ? '<div class="ai-stale">' + IC.warn + ' ข้อมูลเปลี่ยนไปแล้ว ผลด้านล่างเป็นของข้อมูลก่อนหน้า กดวิเคราะห์ใหม่เพื่ออัปเดต</div>' : '') +
+    '<p class="ai-lead">' + E(r.summary) + '</p><ul class="ai-list' + (stale ? ' old' : '') + '">' + a + '</ul>' +
+    '<p class="ai-foot">AI เสนอจากตัวเลขสรุปเท่านั้น ต้องตรวจความเป็นไปได้หน้างานก่อนลงมือเสมอ' + (r.model ? ' · ' + E(r.model) : '') + '</p>');
 }
 function refresh() {
   var p = payloadNow(); if (!p) return;
-  var key = JSON.stringify(p), v = VT[p.verdict];
+  var key = JSON.stringify(p), v = VT[p.verdict], first = cur === '';
   $('aiState').innerHTML = '<span class="pill ' + v[0] + '">' + v[1] + '</span>';
+  $('aiMeter').innerHTML = gauge(p);
   $('aiGo').disabled = busy || !p.resources.length;
   if (key === cur) return;
   cur = key;
   if (cache[key]) result(cache[key], false);
   else if (lastKey && cache[lastKey]) result(cache[lastKey], true);
+  else if (first) empty();
 }
 function analyze() {
   var cloud = root.__lbCloud, db = cloud && cloud.db && cloud.db(), p = payloadNow();
   if (!p || busy) return;
-  if (!db) { show('<p class="mut" style="margin:0">ต้องเข้าสู่ระบบ Cloud ก่อนจึงจะใช้ AI ได้ (ส่วนข้อเสนอจากกฎด้านบนยังใช้ได้ตามปกติ)</p>'); return; }
+  if (!db) { note('ต้อง<b>เข้าสู่ระบบ Cloud</b> ก่อนจึงจะใช้ AI ได้', false, 'ข้อเสนอจากกฎด้านบนยังใช้ได้ตามปกติ'); return; }
   var key = JSON.stringify(p);
   if (cache[key]) { result(cache[key], false); return; }
   busy = true; $('aiGo').disabled = true; $('aiGo').textContent = 'กำลังวิเคราะห์…';
-  show('<p class="mut" style="margin:0">AI กำลังอ่านตัวเลข อาจใช้เวลาสักครู่</p>');
+  loading();
   db.functions.invoke('lb-ai', { body: { payload: p } }).then(function (r) {
     var d = r.data, ctx = r.error && r.error.context;
     var parse = ctx && typeof ctx.json === 'function' ? ctx.json().catch(function () { return null; }) : Promise.resolve(null);
@@ -3972,13 +4052,13 @@ function analyze() {
         if (d && d.tried && d.tried.length) why = d.tried.map(function (t) { return t.model + ' → ' + t.status; }).join(' · ');
         else if (code === 'not_configured') why = 'ยังไม่ได้ตั้ง GEMINI_API_KEY ใน Supabase';
         else if (code === 'auth') why = 'ล็อกอินหมดอายุ ลองออกจากระบบแล้วเข้าใหม่';
-        show('<p style="margin:0">' + E(code === 'rate_limited' ? 'ใช้ AI ถี่เกินไป รอสักครู่แล้วลองใหม่' : code === 'quota' ? 'โควตา AI ฟรีของวันนี้เต็มแล้ว ลองใหม่พรุ่งนี้' : 'ตอนนี้เรียก AI ไม่ได้') + ' ข้อเสนอจากกฎด้านบนยังใช้ได้ตามปกติ</p>' + (why ? '<p class="mut" style="margin:6px 0 0;font-size:12px">สาเหตุ: ' + E(why) + '</p>' : ''));
+        note(E(code === 'rate_limited' ? 'ใช้ AI ถี่เกินไป รอสักครู่แล้วลองใหม่' : code === 'quota' ? 'โควตา AI ฟรีของวันนี้เต็มแล้ว ลองใหม่พรุ่งนี้' : 'ตอนนี้เรียก AI ไม่ได้') + ' ข้อเสนอจากกฎด้านบนยังใช้ได้ตามปกติ', true, why ? 'สาเหตุ: ' + E(why) : '');
         if (root.lbLogError) root.lbLogError('lb-ai: ' + (code || (r.error && r.error.message) || 'empty') + (why ? ' ' + why : ''));
         return;
       }
       cache[key] = d; lastKey = key; cur = key; result(d, false);
     });
-  }).catch(function (e) { show('<p style="margin:0">ตอนนี้เรียก AI ไม่ได้ ข้อเสนอจากกฎด้านบนยังใช้ได้ตามปกติ</p>'); if (root.lbLogError) root.lbLogError('lb-ai: ' + (e && e.message)); })
+  }).catch(function (e) { note('ตอนนี้เรียก AI ไม่ได้ ข้อเสนอจากกฎด้านบนยังใช้ได้ตามปกติ', true); if (root.lbLogError) root.lbLogError('lb-ai: ' + (e && e.message)); })
     .then(function () { busy = false; $('aiGo').textContent = 'วิเคราะห์ด้วย AI'; refresh(); });
 }
 $('aiGo').addEventListener('click', analyze);
