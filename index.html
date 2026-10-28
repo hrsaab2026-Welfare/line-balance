@@ -486,6 +486,10 @@ th { background:var(--th-bg); color:var(--muted); font-weight:600; font-size:12p
 .bar { gap:10px 16px; flex-wrap:nowrap; }
 .bar .crumb { min-width:0; overflow:hidden; white-space:nowrap; }
 .bar-actions { display:flex; align-items:center; gap:8px; margin-left:auto; flex:none; }
+.bar-clock { display:flex; flex-direction:column; align-items:flex-end; line-height:1.15; padding:0 6px; white-space:nowrap; color:#E6EEF9; }
+.bar-clock .bc-date { font-size:11.5px; color:#C7D3E4; font-weight:500; }
+.bar-clock .bc-time { font-size:17px; font-weight:600; letter-spacing:.02em; font-variant-numeric:tabular-nums; }
+@media (max-width:560px) { .bar-clock .bc-date { display:none; } .bar-clock .bc-time { font-size:15px; } }
 .bar .icbtn { width:38px; height:38px; padding:0; display:inline-flex; align-items:center; justify-content:center; }
 .toolbar { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px 14px; margin-top:-14px; padding:0 0 12px; border:0; border-bottom:1px solid var(--line); border-radius:0; background:none; box-shadow:none; }
 .tb-status, .tb-actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px; min-width:0; }
@@ -592,7 +596,8 @@ body.viewer #tab-fc input, body.viewer #tab-fc select { pointer-events:auto !imp
   <button class="icbtn" id="sideToggle" type="button" aria-label="ย่อ/ขยายเมนูด้านข้าง" aria-expanded="true" title="ย่อ/ขยายเมนู"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
   <div class="crumb appname"><b>Takt Studio</b><span aria-hidden="true">/</span><span id="crumb">Man-Machine Studio</span></div>
   <div class="bar-actions">
-    <button class="icbtn" id="themeBtn" type="button" aria-label="สลับโหมดสว่าง/มืด" title="สลับโหมดสว่าง/มืด"><svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg></button>
+    <div class="bar-clock" id="barClock" role="timer" aria-label="วันที่และเวลาปัจจุบัน"><span class="bc-date" id="bcDate"></span><span class="bc-time num" id="bcTime"></span></div>
+        <button class="icbtn" id="themeBtn" type="button" aria-label="สลับโหมดสว่าง/มืด" title="สลับโหมดสว่าง/มืด"><svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg></button>
     <button class="icbtn" id="logoutBtn" type="button" aria-label="ออกจากระบบ" title="ออกจากระบบ" hidden><svg viewBox="0 0 24 24"><path d="M9 4H5v16h4M16 8l4 4-4 4M20 12H9"/></svg></button>
   </div>
 </header>
@@ -4541,4 +4546,15 @@ tr.stephead td { background:linear-gradient(90deg,color-mix(in srgb,var(--accent
 #tab-fc .fc-cap { margin-top:6px; font-size:12px; color:var(--muted); }
 
 </style>
+<script>
+/* นาฬิกา + วันที่ บน header (ใช้เวลาของเครื่องผู้ใช้) */
+(function () {
+  var d = document.getElementById('bcDate'), t = document.getElementById('bcTime'); if (!d || !t) return;
+  var fd = new Intl.DateTimeFormat('th-TH', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+  var ft = new Intl.DateTimeFormat('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+  function tick() { var n = new Date(); d.textContent = fd.format(n); t.textContent = ft.format(n); }
+  tick();
+  if (!/jsdom/i.test(navigator.userAgent)) setInterval(tick, 1000); /* เทสต์ jsdom ไม่ต้องมี timer ค้าง */
+})();
+</script>
 </body></html>
