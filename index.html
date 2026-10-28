@@ -1212,13 +1212,18 @@ if (typeof module !== 'undefined' && module.exports) module.exports = api; else 
 function fmt(n, d) { if (n == null || !isFinite(n)) return '—'; d = d == null ? 1 : d; return n.toFixed(d).replace(/\.0+$/, '').replace(/(\.\d*?)0+$/, '$1'); }
 function pct(n) { return fmt(n * 100, 1) + '%'; }
 /* ลำดับเวลา: คู่ขนาน = แต่ละคน/เครื่องมีเส้นเวลาของตัวเอง งานที่ใช้หลายทรัพยากรเริ่มเมื่อทุกตัวว่าง / ต่อเนื่อง = เรียงงานทีละงาน */
-function lbSchedule(E, par) {
-  var t = 0, free = {};
+function lbSchedule(E, par, R) {
+  var t = 0, free = {}, mult = {};
+  (R || []).forEach(function (r) { mult[r.id] = r.mult == null ? 1 : r.mult; });
+  var mu = function (k) { return mult[k] == null ? 1 : mult[k]; }; /* ตัวคูณของทรัพยากร (ไม่ระบุ = 1) ใช้ชุดเดียวกับโหลดใน lbCompute */
   return E.map(function (e) {
     var ids = Object.keys(e.vals).filter(function (k) { return e.vals[k] > 0; }), o;
-    if (!par || !ids.length) { o = { e: e, start: t, end: t + e.time }; t += e.time; return o; }
+    if (!par || !ids.length) {
+      var len = e.time * ids.reduce(function (a, k) { return Math.max(a, mu(k)); }, 1); /* ต่อเนื่อง: เวลางาน × ตัวคูณสูงสุดของทรัพยากรที่ใช้ */
+      o = { e: e, start: t, end: t + len }; t += len; return o;
+    }
     var st = ids.reduce(function (a, k) { return Math.max(a, free[k] || 0); }, 0), mx = 0;
-    ids.forEach(function (k) { free[k] = st + e.vals[k]; mx = Math.max(mx, e.vals[k]); });
+    ids.forEach(function (k) { var d = e.vals[k] * mu(k); free[k] = st + d; mx = Math.max(mx, d); });
     return { e: e, start: st, end: st + mx };
   });
 }
@@ -1251,7 +1256,7 @@ function lbCompute(S, par) {
   m.bottle = R.filter(function (r) { return maxLoad > 0 && Math.abs(loads[r.id] - maxLoad) < 1e-9; });
   m.capacity = m.perPiece ? 3600 / m.perPiece : null;
   m.required = takt ? 3600 / takt : null;
-  m.sched = lbSchedule(E, par);
+  m.sched = lbSchedule(E, par, R);
   m.total = m.sched.reduce(function (a, o) { return Math.max(a, o.end); }, 0);
   return m;
 }
@@ -1493,9 +1498,10 @@ function renderGantt(m) {
     s += '<line x1="' + gut + '" x2="' + (W - 12) + '" y1="' + (y + rowH) + '" y2="' + (y + rowH) + '" stroke="var(--line)"/>';
     s += '<text class="strong" x="' + (gut - 10) + '" y="' + (y + rowH / 2 + 4) + '" text-anchor="end">' + esc(r.name) + (r.tag ? '<tspan class="mut" dx="5" style="font-size:11px">' + esc(r.tag) + '</tspan>' : '') + '</text>';
     m.sched.forEach(function (o) {
-      var v = o.e.vals[r.id]; if (!(v > 0)) return;
+      var raw = o.e.vals[r.id]; if (!(raw > 0)) return;
+      var mu = r.mult == null ? 1 : r.mult, v = raw * mu; /* คูณ mult ให้ตรงกับโหลด */
       var ix = ci.map[o.e.cat], w = v * pps - 2, x = X(o.start) + 1, id = elId(o.e.name);
-      var tip = esc(o.e.name) + ' · ' + esc(r.name) + ' ' + fmt(v) + ' วินาที · วินาทีที่ ' + fmt(o.start) + '–' + fmt(o.start + v);
+      var tip = esc(o.e.name) + ' · ' + esc(r.name) + ' ' + fmt(v) + (mu !== 1 ? ' (' + fmt(raw) + ' × ' + fmt(mu) + ')' : '') + ' วินาที · วินาทีที่ ' + fmt(o.start) + '–' + fmt(o.start + v);
       s += '<rect data-tip="' + tip + '" x="' + x + '" y="' + (y + 4) + '" width="' + Math.max(w, 2) + '" height="' + (rowH - 8) + '" rx="5" stroke="color-mix(in srgb,var(--fg) 20%,transparent)" stroke-width=".6" fill="var(--c' + ix + ')"/>';
       if (w >= 22 && id) s += '<text class="num" x="' + (x + w / 2) + '" y="' + (y + rowH / 2 + 4) + '" text-anchor="middle" style="fill:var(--on' + ix + ');font-size:10.5px;pointer-events:none">' + id + '</text>';
     });
@@ -2034,7 +2040,7 @@ function mmPlace(m, R, g) {
   var last = {}, out = [];
   m.sched.forEach(function (o) {
     R.forEach(function (r) {
-      var v = o.e.vals[r.id]; if (!(v > 0)) return;
+      var v = o.e.vals[r.id] * (r.mult == null ? 1 : r.mult); if (!(v > 0)) return; /* คูณ mult ให้ตรงกับโหลด */
       var c1 = Math.round(o.start / g.u), c2 = Math.round((o.start + v) / g.u) - 1;
       if (last[r.id] != null && c1 <= last[r.id]) c1 = last[r.id] + 1;
       if (c1 > g.N - 1) c1 = g.N - 1;
