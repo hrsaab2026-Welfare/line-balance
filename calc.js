@@ -4,13 +4,18 @@
 function fmt(n, d) { if (n == null || !isFinite(n)) return '—'; d = d == null ? 1 : d; return n.toFixed(d).replace(/\.0+$/, '').replace(/(\.\d*?)0+$/, '$1'); }
 function pct(n) { return fmt(n * 100, 1) + '%'; }
 /* ลำดับเวลา: คู่ขนาน = แต่ละคน/เครื่องมีเส้นเวลาของตัวเอง งานที่ใช้หลายทรัพยากรเริ่มเมื่อทุกตัวว่าง / ต่อเนื่อง = เรียงงานทีละงาน */
-function lbSchedule(E, par) {
-  var t = 0, free = {};
+function lbSchedule(E, par, R) {
+  var t = 0, free = {}, mult = {};
+  (R || []).forEach(function (r) { mult[r.id] = r.mult == null ? 1 : r.mult; });
+  var mu = function (k) { return mult[k] == null ? 1 : mult[k]; }; /* ตัวคูณของทรัพยากร (ไม่ระบุ = 1) ใช้ชุดเดียวกับโหลดใน lbCompute */
   return E.map(function (e) {
     var ids = Object.keys(e.vals).filter(function (k) { return e.vals[k] > 0; }), o;
-    if (!par || !ids.length) { o = { e: e, start: t, end: t + e.time }; t += e.time; return o; }
+    if (!par || !ids.length) {
+      var len = e.time * ids.reduce(function (a, k) { return Math.max(a, mu(k)); }, 1); /* ต่อเนื่อง: เวลางาน × ตัวคูณสูงสุดของทรัพยากรที่ใช้ */
+      o = { e: e, start: t, end: t + len }; t += len; return o;
+    }
     var st = ids.reduce(function (a, k) { return Math.max(a, free[k] || 0); }, 0), mx = 0;
-    ids.forEach(function (k) { free[k] = st + e.vals[k]; mx = Math.max(mx, e.vals[k]); });
+    ids.forEach(function (k) { var d = e.vals[k] * mu(k); free[k] = st + d; mx = Math.max(mx, d); });
     return { e: e, start: st, end: st + mx };
   });
 }
@@ -43,7 +48,7 @@ function lbCompute(S, par) {
   m.bottle = R.filter(function (r) { return maxLoad > 0 && Math.abs(loads[r.id] - maxLoad) < 1e-9; });
   m.capacity = m.perPiece ? 3600 / m.perPiece : null;
   m.required = takt ? 3600 / takt : null;
-  m.sched = lbSchedule(E, par);
+  m.sched = lbSchedule(E, par, R);
   m.total = m.sched.reduce(function (a, o) { return Math.max(a, o.end); }, 0);
   return m;
 }

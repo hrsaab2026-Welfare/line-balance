@@ -63,3 +63,17 @@ test('status: เกินรอบ / ใกล้เต็ม / ปกติ', 
   assert.equal(C.status(41, 40).cls, 'bad'); assert.equal(C.status(40, 40).cls, 'warn');
   assert.equal(C.status(38, 40).cls, 'warn'); assert.equal(C.status(37, 40).cls, 'good'); assert.equal(C.status(10, 0).cls, 'good');
 });
+
+test('schedule: mult ต้องคูณในแท่ง Gantt ด้วย (ตรงกับโหลด)', () => {
+  const md = model(); md.resources[0].mult = 2;
+  const par = C.lbCompute(md, true), seq = C.lbCompute(md, false);
+  assert.equal(par.sched[0].end - par.sched[0].start, 20); assert.equal(par.loads.m1, 20);
+  assert.equal(par.sched[1].end - par.sched[1].start, 30); /* mult 1 ไม่เปลี่ยน */
+  assert.deepEqual(seq.sched.map(o => [o.start, o.end]), [[0, 20], [20, 50], [50, 70]]);
+});
+
+test('schedule: งานเดียวกันบนทรัพยากรเดิมรอกันด้วยความยาวที่คูณแล้ว', () => {
+  const md = model({ elements: [{ step: 'S', name: 'a', time: 10, vals: { m1: 10 } }, { step: 'S', name: 'b', time: 5, vals: { m1: 5 } }] });
+  md.resources[0].mult = 3;
+  assert.deepEqual(C.lbCompute(md, true).sched.map(o => [o.start, o.end]), [[0, 30], [30, 45]]);
+});
