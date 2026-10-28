@@ -78,7 +78,7 @@ test('ui: เมนู Forecast เปิดได้โดยไม่ต้อ
   const { w, d, errors } = await open();
   click(w, d.getElementById('tabbtn-fc'));
   assert.equal(d.getElementById('tab-fc').hidden, false); assert.equal(d.getElementById('welcome').hidden, true);
-  const rows = [['Item', 'Part Number', null, 'Part Name', 'Model', new Date(2026, 9, 1), new Date(2026, 10, 1)],
+  const rows = [['Item', 'Part Number', null, 'Part Name', 'Model', new w.Date(2026, 9, 1), new w.Date(2026, 10, 1)],
     [1, 1111111111, null, 'A', 'M1', 3600, 7200], ['GROUP B'], [2, 2222222222, null, 'B', 'M2', 1800, 0]];
   assert.ok(w.lbFc.importRows(rows, 'x.xlsx'));
   assert.equal(d.querySelectorAll('#fcPT tbody tr').length, 2);
