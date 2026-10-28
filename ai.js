@@ -105,11 +105,11 @@ function analyze() {
     return parse.then(function (eb) {
       d = d || eb;
       if (r.error || !d || d.error || !d.summary) {
-        var code = d && d.error, why = '';
+        var st = ctx && ctx.status, code = (d && d.error) || ((st === 504 || st === 546 || st === 502) && !d ? 'timeout' : ''), why = '';
         if (d && d.tried && d.tried.length) why = d.tried.map(function (t) { return t.model + ' → ' + t.status; }).join(' · ');
         else if (code === 'not_configured') why = 'ยังไม่ได้ตั้ง GEMINI_API_KEY ใน Supabase';
         else if (code === 'auth') why = 'ล็อกอินหมดอายุ ลองออกจากระบบแล้วเข้าใหม่';
-        note(E(code === 'rate_limited' ? 'ใช้ AI ถี่เกินไป รอสักครู่แล้วลองใหม่' : code === 'quota' ? 'โควตา AI ฟรีของวันนี้เต็มแล้ว ลองใหม่พรุ่งนี้' : 'ตอนนี้เรียก AI ไม่ได้') + ' ข้อเสนอจากกฎด้านบนยังใช้ได้ตามปกติ', true, why ? 'สาเหตุ: ' + E(why) : '');
+        note(E(code === 'rate_limited' ? 'ใช้ AI ถี่เกินไป รอสักครู่แล้วลองใหม่' : code === 'quota' ? 'โควตา AI ฟรีของวันนี้เต็มแล้ว ลองใหม่พรุ่งนี้' : code === 'timeout' ? 'AI ตอบช้าเกินไป กดวิเคราะห์อีกครั้งได้เลย' : 'ตอนนี้เรียก AI ไม่ได้') + ' ข้อเสนอจากกฎด้านบนยังใช้ได้ตามปกติ', true, why ? 'สาเหตุ: ' + E(why) : '');
         if (root.lbLogError) root.lbLogError('lb-ai: ' + (code || (r.error && r.error.message) || 'empty') + (why ? ' ' + why : ''));
         return;
       }
