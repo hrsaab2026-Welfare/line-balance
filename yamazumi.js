@@ -46,7 +46,7 @@ function lbSuggest(S, m, override) {
   cands.forEach(function (c) {
     var raw = c.e.vals[worst.id], nw = m.loads[worst.id] - raw * worst.mult, nt = m.loads[c.to.id] + raw * c.to.mult;
     var newMax = Math.max.apply(null, men.map(function (r) { return r === worst ? nw : r === c.to ? nt : m.loads[r.id]; }));
-    if (newMax < oldMax - 1e-9) out.push({ type: 'move', name: c.e.name, cat: c.e.cat, pos: c.pos, time: raw, from: worst.name, to: c.to.name, oldMax: oldMax, newMax: newMax, gain: oldMax - newMax, meetsTakt: cap ? newMax <= cap + 1e-9 : null });
+    if (newMax < oldMax - 1e-9) out.push({ type: 'move', name: c.e.name, cat: c.e.cat, pos: c.pos, time: raw * worst.mult, raw: raw, from: worst.name, to: c.to.name, oldMax: oldMax, newMax: newMax, gain: oldMax - newMax, meetsTakt: cap ? newMax <= cap + 1e-9 : null });
   });
   out.sort(function (a, b) { return b.gain - a.gain; });
   var y = lbYamazumi(S, override).filter(function (x) { return x.id === worst.id; })[0];

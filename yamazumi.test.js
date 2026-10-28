@@ -50,3 +50,11 @@ test('lbSuggest: คนเดียว → ไม่มีข้อเสนอ'
   const s = S(); s.resources = [s.resources[0]]; s.elements = s.elements.slice(0, 2);
   assert.deepEqual(Y.lbSuggest(s, C.lbCompute(s, true)), []);
 });
+
+test('lbSuggest: time ของงานที่ย้ายต้องรวม mult ของคนต้นทาง (B1)', () => {
+  const s = S(); s.resources[0].mult = 2; s.elements.push({ cat: 'Move', name: 'tail', time: 4, vals: { m1: 4 } });
+  const m = C.lbCompute(s, true), mv = Y.lbSuggest(s, m).filter(o => o.type === 'move');
+  assert.equal(mv.length, 1); assert.equal(mv[0].name, 'tail');
+  near(mv[0].time, 8); near(mv[0].raw, 4);
+  near(mv[0].oldMax, 68); near(mv[0].newMax, 60); near(mv[0].gain, mv[0].time);
+});
