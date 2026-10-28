@@ -82,3 +82,9 @@ test('lbCompute: resource ไม่มี mult ถือเป็น 1 (ไม�
   const m = C.lbCompute({ cycle: 10, pcs: 1, takt: 0, resources: [{ id: 'a', name: 'A', kind: 'man' }, { id: 'b', name: 'B', kind: 'man', mult: 1 }], elements: [{ cat: 'x', name: 'e', time: 10, vals: { a: 10, b: 4 } }] }, true);
   assert.equal(m.loads.a, 10); assert.ok(Number.isFinite(m.balEff));
 });
+
+test('fmt: ไม่แสดง -0', () => { assert.equal(C.fmt(-0.04), '0'); assert.equal(C.fmt(-0.04, 2), '-0.04'); assert.equal(C.fmt(-1.5), '-1.5'); });
+test('lbSchedule ต่อเนื่อง: mult < 1 ใช้ตัวคูณจริง ตรงกับโหลด', () => {
+  const m = C.lbCompute({ cycle: 10, pcs: 1, takt: 0, resources: [{ id: 'a', name: 'A', kind: 'man', mult: 0.5 }], elements: [{ cat: 'x', name: 'e', time: 10, vals: { a: 10 } }] }, false);
+  near(m.loads.a, 5); near(m.total, 5);
+});

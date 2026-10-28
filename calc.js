@@ -1,7 +1,7 @@
 /* ตัวคำนวณ Line Balance (ฟังก์ชันล้วน ไม่อ่าน/เขียนหน้าจอ ทดสอบด้วย Node ได้) */
 (function (root) {
 'use strict';
-function fmt(n, d) { if (n == null || !isFinite(n)) return '—'; d = d == null ? 1 : d; return n.toFixed(d).replace(/\.0+$/, '').replace(/(\.\d*?)0+$/, '$1'); }
+function fmt(n, d) { if (n == null || !isFinite(n)) return '—'; d = d == null ? 1 : d; var s = n.toFixed(d); if (+s === 0) s = s.replace('-', ''); /* กัน "-0" */ return s.replace(/\.0+$/, '').replace(/(\.\d*?)0+$/, '$1'); }
 function pct(n) { return fmt(n * 100, 1) + '%'; }
 /* ลำดับเวลา: คู่ขนาน = แต่ละคน/เครื่องมีเส้นเวลาของตัวเอง งานที่ใช้หลายทรัพยากรเริ่มเมื่อทุกตัวว่าง / ต่อเนื่อง = เรียงงานทีละงาน */
 function lbSchedule(E, par, R) {
@@ -11,7 +11,7 @@ function lbSchedule(E, par, R) {
   return E.map(function (e) {
     var ids = Object.keys(e.vals).filter(function (k) { return e.vals[k] > 0; }), o;
     if (!par || !ids.length) {
-      var len = e.time * ids.reduce(function (a, k) { return Math.max(a, mu(k)); }, 1); /* ต่อเนื่อง: เวลางาน × ตัวคูณสูงสุดของทรัพยากรที่ใช้ */
+      var len = e.time * ids.reduce(function (a, k) { return Math.max(a, mu(k)); }, 0); /* ต่อเนื่อง: เวลางาน × ตัวคูณสูงสุดของทรัพยากรที่ใช้ */
       o = { e: e, start: t, end: t + len }; t += len; return o;
     }
     var st = ids.reduce(function (a, k) { return Math.max(a, free[k] || 0); }, 0), mx = 0;
