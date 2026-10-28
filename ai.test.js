@@ -31,3 +31,32 @@ test('payload: ตัดความยาวชื่องาน กันข�
   const s = S(); s.elements[1].name = 'x'.repeat(500); const p = build(s);
   assert.ok(p.topTasks.every(t => t.name.length <= 40));
 });
+
+/* ---- lbAiEffect: จำลองผลก่อน-หลังจากข้อมูลจริง ไม่เชื่อชื่อที่ AI แต่ง ---- */
+test('effect move: ย้ายงานของคอขวดไปคนอื่น คำนวณโหลดใหม่รวม mult ปลายทาง', () => {
+  const p = build(S());            /* Man 1 = 34 (Takt 25), Man 2 = 20 (mult 2) */
+  const e = A.lbAiEffect(p, { kind: 'move', task: 'tail', to: 'Man 2' });
+  assert.equal(e.maxBefore, 34);
+  assert.equal(e.rows[0].after, 30);                 /* 34 - 4 */
+  assert.equal(e.rows[1].after, 28);                 /* 20 + raw 4 × mult 2 */
+  assert.equal(e.maxAfter, 30); assert.equal(e.improved, true); assert.equal(e.meets, false);
+  assert.deepEqual(e.rows.map(r => r.changed), [true, true]);
+});
+test('effect cut: ลดเวลาได้ไม่เกิน NVA+Waste ที่มี', () => {
+  const p = build(S());
+  const e = A.lbAiEffect(p, { kind: 'cut', who: 'Man 1', secs: 100 });
+  const nvaWaste = p.resources[0].nva + p.resources[0].waste;
+  assert.equal(e.rows[0].after, Math.round((34 - nvaWaste) * 10) / 10);
+  assert.match(e.note, /สูงสุด/);
+});
+test('effect: ชื่อไม่มีในข้อมูล / ย้ายหาตัวเอง / ชนิดแปลก / ตัวเลขไม่ถูกต้อง → null', () => {
+  const p = build(S());
+  [{ kind: 'move', task: 'ไม่มีงานนี้', to: 'Man 2' }, { kind: 'move', task: 'tail', to: 'Man 9' }, { kind: 'move', task: 'tail', to: 'Man 1' },
+   { kind: 'cut', who: 'Man 9', secs: 5 }, { kind: 'cut', who: 'Man 1', secs: -3 }, { kind: 'cut', who: 'Man 1', secs: 'abc' },
+   { kind: 'delete' }, null, 'x', undefined].forEach(x => assert.equal(A.lbAiEffect(p, x), null, JSON.stringify(x)));
+});
+test('effect move: ย้ายไปคนที่ช้ากว่าจนคอขวดแย่ลง → improved=false worse=true', () => {
+  const s = S(); s.resources[1].mult = 2.5;          /* Man 2 = 25 ย้าย tail เข้าไป +10 = 35 > 34 เดิม */
+  const e = A.lbAiEffect(build(s), { kind: 'move', task: 'tail', to: 'Man 2' });
+  assert.equal(e.improved, false); assert.equal(e.worse, true); assert.equal(e.maxAfter, 35);
+});

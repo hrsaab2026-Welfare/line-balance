@@ -2689,6 +2689,11 @@ body.viewer .tabpanel td input, body.viewer .tabpanel .field input { opacity: .8
 .ai-ti b { font-size: 15px; color: var(--text-heading); }
 .ai-item p { margin: 0; line-height: 1.65; color: var(--fg2); }
 .ai-gain { display: inline-flex; align-items: center; gap: 6px; justify-self: start; padding: 3px 10px; border-radius: 6px; font-size: 12.5px; font-weight: 600; color: var(--good-text); background: color-mix(in srgb, var(--good) 14%, var(--surface)); }
+.ai-gain.flat { color: var(--warn-text); background: color-mix(in srgb, var(--warn) 16%, var(--surface)); }
+.ai-fig { margin-top: 4px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); padding: 8px 12px 10px; }
+.ai-fig summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--accent); }
+.ai-fig svg { display: block; margin-top: 8px; overflow: visible; }
+.ai-fcap { margin: 6px 0 0; font-size: 12px; line-height: 1.55; color: var(--muted); }
 .ai-foot { margin: 0; font-size: 12px; color: var(--muted); }
 .ai-stale { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-radius: 10px; font-size: 13px; color: var(--warn-text); background: color-mix(in srgb, var(--warn) 14%, var(--surface)); border: 1px solid color-mix(in srgb, var(--warn) 40%, var(--line)); }
 .ai-empty p { margin: 0 0 8px; line-height: 1.65; color: var(--fg2); }
@@ -3954,10 +3959,10 @@ function lbAiPayload(S, m, rows, sug) {
   var verdict = !cap ? 'no_takt' : m.maxLoad > cap + 1e-9 ? 'over' : m.maxLoad >= cap * 0.95 ? 'near' : 'ok';
   var worst = m.bottle && m.bottle[0];
   var top = !worst ? [] : S.elements.filter(function (e) { return e.vals[worst.id] > 0; }).map(function (e) {
-    return { cat: cut(e.cat, 30), name: cut(e.name, 40), sec: r1(e.vals[worst.id] * mult[worst.id]) };
+    return { cat: cut(e.cat, 30), name: cut(e.name, 40), sec: r1(e.vals[worst.id] * mult[worst.id]), raw: r1(e.vals[worst.id]) };
   }).sort(function (a, b) { return b.sec - a.sec; }).slice(0, 6);
   var resources = rows.map(function (r) {
-    return { name: cut(r.name, 30), kind: r.kind, load: r1(r.total), va: r1(r.va), nva: r1(r.nva), waste: r1(r.waste), pctOfCap: cap ? Math.round(r.total / cap * 100) : null };
+    return { name: cut(r.name, 30), kind: r.kind, mult: mult[r.id] == null ? 1 : mult[r.id], load: r1(r.total), va: r1(r.va), nva: r1(r.nva), waste: r1(r.waste), pctOfCap: cap ? Math.round(r.total / cap * 100) : null };
   });
   var moves = (sug || []).filter(function (o) { return o.type === 'move'; }).slice(0, 3).map(function (o) {
     return { task: cut(o.name, 40), from: cut(o.from, 30), to: cut(o.to, 30), newMax: r1(o.newMax), meetsTakt: o.meetsTakt };
@@ -3971,7 +3976,31 @@ function lbAiPayload(S, m, rows, sug) {
   };
 }
 
-var api = { lbAiPayload: lbAiPayload };
+/* จำลองผลของข้อเสนอจากข้อมูลจริง: ef = {kind:'move', task, to} | {kind:'cut', who, secs} ถ้าชื่อไม่ตรงกับข้อมูลคืน null (ไม่เชื่อ AI) */
+function lbAiEffect(p, ef) {
+  if (!p || !ef || typeof ef !== 'object') return null;
+  var cap = p.cap, by = {}, after = {}, changed = {}, note = '';
+  p.resources.forEach(function (r) { if (!(r.name in by)) { by[r.name] = r; after[r.name] = r.load; } });
+  if (ef.kind === 'move') {
+    var from = p.bottleneck[0], to = by[cut(ef.to, 30)], t = null, nm = cut(ef.task, 40);
+    p.topTasks.forEach(function (x) { if (!t && x.name === nm) t = x; });
+    if (!t || !to || !from || !by[from] || to.name === from) return null;
+    after[from] = r1(after[from] - t.sec); after[to.name] = r1(after[to.name] + t.raw * (to.mult == null ? 1 : to.mult));
+    changed[from] = 1; changed[to.name] = 1; note = 'ย้าย “' + t.name + '” จาก ' + from + ' ไป ' + to.name;
+  } else if (ef.kind === 'cut') {
+    var w = by[cut(ef.who, 30)], s = +ef.secs;
+    if (!w || !(s > 0)) return null;
+    var room = Math.min(w.nva + w.waste, w.load), used = Math.min(s, room);
+    if (!(used > 0)) return null;
+    after[w.name] = r1(w.load - used); changed[w.name] = 1;
+    note = 'ลดเวลา ' + w.name + ' ' + r1(used) + ' วินาที' + (used < s - 1e-9 ? ' (ลดได้สูงสุดเท่าที่มีงาน NVA/Waste)' : '');
+  } else return null;
+  var rows = p.resources.map(function (r) { return { name: r.name, kind: r.kind, before: r.load, after: after[r.name], changed: !!changed[r.name] }; });
+  var mb = Math.max.apply(null, rows.map(function (r) { return r.before; })), ma = Math.max.apply(null, rows.map(function (r) { return r.after; }));
+  return { rows: rows, maxBefore: mb, maxAfter: ma, cap: cap, improved: ma < mb - 1e-9, worse: ma > mb + 1e-9, meets: cap ? ma <= cap + 1e-9 : null, note: note };
+}
+
+var api = { lbAiPayload: lbAiPayload, lbAiEffect: lbAiEffect };
 if (typeof module !== 'undefined' && module.exports) { module.exports = api; return; }
 Object.assign(root, api);
 
@@ -4014,9 +4043,29 @@ function gauge(p) {
     '<div class="ai-track" role="img" aria-label="โหลดคอขวด ' + fmt(mx) + ' วินาที เทียบกับ Takt ' + fmt(cap) + ' วินาที"><i style="width:' + w.toFixed(1) + '%"></i>' + (tick == null ? '' : '<u style="left:' + tick.toFixed(1) + '%"><em>Takt ' + fmt(cap) + '</em></u>') + '</div>' +
     '<div class="ai-gs"><span>' + line + '</span>' + extra + '</div></div>';
 }
+function figure(ef) {
+  var fmt = root.fmt, n = ef.rows.length, W = 560, left = 84, right = 70, rh = 26, top = 26, H = top + n * rh + 6;
+  var xmax = Math.max(ef.maxBefore, ef.maxAfter, ef.cap || 0) * 1.08 || 1, X = function (v) { return left + (W - left - right) * Math.max(0, v) / xmax; };
+  var col = function (v) { return !ef.cap ? 'var(--accent)' : v > ef.cap + 1e-9 ? 'var(--bad)' : v >= ef.cap * 0.95 ? 'var(--warn)' : 'var(--good)'; };
+  var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" role="img" aria-label="กราฟโหลดก่อนและหลังปรับ คอขวดจาก ' + fmt(ef.maxBefore) + ' เป็น ' + fmt(ef.maxAfter) + ' วินาที">';
+  ef.rows.forEach(function (r, i) {
+    var y = top + i * rh, mx = Math.max(r.before, r.after);
+    s += '<text x="' + (left - 8) + '" y="' + (y + 16) + '" text-anchor="end" style="font-size:12px;fill:var(' + (r.changed ? '--fg' : '--fg2') + ');font-weight:' + (r.changed ? 700 : 400) + '">' + E(r.name) + '</text>';
+    if (r.changed && Math.abs(r.before - r.after) > 1e-9) s += '<rect x="' + left + '" y="' + (y + 4) + '" width="' + Math.max(1, X(r.before) - left) + '" height="16" rx="3" fill="none" stroke="var(--line-strong)" stroke-width="1.5" stroke-dasharray="4 3"/>';
+    s += '<rect x="' + left + '" y="' + (y + 4) + '" width="' + Math.max(1, X(r.after) - left) + '" height="16" rx="3" fill="' + col(r.after) + '"' + (r.changed ? '' : ' opacity=".55"') + '/>';
+    s += '<text x="' + (X(mx) + 6) + '" y="' + (y + 16) + '" style="font-size:11.5px;font-weight:600;font-family:var(--font-data);fill:var(--fg)">' + (r.changed && Math.abs(r.before - r.after) > 1e-9 ? fmt(r.before) + '→' + fmt(r.after) : fmt(r.after)) + '</text>';
+  });
+  if (ef.cap) s += '<line x1="' + X(ef.cap) + '" x2="' + X(ef.cap) + '" y1="' + (top - 6) + '" y2="' + (H - 2) + '" stroke="var(--fg)" stroke-width="2"/><text x="' + X(ef.cap) + '" y="' + (top - 10) + '" text-anchor="middle" style="font-size:11.5px;font-weight:600;fill:var(--fg)">Takt ' + fmt(ef.cap) + '</text>';
+  return s + '</svg>';
+}
 function result(r, stale) {
   var a = (r.actions || []).map(function (x, i) {
-    return '<li class="ai-item' + (i === 0 ? ' top' : '') + '"><div class="ai-ti"><b>' + E(x.title) + '</b>' + (i === 0 ? '<span class="pill acc">ทำก่อน</span>' : '') + '</div><p>' + E(x.detail) + '</p>' + (x.gain ? '<span class="ai-gain">' + IC.down + E(x.gain) + '</span>' : '') + '</li>';
+    var ef = r.p ? lbAiEffect(r.p, x.effect) : null, fmt = root.fmt, chip = '', fig = '';
+    if (ef) {
+      chip = '<span class="ai-gain' + (ef.improved ? '' : ' flat') + '">' + IC.down + (ef.improved ? 'คอขวดลดจาก ' + fmt(ef.maxBefore) + ' เหลือ ' + fmt(ef.maxAfter) + ' วินาที' : ef.worse ? 'คอขวดแย่ลงเป็น ' + fmt(ef.maxAfter) + ' วินาที' : 'คอขวดคงเดิมที่ ' + fmt(ef.maxAfter) + ' วินาที') + (ef.meets === true ? ' · ทัน Takt' : ef.meets === false ? ' · ยังไม่ทัน Takt' : '') + '</span>';
+      fig = '<details class="ai-fig"' + (i === 0 ? ' open' : '') + '><summary>ดูภาพก่อน–หลังปรับ</summary>' + figure(ef) + '<p class="ai-fcap">' + E(ef.note) + ' · เส้นประคือก่อนปรับ แท่งทึบคือหลังปรับ คำนวณจากโหลดจริงของไลน์นี้ ไม่ใช่ตัวเลขที่ AI ประมาณ</p></details>';
+    } else if (x.gain) chip = '<span class="ai-gain">' + IC.down + E(x.gain) + '</span>';
+    return '<li class="ai-item' + (i === 0 ? ' top' : '') + '"><div class="ai-ti"><b>' + E(x.title) + '</b>' + (i === 0 ? '<span class="pill acc">ทำก่อน</span>' : '') + '</div><p>' + E(x.detail) + '</p>' + chip + fig + '</li>';
   }).join('');
   show((stale ? '<div class="ai-stale">' + IC.warn + ' ข้อมูลเปลี่ยนไปแล้ว ผลด้านล่างเป็นของข้อมูลก่อนหน้า กดวิเคราะห์ใหม่เพื่ออัปเดต</div>' : '') +
     '<p class="ai-lead">' + E(r.summary) + '</p><ul class="ai-list' + (stale ? ' old' : '') + '">' + a + '</ul>' +
@@ -4056,7 +4105,7 @@ function analyze() {
         if (root.lbLogError) root.lbLogError('lb-ai: ' + (code || (r.error && r.error.message) || 'empty') + (why ? ' ' + why : ''));
         return;
       }
-      cache[key] = d; lastKey = key; cur = key; result(d, false);
+      d.p = p; cache[key] = d; lastKey = key; cur = key; result(d, false);
     });
   }).catch(function (e) { note('ตอนนี้เรียก AI ไม่ได้ ข้อเสนอจากกฎด้านบนยังใช้ได้ตามปกติ', true); if (root.lbLogError) root.lbLogError('lb-ai: ' + (e && e.message)); })
     .then(function () { busy = false; $('aiGo').textContent = 'วิเคราะห์ด้วย AI'; refresh(); });

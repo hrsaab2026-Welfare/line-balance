@@ -32,3 +32,24 @@ test('ui: การ์ด AI แสดงสถานะ และกดโด�
   assert.ok(!/undefined|NaN/.test(d.getElementById('aiBox').textContent));
   assert.deepEqual(errors, []);
 });
+
+test('ui: ข้อเสนอที่มี effect วาดกราฟก่อน-หลัง ส่วน effect ที่แต่งชื่อเองไม่วาดกราฟ ไม่มี error', async () => {
+  const { w, d, errors } = await open();
+  click(w, d.getElementById('sampleBtn')); click(w, d.getElementById('tabbtn-balance'));
+  const pay = w.eval('(function(){var m=compute();return lbAiPayload(S,m,lbYamazumi(S,null),lbSuggest(S,m,null));})()');
+  const bn = pay.bottleneck[0], t = pay.topTasks[0], other = pay.resources.find(r => r.name !== bn);
+  const reply = { summary: 'ทดสอบ', model: 'm', actions: [
+    { title: 'A', detail: 'x', gain: 'AI บอกว่า 1', effect: { kind: 'move', task: t.name, to: other.name } },
+    { title: 'B', detail: 'y', gain: 'AI ประมาณเอง', effect: { kind: 'move', task: 'งานที่ไม่มีจริง', to: other.name } }] };
+  w.__lbCloud = { db: () => ({ functions: { invoke: () => Promise.resolve({ data: reply, error: null }) } }) };
+  click(w, d.getElementById('aiGo'));
+  await new Promise(r => setTimeout(r, 50));
+  const items = d.querySelectorAll('#aiOut .ai-item');
+  assert.equal(items.length, 2);
+  assert.ok(items[0].querySelector('.ai-fig svg rect'), 'ข้อ A ต้องมีกราฟ');
+  assert.match(items[0].querySelector('.ai-gain').textContent, /คอขวด/);
+  assert.equal(items[1].querySelector('.ai-fig'), null);
+  assert.match(items[1].querySelector('.ai-gain').textContent, /AI ประมาณเอง/);
+  assert.ok(!/undefined|NaN/.test(d.getElementById('aiOut').textContent));
+  assert.deepEqual(errors, []);
+});
