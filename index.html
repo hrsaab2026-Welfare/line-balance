@@ -1,11 +1,11 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style><title>Line Balance Chart</title>
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style><title>Takt Studio</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#16324f">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Line Balance">
+<meta name="apple-mobile-web-app-title" content="Takt Studio">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -572,7 +572,7 @@ body.viewer #tab-fc input, body.viewer #tab-fc select { pointer-events:auto !imp
 </style>
 <div class="app">
 <aside class="side">
-  <div class="brand"><div class="logo"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#06211c" stroke-width="2.2" stroke-linecap="round"><path d="M5 20v-7M12 20V6M19 20v-10"/><path d="M3 9h18" stroke-dasharray="2.5 3" stroke-width="1.6"/></svg></div><div><b>Line Balance</b><small>Man-Machine Studio</small></div></div>
+  <div class="brand"><div class="logo"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#06211c" stroke-width="2.2" stroke-linecap="round"><path d="M5 20v-7M12 20V6M19 20v-10"/><path d="M3 9h18" stroke-dasharray="2.5 3" stroke-width="1.6"/></svg></div><div><b>Takt Studio</b><small>Line &amp; Capacity Planning</small></div></div>
   <div><div class="navlabel">เครื่องมือ</div>
   <nav class="nav tabs" role="tablist" aria-label="มุมมอง" style="margin-top:8px">
     <button class="tab on" id="tabbtn-flow" role="tab" type="button" aria-selected="true"><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="12" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M8.5 6H12a3 3 0 0 1 3 3v.5M8.5 18H12a3 3 0 0 0 3-3v-.5"/></svg><span>สร้างจาก Process Flow<small>แตกงานย่อย จัดคนและสถานี</small></span></button>
@@ -590,7 +590,7 @@ body.viewer #tab-fc input, body.viewer #tab-fc select { pointer-events:auto !imp
 <div class="main">
 <header class="bar">
   <button class="icbtn" id="sideToggle" type="button" aria-label="ย่อ/ขยายเมนูด้านข้าง" aria-expanded="true" title="ย่อ/ขยายเมนู"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
-  <div class="crumb appname"><b>Line Balance</b><span aria-hidden="true">/</span><span id="crumb">Man-Machine Studio</span></div>
+  <div class="crumb appname"><b>Takt Studio</b><span aria-hidden="true">/</span><span id="crumb">Man-Machine Studio</span></div>
   <div class="bar-actions">
     <button class="icbtn" id="themeBtn" type="button" aria-label="สลับโหมดสว่าง/มืด" title="สลับโหมดสว่าง/มืด"><svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg></button>
     <button class="icbtn" id="logoutBtn" type="button" aria-label="ออกจากระบบ" title="ออกจากระบบ" hidden><svg viewBox="0 0 24 24"><path d="M9 4H5v16h4M16 8l4 4-4 4M20 12H9"/></svg></button>
@@ -2343,7 +2343,7 @@ function downloadTemplate() { if (!lbLoaded(['xlsx'])) msg('กำลังโ�
 function downloadTemplateNow() {
   if (typeof XLSX === 'undefined') { msg('โหลดตัวเขียน Excel ไม่สำเร็จ ลองรีเฟรชหน้านี้อีกครั้ง', true); return; }
   var blob = new Blob([XLSX.write(tplBook(), { type: 'array', bookType: 'xlsx' })], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-  plSave(blob, 'Line Balance - แม่แบบ Excel.xlsx');
+  plSave(blob, 'Takt Studio - แม่แบบ Excel.xlsx');
 }
 function hideErr() { var b = $('errBox'); if (b) b.hidden = true; }
 function fileError(title, reasons, note) {
@@ -3033,13 +3033,13 @@ swcDraw();
 <div id="lbGate" role="dialog" aria-modal="true" aria-label="เข้าสู่ระบบ">
   <div class="gate-wrap">
     <aside class="gate-brand" aria-hidden="true">
-      <div class="gb-logo"><span class="gb-mark"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M5 20V12M10 20V6M15 20V10M20 20V15"/></svg></span>Line Balance</div>
+      <div class="gb-logo"><span class="gb-mark"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M5 20V12M10 20V6M15 20V10M20 20V15"/></svg></span>Takt Studio</div>
       <h2>ออกแบบไลน์ผลิตให้สมดุล<br>ลดคอขวด เพิ่มผลผลิต</h2>
       <div class="gb-bars"><i style="--h:52%;--d:.15s"></i><i style="--h:78%;--d:.25s"></i><i class="hot" style="--h:96%;--d:.35s"></i><i style="--h:64%;--d:.45s"></i><i style="--h:84%;--d:.55s"></i><span class="gb-takt"></span></div>
       <ul><li>Yamazumi และ Man-Machine Chart</li><li>ข้อเสนอแนะย้ายงานลดคอขวด</li><li>บันทึกบน Cloud พร้อมย้อนกลับได้</li></ul>
     </aside>
     <form class="gate-card" id="gForm" onsubmit="return false">
-      <p class="gc-eyebrow">Line Balance</p>
+      <p class="gc-eyebrow">Takt Studio</p>
       <h1>ยินดีต้อนรับกลับมา 👋</h1>
       <p class="gc-sub">เข้าสู่ระบบเพื่อเริ่มใช้งาน</p>
       <label class="gf"><span>ชื่อผู้ใช้</span><span class="gf-in"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg><input id="gUser" type="text" placeholder="ชื่อผู้ใช้" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false"></span></label>
@@ -3697,7 +3697,7 @@ window.lbConfirm = function (o) {
       '<div class="rp-sec"><h2>Yamazumi Chart · ' + esc($('yzNote').textContent) + '</h2>' + $('yzChart').innerHTML + $('yzSug').innerHTML + '</div>' +
       '<div class="rp-pb"><h2>Man-Machine Chart · ' + esc($('ganttNote').textContent) + '</h2>' + $('ganttLegend').outerHTML + '<div id="rpGantt">' + $('gantt').innerHTML + '</div></div>' +
       (st.note ? '<p style="margin-top:10px">' + esc(st.note) + '</p>' : '') +
-      '<div class="rp-f"><span>สร้างจาก Line Balance Chart</span><span>Takt ' + fmt(m.takt) + ' s · Cycle/ชิ้น ' + fmt(m.perPiece) + ' s · ' + esc(date) + '</span></div>';
+      '<div class="rp-f"><span>สร้างจาก Takt Studio</span><span>Takt ' + fmt(m.takt) + ' s · Cycle/ชิ้น ' + fmt(m.perPiece) + ' s · ' + esc(date) + '</span></div>';
     rep.querySelectorAll('[id]').forEach(function (el) { el.removeAttribute('id'); });
     return true;
   }
