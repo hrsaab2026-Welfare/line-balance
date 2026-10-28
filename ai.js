@@ -96,18 +96,26 @@ function gauge(p) {
     '<div class="ai-gs"><span>' + line + '</span>' + extra + '</div></div>';
 }
 function figure(ef) {
-  var fmt = root.fmt, n = ef.rows.length, W = 560, left = 84, right = 70, rh = 26, top = 26, H = top + n * rh + 6;
-  var xmax = Math.max(ef.maxBefore, ef.maxAfter, ef.cap || 0) * 1.08 || 1, X = function (v) { return left + (W - left - right) * Math.max(0, v) / xmax; };
+  var fmt = root.fmt, W = 560, left = 84, right = 56, top = 40, ys = [], y = top, gap = 4;
+  ef.rows.forEach(function (r) { var two = r.changed && Math.abs(r.before - r.after) > 1e-9; r.two = two; ys.push(y); y += (two ? 40 : 26) + gap; });
+  var H = y + 2, xmax = Math.max(ef.maxBefore, ef.maxAfter, ef.cap || 0) * 1.08 || 1, X = function (v) { return left + (W - left - right) * Math.max(0, v) / xmax; };
   var col = function (v) { return !ef.cap ? 'var(--accent)' : v > ef.cap + 1e-9 ? 'var(--bad)' : v >= ef.cap * 0.95 ? 'var(--warn)' : 'var(--good)'; };
-  var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" role="img" aria-label="กราฟโหลดก่อนและหลังปรับ คอขวดจาก ' + fmt(ef.maxBefore) + ' เป็น ' + fmt(ef.maxAfter) + ' วินาที">';
+  var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" style="max-width:640px" role="img" aria-label="กราฟโหลดก่อนและหลังปรับ คอขวดจาก ' + fmt(ef.maxBefore) + ' เป็น ' + fmt(ef.maxAfter) + ' วินาที">';
+  s += '<rect x="' + left + '" y="5" width="16" height="9" rx="2" fill="var(--line-strong)"/><text x="' + (left + 22) + '" y="14" style="font-size:12px;fill:var(--fg2)">ก่อนปรับ</text>' +
+    '<rect x="' + (left + 90) + '" y="5" width="16" height="9" rx="2" fill="' + col(ef.maxAfter) + '"/><text x="' + (left + 112) + '" y="14" style="font-size:12px;font-weight:700;fill:var(--fg)">หลังปรับ</text>';
   ef.rows.forEach(function (r, i) {
-    var y = top + i * rh, mx = Math.max(r.before, r.after);
-    s += '<text x="' + (left - 8) + '" y="' + (y + 16) + '" text-anchor="end" style="font-size:12px;fill:var(' + (r.changed ? '--fg' : '--fg2') + ');font-weight:' + (r.changed ? 700 : 400) + '">' + E(r.name) + '</text>';
-    if (r.changed && Math.abs(r.before - r.after) > 1e-9) s += '<rect x="' + left + '" y="' + (y + 4) + '" width="' + Math.max(1, X(r.before) - left) + '" height="16" rx="3" fill="none" stroke="var(--line-strong)" stroke-width="1.5" stroke-dasharray="4 3"/>';
-    s += '<rect x="' + left + '" y="' + (y + 4) + '" width="' + Math.max(1, X(r.after) - left) + '" height="16" rx="3" fill="' + col(r.after) + '"' + (r.changed ? '' : ' opacity=".55"') + '/>';
-    s += '<text x="' + (X(mx) + 6) + '" y="' + (y + 16) + '" style="font-size:11.5px;font-weight:600;font-family:var(--font-data);fill:var(--fg)">' + (r.changed && Math.abs(r.before - r.after) > 1e-9 ? fmt(r.before) + '→' + fmt(r.after) : fmt(r.after)) + '</text>';
+    var y0 = ys[i], lab = function (yy, t, bold) { return '<text x="' + (left - 8) + '" y="' + yy + '" text-anchor="end" style="font-size:12px;fill:var(' + (bold ? '--fg' : '--fg2') + ');font-weight:' + (bold ? 700 : 400) + '">' + t + '</text>'; };
+    var val = function (v, yy, bold) { return '<text x="' + (X(v) + 6) + '" y="' + yy + '" style="font-size:11.5px;font-weight:' + (bold ? 700 : 500) + ';font-family:var(--font-data);fill:var(' + (bold ? '--fg' : '--muted') + ')">' + fmt(v) + '</text>'; };
+    if (r.two) {
+      s += lab(y0 + 26, E(r.name), true);
+      s += '<rect x="' + left + '" y="' + (y0 + 3) + '" width="' + Math.max(1, X(r.before) - left) + '" height="10" rx="3" fill="var(--line-strong)"/>' + val(r.before, y0 + 12, false);
+      s += '<rect x="' + left + '" y="' + (y0 + 16) + '" width="' + Math.max(1, X(r.after) - left) + '" height="15" rx="3" fill="' + col(r.after) + '"/>' + val(r.after, y0 + 28, true);
+    } else {
+      s += lab(y0 + 17, E(r.name), false);
+      s += '<rect x="' + left + '" y="' + (y0 + 5) + '" width="' + Math.max(1, X(r.after) - left) + '" height="15" rx="3" fill="' + col(r.after) + '" opacity=".5"/>' + val(r.after, y0 + 17, false);
+    }
   });
-  if (ef.cap) s += '<line x1="' + X(ef.cap) + '" x2="' + X(ef.cap) + '" y1="' + (top - 6) + '" y2="' + (H - 2) + '" stroke="var(--fg)" stroke-width="2"/><text x="' + X(ef.cap) + '" y="' + (top - 10) + '" text-anchor="middle" style="font-size:11.5px;font-weight:600;fill:var(--fg)">Takt ' + fmt(ef.cap) + '</text>';
+  if (ef.cap) s += '<line x1="' + X(ef.cap) + '" x2="' + X(ef.cap) + '" y1="' + (top - 8) + '" y2="' + (H - 2) + '" stroke="var(--fg)" stroke-width="2"/><text x="' + X(ef.cap) + '" y="' + (top - 12) + '" text-anchor="middle" style="font-size:11.5px;font-weight:600;fill:var(--fg)">Takt ' + fmt(ef.cap) + '</text>';
   return s + '</svg>';
 }
 function result(r, stale) {
@@ -115,7 +123,7 @@ function result(r, stale) {
     var ef = r.p ? lbAiEffect(r.p, x.effect) : null, fmt = root.fmt, chip = '', fig = '';
     if (ef) {
       chip = '<span class="ai-gain' + (ef.improved ? '' : ' flat') + '">' + IC.down + (ef.improved ? 'คอขวดลดจาก ' + fmt(ef.maxBefore) + ' เหลือ ' + fmt(ef.maxAfter) + ' วินาที' : ef.worse ? 'คอขวดแย่ลงเป็น ' + fmt(ef.maxAfter) + ' วินาที' : 'คอขวดคงเดิมที่ ' + fmt(ef.maxAfter) + ' วินาที') + (ef.meets === true ? ' · ทัน Takt' : ef.meets === false ? ' · ยังไม่ทัน Takt' : '') + '</span>';
-      fig = '<details class="ai-fig"' + (i === 0 ? ' open' : '') + '><summary>ดูภาพก่อน–หลังปรับ</summary>' + figure(ef) + '<p class="ai-fcap">' + E(ef.note) + ' · เส้นประคือก่อนปรับ แท่งทึบคือหลังปรับ คำนวณจากโหลดจริงของไลน์นี้ ไม่ใช่ตัวเลขที่ AI ประมาณ</p></details>';
+      fig = '<details class="ai-fig"' + (i === 0 ? ' open' : '') + '><summary>ดูภาพก่อน–หลังปรับ</summary>' + figure(ef) + '<p class="ai-fcap">' + E(ef.note) + '<br>แท่งเทาคือก่อนปรับ แท่งสีคือหลังปรับ (เขียว = ทัน Takt, ส้ม = ใกล้เต็ม, แดง = เกิน) · คำนวณจากโหลดจริงของไลน์นี้ ไม่ใช่ตัวเลขที่ AI ประมาณ</p></details>';
     } else if (x.gain) chip = '<span class="ai-gain">' + IC.down + E(x.gain) + '</span>';
     return '<li class="ai-item' + (i === 0 ? ' top' : '') + '"><div class="ai-ti"><b>' + E(x.title) + '</b>' + (i === 0 ? '<span class="pill acc">ทำก่อน</span>' : '') + '</div><p>' + E(x.detail) + '</p>' + chip + fig + '</li>';
   }).join('');
