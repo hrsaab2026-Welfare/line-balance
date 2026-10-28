@@ -2,7 +2,7 @@
    ใช้ฟังก์ชันคำนวณจาก forecast.js และตัวช่วยของหน้าหลัก ข้อมูลเก็บในเครื่อง (localStorage) */
 (function () {
   var Lib = window.lbFcLib, K = 'lbFc1', F, scope = 'all', sel = {}, flt = { q: '', line: '', qty: true, nt: false }, saveT = 0;
-  var COL = ['#00b050', '#ff00ff', '#ff9a4d', '#ff0000', '#4f81bd', '#8064a2', '#4bacc6', '#9bbb59'], WD = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
+  var COL = ['#10b981', '#8b5cf6', '#f59e0b', '#f43f5e', '#3b82f6', '#14b8a6', '#ec4899', '#84cc16'], WD = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
   try { F = Lib.norm(JSON.parse(localStorage.getItem(K) || 'null')); } catch (e) { F = Lib.blank(); }
   function keep() { clearTimeout(saveT); saveT = setTimeout(function () { try { localStorage.setItem(K, JSON.stringify(F)); } catch (e) {} }, 300); }
 
@@ -100,26 +100,59 @@
 
   /* ---------- 4) ผลการคำนวณ ---------- */
   function niceStep(mx) { var raw = mx / 5, p = Math.pow(10, Math.floor(Math.log(raw) / Math.LN10)), i, c = [1, 2, 5, 10]; for (i = 0; i < c.length; i++) if (c[i] * p >= raw) return c[i] * p; return 10 * p; }
+  function ink(hex) { var n = parseInt(String(hex).slice(1), 16); if (isNaN(n)) return '#fff'; return (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) > 170 ? '#1b2330' : '#fff'; }
+  var lastSig = ''; /* เล่นแอนิเมชันเฉพาะตอนเปิดกราฟครั้งแรก / เปลี่ยนไลน์ / เปลี่ยนไฟล์ (ไม่เล่นซ้ำทุกครั้งที่พิมพ์) */
   function chart(c, hrs) {
-    var W = 760, H = 330, left = 50, right = 44, top = 26, bot = 58, pw = W - left - right, ph = H - top - bot, ms = c.months, mx = 0, g = '', i;
+    var W = 760, H = 372, left = 52, right = 60, top = 36, bot = 94, pw = W - left - right, ph = H - top - bot, ms = c.months, mx = 0, g = '', i;
     ms.forEach(function (k) { mx = Math.max(mx, hrs[k] || 0); c.levels.forEach(function (L) { mx = Math.max(mx, c.cap[L.id][k]); }); });
     var step = niceStep(mx * 1.08 || 10), ymax = Math.ceil((mx * 1.08 || 10) / step) * step;
     function Y(v) { return top + ph - (v / ymax) * ph; }
-    for (var tv = 0; tv <= ymax + 1e-9; tv += step) g += '<line x1="' + left + '" x2="' + (W - right) + '" y1="' + Y(tv) + '" y2="' + Y(tv) + '" stroke="var(--line)"/><text class="num mut" x="' + (left - 6) + '" y="' + (Y(tv) + 4) + '" text-anchor="end" style="font-size:11px">' + nf(tv) + '</text>';
-    var slot = pw / ms.length, bw = Math.min(46, slot * 0.5), bars = '', lines = '', lab = '';
+    var base = Y(0), slot = pw / ms.length, bw = Math.min(54, slot * 0.56), xs = ms.map(function (k, j) { return left + slot * (j + 0.5); });
+    var sig = scope + '|' + F.file + '|' + ms.join(','), grow = sig !== lastSig; lastSig = sig;
+    function ext(a) { return [a[0]].concat(a, [a[a.length - 1]]); }
+    var xe = [left].concat(xs, [W - right]);
+    var srt = c.levels.map(function (L, li) { return { L: L, i: li }; }).sort(function (a, b) { return a.L.hpd - b.L.hpd; });
+    /* พื้นสีจางระหว่างเส้นระดับ N: แท่งตกอยู่ในพื้นสีไหน = ต้องใช้ระดับ N นั้น */
+    var zones = '', prev = ext(ms.map(function () { return 0; }));
+    srt.forEach(function (o) {
+      var up = ext(ms.map(function (k) { return c.cap[o.L.id][k]; })), n = xe.length, pts = [];
+      for (i = 0; i < n; i++) pts.push(xe[i].toFixed(1) + ',' + Y(up[i]).toFixed(1));
+      for (i = n - 1; i >= 0; i--) pts.push(xe[i].toFixed(1) + ',' + Y(prev[i]).toFixed(1));
+      zones += '<polygon points="' + pts.join(' ') + '" fill="' + COL[o.i % COL.length] + '" opacity=".09"/>';
+      prev = up;
+    });
+    if (srt.length) zones += '<polygon points="' + xe.map(function (x, j) { return x.toFixed(1) + ',' + Y(prev[j]).toFixed(1); }).join(' ') + ' ' + (W - right) + ',' + top + ' ' + left + ',' + top + '" fill="var(--bad)" opacity=".07"/>';
+    for (var tv = 0; tv <= ymax + 1e-9; tv += step) g += (tv > 0 ? '<line x1="' + left + '" x2="' + (W - right) + '" y1="' + Y(tv) + '" y2="' + Y(tv) + '" stroke="var(--line-strong)" stroke-dasharray="2 5" opacity=".7"/>' : '') + '<text class="num mut" x="' + (left - 8) + '" y="' + (Y(tv) + 4) + '" text-anchor="end" style="font-size:11px">' + nf(tv) + '</text>';
+    g += '<line x1="' + left + '" x2="' + (W - right) + '" y1="' + base + '" y2="' + base + '" stroke="var(--line-strong)"/><text class="mut" x="' + left + '" y="18" style="font-size:11px">ชม./เดือน</text>';
+    var defs = '<defs><linearGradient id="fcGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:color-mix(in srgb,var(--accent) 58%,#fff)"/><stop offset="1" style="stop-color:var(--accent)"/></linearGradient>' +
+      '<linearGradient id="fcGradBad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:color-mix(in srgb,var(--bad) 60%,#fff)"/><stop offset="1" style="stop-color:var(--bad)"/></linearGradient>' +
+      '<clipPath id="fcClip"><rect x="0" y="0" width="' + W + '" height="' + base + '"/></clipPath></defs>';
+    var bars = '', hits = '', lab = '', ax = '', lines = '', dots = '', rx = Math.min(9, bw / 2);
     ms.forEach(function (k, j) {
-      var cx = left + slot * (j + 0.5), v = hrs[k] || 0, tip = Lib.monthLabel(k) + ' · Work load ' + nf(v, 1) + ' ชม.' + c.levels.map(function (L) { var cp = c.cap[L.id][k]; return ' · ' + L.name + ' ' + nf(cp) + ' ชม. (' + (cp ? pct(v / cp) : '—') + ')'; }).join('');
-      bars += '<rect data-tip="' + esc(tip) + '" x="' + (cx - bw / 2) + '" y="' + Y(v) + '" width="' + bw + '" height="' + Math.max(0, Y(0) - Y(v)) + '" fill="var(--accent)" opacity=".88" rx="2"/>';
-      if (v > 0) { var tall = Y(0) - Y(v) >= 24; lab += '<text class="num strong" x="' + cx + '" y="' + (tall ? Y(0) - 8 : Y(v) - 5) + '" text-anchor="middle" style="font-size:11px;' + (tall ? 'fill:#fff' : '') + '">' + nf(v) + '</text>'; }
-      g += '<text class="strong" x="' + cx + '" y="' + (H - bot + 18) + '" text-anchor="middle" style="font-size:12px">' + Lib.monthLabel(k) + '</text><text class="num mut" x="' + cx + '" y="' + (H - bot + 33) + '" text-anchor="middle" style="font-size:11px">' + c.days[k].n + ' วัน</text>';
+      var cx = xs[j], v = hrs[k] || 0, fi = v > 0 ? c.fit(v, k) : 0, hh = Y(0) - Y(v);
+      var tip = Lib.monthLabel(k) + ' · Work load ' + nf(v, 1) + ' ชม.' + c.levels.map(function (L) { var cp = c.cap[L.id][k]; return ' · ' + L.name + ' ' + nf(cp) + ' ชม. (' + (cp ? pct(v / cp) : '—') + ')'; }).join('');
+      if (v > 0) {
+        bars += '<rect class="fc-col" style="animation-delay:' + (j * 70) + 'ms" x="' + (cx - bw / 2) + '" y="' + Y(v) + '" width="' + bw + '" height="' + (hh + 12) + '" fill="url(#' + (fi < 0 ? 'fcGradBad' : 'fcGrad') + ')" rx="' + rx + '" clip-path="url(#fcClip)"/>';
+        var tall = hh >= 30; lab += '<text class="num fc-np" x="' + cx + '" y="' + (tall ? base - 10 : Y(v) - 7) + '" text-anchor="middle" style="font-size:13px;font-weight:700;fill:' + (tall ? '#fff' : 'var(--fg)') + '">' + nf(v) + '</text>';
+        var nm = fi < 0 ? 'เกิน ' + (c.levels.length ? c.levels[c.levels.length - 1].name : 'N') : c.levels[fi].name, bc = fi < 0 ? 'var(--bad)' : COL[fi % COL.length], bwid = Math.max(34, 16 + String(nm).length * 7.4);
+        ax += '<rect class="fc-np" x="' + (cx - bwid / 2) + '" y="' + (H - bot + 46) + '" width="' + bwid + '" height="20" rx="10" fill="' + bc + '"/><text class="fc-np" x="' + cx + '" y="' + (H - bot + 60) + '" text-anchor="middle" style="font-size:11.5px;font-weight:700;fill:' + (fi < 0 ? '#fff' : ink(bc)) + '">' + esc(nm) + '</text>';
+      }
+      hits += '<rect class="fc-hit" data-tip="' + esc(tip) + '" x="' + (cx - slot / 2) + '" y="' + (top - 8) + '" width="' + slot + '" height="' + (H - top + 4) + '" rx="10"/>';
+      ax += '<text class="strong fc-np" x="' + cx + '" y="' + (H - bot + 22) + '" text-anchor="middle" style="font-size:13px">' + Lib.monthLabel(k) + '</text><text class="num mut fc-np" x="' + cx + '" y="' + (H - bot + 38) + '" text-anchor="middle" style="font-size:11px">' + c.days[k].n + ' วัน</text>';
     });
+    var ends = [];
     c.levels.forEach(function (L, li) {
-      var col = COL[li % COL.length], pts = ms.map(function (k, j) { return (left + slot * (j + 0.5)).toFixed(1) + ',' + Y(c.cap[L.id][k]).toFixed(1); });
-      lines += '<polyline points="' + pts.join(' ') + '" fill="none" stroke="' + col + '" stroke-width="2.5" stroke-linejoin="round"/>';
-      ms.forEach(function (k, j) { lines += '<circle data-tip="' + esc(Lib.monthLabel(k) + ' · ' + L.name + ' ' + nf(c.cap[L.id][k], 1) + ' ชม. (' + nf(L.hpd, 1) + ' ชม./วัน × ' + c.days[k].n + ' วัน)') + '" cx="' + (left + slot * (j + 0.5)) + '" cy="' + Y(c.cap[L.id][k]) + '" r="3.5" fill="' + col + '"/>'; });
-      lines += '<text class="strong" x="' + (left + slot * (ms.length - 0.5) + 9) + '" y="' + (Y(c.cap[L.id][ms[ms.length - 1]]) + 4) + '" style="font-size:12px;fill:' + col + '">' + esc(L.name) + '</text>';
+      var col = COL[li % COL.length], ysv = ms.map(function (k) { return Y(c.cap[L.id][k]); }), pts = ms.map(function (k, j) { return xs[j].toFixed(1) + ',' + ysv[j].toFixed(1); });
+      lines += '<polyline class="fc-ln" pathLength="1" points="' + pts.join(' ') + '" fill="none" stroke="' + col + '" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>' +
+        '<line class="fc-np" x1="' + left + '" x2="' + xs[0] + '" y1="' + ysv[0] + '" y2="' + ysv[0] + '" stroke="' + col + '" stroke-width="2" stroke-dasharray="2 5" stroke-linecap="round" opacity=".55"/>' +
+        '<line class="fc-np" x1="' + xs[ms.length - 1] + '" x2="' + (W - right) + '" y1="' + ysv[ms.length - 1] + '" y2="' + ysv[ms.length - 1] + '" stroke="' + col + '" stroke-width="2" stroke-dasharray="2 5" stroke-linecap="round" opacity=".55"/>';
+      ms.forEach(function (k, j) { dots += '<circle class="fc-dot" style="animation-delay:' + (450 + j * 60) + 'ms" data-tip="' + esc(Lib.monthLabel(k) + ' · ' + L.name + ' ' + nf(c.cap[L.id][k], 1) + ' ชม. (' + nf(L.hpd, 1) + ' ชม./วัน × ' + c.days[k].n + ' วัน)') + '" cx="' + xs[j] + '" cy="' + ysv[j] + '" r="4.6" fill="' + col + '" stroke="var(--surface)" stroke-width="2"/>'; });
+      ends.push({ y: ysv[ms.length - 1], col: col, name: String(L.name || '').slice(0, 6) });
     });
-    return '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" role="img" aria-label="กราฟ Work Load ต่อเดือน เทียบกำลังผลิตแต่ละระดับ N">' + g + bars + lab + lines + '</svg>';
+    ends.sort(function (a, b) { return a.y - b.y; });
+    for (i = 1; i < ends.length; i++) if (ends[i].y - ends[i - 1].y < 21) ends[i].y = ends[i - 1].y + 21; /* ป้ายระดับ N ไม่ทับกัน */
+    ends.forEach(function (e) { var w = Math.max(30, 14 + e.name.length * 7.6); lab += '<rect class="fc-np" x="' + (W - right + 8) + '" y="' + (e.y - 10) + '" width="' + w + '" height="20" rx="10" fill="' + e.col + '"/><text class="fc-np" x="' + (W - right + 8 + w / 2) + '" y="' + (e.y + 4) + '" text-anchor="middle" style="font-size:11.5px;font-weight:700;fill:' + ink(e.col) + '">' + esc(e.name) + '</text>'; });
+    return '<svg class="fc-svg' + (grow ? ' grow' : '') + '" viewBox="0 0 ' + W + ' ' + H + '" width="100%" role="img" aria-label="กราฟ Work Load ต่อเดือน เทียบกำลังผลิตแต่ละระดับ N">' + defs + zones + g + bars + hits + lines + dots + lab + ax + '</svg>';
   }
   function rRes() {
     var c = Lib.compute(F), el = $('fcRes');
@@ -127,7 +160,7 @@
     if (scope !== 'all' && scope !== '__none' && !F.lines.some(function (l) { return l.id === scope; })) scope = 'all';
     var cur = scope === 'all' ? { name: 'ทุกไลน์รวมกัน', hrs: c.total } : scope === '__none' ? c.lines.filter(function (l) { return l.id === ''; })[0] || { name: 'ยังไม่ระบุไลน์', hrs: c.total } : c.lines.filter(function (l) { return l.id === scope; })[0];
     var sopt = opt('all', 'ทุกไลน์รวมกัน', scope) + F.lines.map(function (l) { return opt(l.id, l.name || '(ไม่มีชื่อ)', scope); }).join('') + (c.lines.some(function (l) { return l.id === ''; }) ? opt('__none', 'ยังไม่ระบุไลน์', scope) : '');
-    var legend = '<div class="legend"><span><i style="background:var(--accent)"></i>Work load (ชม./เดือน)</span>' + c.levels.map(function (L, i) { return '<span><span class="ln" style="border-top:3px solid ' + COL[i % COL.length] + '"></span>' + esc(L.name) + ' · ' + nf(L.hpd, 1) + ' ชม./วัน</span>'; }).join('') + '</div>';
+    var legend = '<div class="legend fc-lg"><span><i class="fc-lg-bar"></i>Work load (ชม./เดือน)</span>' + c.levels.map(function (L, i) { return '<span><i class="fc-lg-ln" style="--c:' + COL[i % COL.length] + '"></i>' + esc(L.name) + ' · ' + nf(L.hpd, 1) + ' ชม./วัน</span>'; }).join('') + '</div>';
     var h = cur.hrs, th = '<th></th>' + c.months.map(function (k) { return '<th class="r">' + Lib.monthLabel(k) + '</th>'; }).join('');
     var body = '<tr class="fc-hl"><td class="lbl">Work load (ชม.)</td>' + c.months.map(function (k) { return '<td class="r num strong">' + nf(h[k], 1) + '</td>'; }).join('') + '</tr>' +
       '<tr><td>วันทำงาน</td>' + c.months.map(function (k) { return '<td class="r num">' + c.days[k].n + (c.days[k].ov ? '<sup title="กรอกทับเอง">*</sup>' : '') + '</td>'; }).join('') + '</tr>';
@@ -138,7 +171,7 @@
       c.lines.map(function (l) { return '<tr><td>' + esc(l.name || '(ไม่มีชื่อ)') + ' <span class="mut">· ' + l.n + ' ชิ้น</span></td>' + c.months.map(function (k) { return '<td class="r">' + (l.hrs[k] > 0 ? '<span class="num">' + nf(l.hrs[k], 1) + '</span> ' + lvPill(c, l.hrs[k], k) : '<span class="mut">—</span>') + '</td>'; }).join('') + '<td class="r num strong">' + nf(l.total, 1) + '</td></tr>'; }).join('') +
       '<tr class="fc-hl"><td class="lbl">รวมทุกไลน์</td>' + c.months.map(function (k) { return '<td class="r num strong">' + nf(c.total[k], 1) + '</td>'; }).join('') + '<td class="r num strong">' + nf(c.months.reduce(function (a, k) { return a + c.total[k]; }, 0), 1) + '</td></tr></tbody></table>';
     el.innerHTML = '<div class="fc-bar"><div class="field"><label for="fcScope">ดูผลของ</label><select id="fcScope" data-f="scope">' + sopt + '</select></div><span class="note">Work load = ยอดผลิต × เวลาต่อชิ้น ÷ ' + (F.unit === 'min' ? '60' : '3600') + ' (ชั่วโมง)</span></div>' +
-      '<div class="panel">' + legend + chart(c, h) + '</div><div class="panel scroll">' + '<table class="fc-sum"><thead><tr>' + th + '</tr></thead><tbody>' + body + '</tbody></table></div>' +
+      '<div class="panel">' + legend + chart(c, h) + '<div class="fc-cap">พื้นสีจางระหว่างเส้น = ช่วงที่ต้องใช้ระดับ N นั้นรับโหลด · ป้ายใต้เดือน = ระดับ N ที่ต้องใช้ · แท่งสีแดง = เกินกำลังผลิตสูงสุด</div></div><div class="panel scroll">' + '<table class="fc-sum"><thead><tr>' + th + '</tr></thead><tbody>' + body + '</tbody></table></div>' +
       '<div class="fc-h" style="margin-top:6px">แยกตามไลน์ <span class="note">ป้ายระดับ = ระดับ N ที่ต้องใช้เพื่อรับโหลดของไลน์นั้นทั้งไลน์</span></div><div class="panel scroll">' + bl + '</div>';
     return c;
   }

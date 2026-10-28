@@ -109,3 +109,26 @@ tr.stephead td { background:linear-gradient(90deg,color-mix(in srgb,var(--accent
 /* ---------- Sidebar สำหรับจอเล็ก ---------- */
 @media (max-width:960px) { .side { position:relative; border-radius:0; } }
 @media (prefers-reduced-motion:reduce) { .btn,.nav .tab { transition:none; } }
+
+/* ---------- Forecast: กราฟ Work load ---------- */
+#tab-fc .fc-svg { display:block; overflow:visible; }
+#tab-fc .fc-svg text, #tab-fc .fc-svg .fc-np { pointer-events:none; }
+#tab-fc .fc-col { filter:drop-shadow(0 8px 10px color-mix(in srgb,var(--accent) 28%,transparent)); }
+#tab-fc .fc-hit { fill:transparent; }
+#tab-fc .fc-hit:hover { fill:color-mix(in srgb,var(--accent) 8%,transparent); }
+#tab-fc .fc-dot { transition:r .12s; } #tab-fc .fc-dot:hover { r:7; }
+#tab-fc .fc-svg.grow .fc-col { transform-box:fill-box; transform-origin:50% 100%; animation:fcGrow .75s cubic-bezier(.2,.8,.2,1) both; }
+#tab-fc .fc-svg.grow .fc-ln { stroke-dasharray:1; stroke-dashoffset:1; animation:fcDraw 1s .25s ease-out forwards; }
+#tab-fc .fc-svg.grow .fc-dot { animation:fcPop .4s ease-out both; }
+@keyframes fcGrow { from { transform:scaleY(0); opacity:.3; } to { transform:scaleY(1); opacity:1; } }
+@keyframes fcDraw { to { stroke-dashoffset:0; } }
+@keyframes fcPop { from { opacity:0; } to { opacity:1; } }
+@media (prefers-reduced-motion:reduce) { #tab-fc .fc-svg.grow .fc-col, #tab-fc .fc-svg.grow .fc-ln, #tab-fc .fc-svg.grow .fc-dot { animation:none; stroke-dashoffset:0; } }
+#tab-fc .fc-lg { gap:8px; margin-bottom:8px; }
+#tab-fc .fc-lg > span { display:inline-flex; align-items:center; gap:8px; padding:5px 12px 5px 10px; border-radius:999px; background:color-mix(in srgb,var(--fg) 5%,var(--surface)); color:var(--fg); font-weight:500; }
+#tab-fc .fc-lg i { margin:0; vertical-align:0; }
+#tab-fc .fc-lg i.fc-lg-bar { width:12px; height:15px; border-radius:4px 4px 2px 2px; background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 58%,#fff),var(--accent)); }
+#tab-fc .fc-lg i.fc-lg-ln { position:relative; width:22px; height:3px; border-radius:2px; background:var(--c); }
+#tab-fc .fc-lg i.fc-lg-ln::after { content:""; position:absolute; left:50%; top:50%; width:10px; height:10px; margin:-5px 0 0 -5px; box-sizing:border-box; border-radius:50%; background:var(--c); border:2px solid var(--surface); }
+#tab-fc .fc-cap { margin-top:6px; font-size:12px; color:var(--muted); }
+
