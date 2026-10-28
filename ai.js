@@ -71,14 +71,21 @@ function analyze() {
   busy = true; $('aiGo').disabled = true; $('aiGo').textContent = 'กำลังวิเคราะห์…';
   show('<p class="mut" style="margin:0">AI กำลังอ่านตัวเลข อาจใช้เวลาสักครู่</p>');
   db.functions.invoke('lb-ai', { body: { payload: p } }).then(function (r) {
-    var d = r.data;
-    if (r.error || !d || d.error || !d.summary) {
-      var code = d && d.error;
-      show('<p style="margin:0">' + E(code === 'rate_limited' ? 'ใช้ AI ถี่เกินไป รอสักครู่แล้วลองใหม่' : code === 'quota' ? 'โควตา AI ฟรีของวันนี้เต็มแล้ว ลองใหม่พรุ่งนี้' : 'ตอนนี้เรียก AI ไม่ได้') + ' ข้อเสนอจากกฎด้านบนยังใช้ได้ตามปกติ</p>');
-      if (root.lbLogError) root.lbLogError('lb-ai: ' + ((r.error && r.error.message) || code || 'empty'));
-      return;
-    }
-    cache[key] = d; lastKey = key; cur = key; result(d, false);
+    var d = r.data, ctx = r.error && r.error.context;
+    var parse = ctx && typeof ctx.json === 'function' ? ctx.json().catch(function () { return null; }) : Promise.resolve(null);
+    return parse.then(function (eb) {
+      d = d || eb;
+      if (r.error || !d || d.error || !d.summary) {
+        var code = d && d.error, why = '';
+        if (d && d.tried && d.tried.length) why = d.tried.map(function (t) { return t.model + ' → ' + t.status; }).join(' · ');
+        else if (code === 'not_configured') why = 'ยังไม่ได้ตั้ง GEMINI_API_KEY ใน Supabase';
+        else if (code === 'auth') why = 'ล็อกอินหมดอายุ ลองออกจากระบบแล้วเข้าใหม่';
+        show('<p style="margin:0">' + E(code === 'rate_limited' ? 'ใช้ AI ถี่เกินไป รอสักครู่แล้วลองใหม่' : code === 'quota' ? 'โควตา AI ฟรีของวันนี้เต็มแล้ว ลองใหม่พรุ่งนี้' : 'ตอนนี้เรียก AI ไม่ได้') + ' ข้อเสนอจากกฎด้านบนยังใช้ได้ตามปกติ</p>' + (why ? '<p class="mut" style="margin:6px 0 0;font-size:12px">สาเหตุ: ' + E(why) + '</p>' : ''));
+        if (root.lbLogError) root.lbLogError('lb-ai: ' + (code || (r.error && r.error.message) || 'empty') + (why ? ' ' + why : ''));
+        return;
+      }
+      cache[key] = d; lastKey = key; cur = key; result(d, false);
+    });
   }).catch(function (e) { show('<p style="margin:0">ตอนนี้เรียก AI ไม่ได้ ข้อเสนอจากกฎด้านบนยังใช้ได้ตามปกติ</p>'); if (root.lbLogError) root.lbLogError('lb-ai: ' + (e && e.message)); })
     .then(function () { busy = false; $('aiGo').textContent = 'วิเคราะห์ด้วย AI'; refresh(); });
 }
