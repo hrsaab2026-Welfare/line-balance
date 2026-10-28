@@ -122,3 +122,22 @@ test('toggleDay: กดเพิ่ม/กดซ้ำยกเลิก วั�
   F.toggleDay(g, '2026-10-12'); assert.deepEqual(g.holidays.map(h => [h.date, h.to]), [['2026-10-13', ''], ['2026-10-15', '2026-10-16']]);
   assert.equal(F.toggleDay(g, 'bad'), null);
 });
+
+test('taktFor: Takt = ชม./วันของระดับ N × 3600 ÷ (ยอดเดือน ÷ วันทำงาน) จับคู่เลขชิ้นงานโดยไม่สนช่องว่าง', () => {
+  const f = F.blank(); f.months = ['2026-10'];
+  f.parts = [{ id: 'p', no: '8981405832', name: 'X', qty: { '2026-10': 2700 }, time: '', line: '' }];
+  const r = F.taktFor(f, '898140 5832', '2026-10', 'n1'); /* ต.ค. 2026 = 27 วัน → 100 ชิ้น/วัน, N1 6.8 ชม. = 408 นาที */
+  assert.equal(r.days, 27); near(r.perDay, 100); near(r.minutes, 408); near(r.takt, 244.8); assert.equal(r.dup, 1);
+  f.holidays = [{ date: '2026-10-13', name: 'x', type: 'off' }]; /* วันทำงานลด → ยอด/วันเพิ่ม → Takt สั้นลง */
+  const r2 = F.taktFor(f, '8981405832', '2026-10', 'n2'); assert.equal(r2.days, 26); near(r2.perDay, 2700 / 26); near(r2.takt, 13.6 * 3600 / (2700 / 26));
+});
+
+test('taktFor: ไม่พบ → null / ไม่มียอด·ไม่มีวันทำงาน·ไม่มีชั่วโมง → พบแต่ takt เป็น null', () => {
+  const f = F.blank(); f.months = ['2026-10', '2026-11'];
+  f.parts = [{ id: 'p', no: '111', qty: { '2026-10': 500, '2026-11': 0 } }, { id: 'q', no: '111', qty: { '2026-10': 9 } }];
+  assert.equal(F.taktFor(f, '999', '2026-10', 'n1'), null); assert.equal(F.taktFor(f, '111', '2027-01', 'n1'), null); assert.equal(F.taktFor(f, '111', '2026-10', 'zz'), null); assert.equal(F.taktFor(f, '', '2026-10', 'n1'), null);
+  const a = F.taktFor(f, '111', '2026-10', 'n1'); assert.equal(a.dup, 2); near(a.qty, 500); /* เลขซ้ำใช้แถวแรก */
+  const b = F.taktFor(f, '111', '2026-11', 'n1'); assert.equal(b.takt, null); assert.equal(b.perDay, null);
+  f.dayOv['2026-10'] = 0; assert.equal(F.taktFor(f, '111', '2026-10', 'n1').takt, null);
+  f.dayOv = {}; f.levels[0].hpd = 0; assert.equal(F.taktFor(f, '111', '2026-10', 'n1').takt, null);
+});

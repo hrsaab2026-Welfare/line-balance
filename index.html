@@ -671,6 +671,7 @@ body.viewer #tab-fc input, body.viewer #tab-fc select { pointer-events:auto !imp
         <div class="field"><label for="fp-takt">Takt Time</label><div class="row"><input id="fp-takt" type="number" min="0" step="any" inputmode="decimal"><span class="unit">วินาที/ชิ้น</span></div></div>
         <div class="field"><label for="fp-men">กำหนดจำนวนคนเอง (ไม่บังคับ)</label><div class="row"><input id="fp-men" type="number" min="1" step="1" inputmode="numeric"><span class="unit">คน</span></div></div>
         <p class="derived" id="flowTakt"></p>
+        <div class="field" id="fcPick" hidden><label for="fcpMonth">ดึงจาก Forecast</label><div class="row"><select id="fcpMonth" aria-label="เดือน"></select><select id="fcpLevel" aria-label="ระดับ N"></select><button class="btn ghost sm" id="fcpApply" type="button">ใช้ค่านี้</button></div><p class="derived" id="fcpInfo"></p></div>
       </div>
     </section>
 
@@ -1664,6 +1665,7 @@ function showTab(tok) {
     TAB_PANELS[k].forEach(function (id) { $(id).hidden = k !== tok; });
     var b = $('tabbtn-' + k); b.setAttribute('aria-selected', k === tok ? 'true' : 'false'); b.classList.toggle('on', k === tok);
   });
+  if (tok === 'flow' && D) fcPickRender(); /* Forecast อาจเพิ่งนำเข้า */
 }
 Object.keys(TAB_PANELS).forEach(function (k) { $('tabbtn-' + k).addEventListener('click', function () { showTab(k); }); });
 
@@ -1728,7 +1730,7 @@ function renderFlow() {
   $('fp-minutes').value = D.minutes === '' ? '' : D.minutes;
   $('fp-takt').value = D.takt || '';
   $('fp-men').value = D.menFix || '';
-  renderProcs(); renderTasks();
+  renderProcs(); renderTasks(); fcPickRender();
 }
 
 function renderProcs() {
@@ -1952,6 +1954,41 @@ document.addEventListener('paste', function (ev) {
 });
 $('fp-takt').addEventListener('input', function () { if (!D) return; var v = parseFloat(this.value); D.takt = isFinite(v) && v > 0 ? v : null; D.exTakt = false; flowUpdate(); });
 $('fp-men').addEventListener('input', function () { if (!D) return; var v = parseInt(this.value, 10); D.menFix = isFinite(v) && v > 0 ? v : ''; flowUpdate(); });
+
+/* ---------- ดึงยอด/วัน + เวลาทำงานจาก Forecast → Takt (จับคู่ด้วย Part No.) ---------- */
+var FCP = { key: '', lv: '' };
+function fcpState() { var F = window.lbFc && window.lbFc.state && window.lbFc.state(); return F && window.lbFcLib && F.parts && F.parts.length ? F : null; }
+function fcpCalc() {
+  var F = fcpState(); if (!F || !D || !D.part || !D.part.partNo) return null;
+  return window.lbFcLib.taktFor(F, D.part.partNo, $('fcpMonth').value, $('fcpLevel').value);
+}
+function fcpInfoRender() {
+  var r = fcpCalc(), el = $('fcpInfo'), btn = $('fcpApply'), tx;
+  if (!r) { el.textContent = ''; btn.disabled = true; return; }
+  if (r.takt) tx = 'ยอด ' + fmt(r.qty, 0) + ' ชิ้น ÷ ' + fmt(r.days, 0) + ' วัน = ' + fmt(r.perDay, 1) + ' ชิ้น/วัน · ' + fmt(r.hpd, 1) + ' ชม. = ' + fmt(r.minutes, 0) + ' นาที → Takt Time = <b class="mono">' + fmt(r.takt, 1) + '</b> วินาที/ชิ้น';
+  else tx = !(r.qty > 0) ? 'ชิ้นงานนี้ไม่มียอดในเดือนนี้' : !(r.days > 0) ? 'เดือนนี้ไม่มีวันทำงาน (ตรวจวันหยุดในเมนู Forecast)' : 'ระดับ N นี้ยังไม่ระบุชั่วโมงทำงานต่อวัน';
+  if (r.dup > 1) tx += ' · พบ Part No. ซ้ำ ' + r.dup + ' แถวใน Forecast ใช้แถวแรก';
+  el.innerHTML = tx; btn.disabled = !r.takt;
+}
+function fcPickRender() {
+  var box = $('fcPick'), F = fcpState(), Lib = window.lbFcLib;
+  var has = !!(F && D && D.part && D.part.partNo && Lib.findParts(F, D.part.partNo).length);
+  box.hidden = !has; if (!has) return; /* ไม่พบชิ้นงานใน Forecast = ไม่แสดงอะไรเลย */
+  if (F.months.indexOf(FCP.key) < 0) { var d = new Date(), cur = Lib.monthKey(d.getFullYear(), d.getMonth() + 1); FCP.key = F.months.indexOf(cur) >= 0 ? cur : F.months[0]; }
+  if (!F.levels.some(function (L) { return L.id === FCP.lv; })) FCP.lv = F.levels.length ? F.levels[0].id : '';
+  $('fcpMonth').innerHTML = F.months.map(function (k) { return '<option value="' + esc(k) + '"' + (k === FCP.key ? ' selected' : '') + '>' + esc(Lib.monthLabel(k)) + '</option>'; }).join('');
+  $('fcpLevel').innerHTML = F.levels.map(function (L) { return '<option value="' + esc(L.id) + '"' + (L.id === FCP.lv ? ' selected' : '') + '>' + esc(L.name) + ' · ' + esc(L.hpd) + ' ชม./วัน</option>'; }).join('');
+  fcpInfoRender();
+}
+$('fcpMonth').addEventListener('change', function () { FCP.key = this.value; fcpInfoRender(); });
+$('fcpLevel').addEventListener('change', function () { FCP.lv = this.value; fcpInfoRender(); });
+$('fcpApply').addEventListener('click', function () {
+  var r = fcpCalc(); if (!D || !r || !r.takt) return;
+  D.demand = Math.round(r.perDay * 100) / 100; D.minutes = Math.round(r.minutes * 10) / 10;
+  var t = flTaktFromInputs(); D.takt = Math.round(t * 10) / 10; D.exTakt = false;
+  $('fp-demand').value = D.demand; $('fp-minutes').value = D.minutes; $('fp-takt').value = D.takt;
+  flowUpdate(); /* ส่งต่อไปหน้า Line Balance เองผ่าน pushNow */
+});
 $('toChart').addEventListener('click', function () { if (!D) return; pushNow(); showTab('balance'); });
 $('rg21Btn').addEventListener('click', function () {
   var mm = JSON.parse(JSON.stringify(SAMPLE));
@@ -4040,8 +4077,23 @@ function norm(o) {
   return F;
 }
 
+/* ---------- Takt จาก Forecast: ยอด/วัน = ยอดเดือน ÷ วันทำงาน, เวลาทำงาน/วัน = ชม./วันของระดับ N ---------- */
+function normPn(v) { return String(v == null ? '' : v).replace(/[^0-9A-Za-z]/g, '').toUpperCase(); } /* '898140 5832' = '8981405832' */
+function findParts(F, pn) { var k = normPn(pn); return k ? F.parts.filter(function (p) { return normPn(p.no) === k; }) : []; }
+/* คืน null ถ้าไม่พบชิ้นงาน/เดือน/ระดับ N; ถ้าพบแต่ไม่มียอดหรือวันทำงาน perDay/takt จะเป็น null (ให้หน้าจอบอกสาเหตุ) */
+function taktFor(F, pn, key, levelId) {
+  var ps = findParts(F, pn), L = null;
+  F.levels.forEach(function (x) { if (x.id === levelId) L = x; });
+  if (!ps.length || !L || F.months.indexOf(key) < 0) return null;
+  var qty = num(ps[0].qty && ps[0].qty[key]) || 0, days = workDays(F, key).n, hpd = num(L.hpd) || 0;
+  var r = { part: ps[0], dup: ps.length, key: key, level: L, qty: qty, days: days, hpd: hpd, minutes: hpd * 60, perDay: null, takt: null };
+  if (qty > 0 && days > 0) r.perDay = qty / days;
+  if (r.perDay && hpd > 0) r.takt = hpd * 3600 / r.perDay;
+  return r;
+}
+
 var api = { DEF_LEVELS: DEF_LEVELS, uid: uid, blank: blank, norm: norm, monthKey: monthKey, addMonth: addMonth, daysIn: daysIn, monthLabel: monthLabel, parseMonthCell: parseMonthCell,
-  expandHolidays: expandHolidays, workDays: workDays, toggleDay: toggleDay, parseForecast: parseForecast, applyImport: applyImport, demo: demo, compute: compute, fitLevel: fitLevel, partHrs: partHrs };
+  expandHolidays: expandHolidays, workDays: workDays, toggleDay: toggleDay, parseForecast: parseForecast, applyImport: applyImport, demo: demo, compute: compute, fitLevel: fitLevel, partHrs: partHrs, normPn: normPn, findParts: findParts, taktFor: taktFor };
 if (typeof module !== 'undefined' && module.exports) module.exports = api; else Object.assign(root, { lbFcLib: api });
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>

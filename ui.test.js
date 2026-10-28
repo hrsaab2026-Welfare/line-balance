@@ -91,3 +91,25 @@ test('ui: เมนู Forecast เปิดได้โดยไม่ต้อ
   assert.equal(w.lbFc.state().lines.length, 1);
   assert.deepEqual(errors, []);
 });
+
+test('ui: ดึงยอด/วัน + เวลาทำงานจาก Forecast → Takt (จับคู่ Part No.) และส่งต่อหน้า Line Balance', async () => {
+  const { w, d, errors } = await open();
+  click(w, d.getElementById('sampleBtn')); /* Process Flow ตัวอย่าง Part No. 7552731170 */
+  click(w, d.getElementById('tabbtn-fc'));
+  assert.ok(w.lbFc.importRows([['Item', 'Part Number', null, 'Part Name', 'Model', new w.Date(2026, 9, 1)], [1, '7552 731170', null, 'BRACKET', 'ES37', 2700], [2, 5555555555, null, 'OTHER', 'X', 100]], 'x.xlsx'));
+  click(w, d.getElementById('tabbtn-flow'));
+  assert.equal(d.getElementById('fcPick').hidden, false);
+  assert.match(d.getElementById('fcpInfo').textContent, /100 ชิ้น\/วัน/); assert.match(d.getElementById('fcpInfo').textContent, /244\.8/);
+  click(w, d.getElementById('fcpApply'));
+  assert.equal(d.getElementById('fp-demand').value, '100'); assert.equal(d.getElementById('fp-minutes').value, '408'); assert.equal(d.getElementById('fp-takt').value, '244.8');
+  assert.match(d.getElementById('flowTakt').textContent, /244\.8/);
+  assert.deepEqual(errors, []);
+});
+
+test('ui: ไม่พบ Part No. ใน Forecast → ไม่แสดงตัวเลือกดึงค่า', async () => {
+  const { w, d, errors } = await open();
+  click(w, d.getElementById('sampleBtn')); click(w, d.getElementById('tabbtn-fc'));
+  w.lbFc.importRows([['Item', 'Part Number', null, 'Part Name', 'Model', new w.Date(2026, 9, 1)], [1, 5555555555, null, 'OTHER', 'X', 100]], 'x.xlsx');
+  click(w, d.getElementById('tabbtn-flow'));
+  assert.equal(d.getElementById('fcPick').hidden, true); assert.deepEqual(errors, []);
+});

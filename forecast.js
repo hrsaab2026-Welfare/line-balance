@@ -194,7 +194,22 @@ function norm(o) {
   return F;
 }
 
+/* ---------- Takt จาก Forecast: ยอด/วัน = ยอดเดือน ÷ วันทำงาน, เวลาทำงาน/วัน = ชม./วันของระดับ N ---------- */
+function normPn(v) { return String(v == null ? '' : v).replace(/[^0-9A-Za-z]/g, '').toUpperCase(); } /* '898140 5832' = '8981405832' */
+function findParts(F, pn) { var k = normPn(pn); return k ? F.parts.filter(function (p) { return normPn(p.no) === k; }) : []; }
+/* คืน null ถ้าไม่พบชิ้นงาน/เดือน/ระดับ N; ถ้าพบแต่ไม่มียอดหรือวันทำงาน perDay/takt จะเป็น null (ให้หน้าจอบอกสาเหตุ) */
+function taktFor(F, pn, key, levelId) {
+  var ps = findParts(F, pn), L = null;
+  F.levels.forEach(function (x) { if (x.id === levelId) L = x; });
+  if (!ps.length || !L || F.months.indexOf(key) < 0) return null;
+  var qty = num(ps[0].qty && ps[0].qty[key]) || 0, days = workDays(F, key).n, hpd = num(L.hpd) || 0;
+  var r = { part: ps[0], dup: ps.length, key: key, level: L, qty: qty, days: days, hpd: hpd, minutes: hpd * 60, perDay: null, takt: null };
+  if (qty > 0 && days > 0) r.perDay = qty / days;
+  if (r.perDay && hpd > 0) r.takt = hpd * 3600 / r.perDay;
+  return r;
+}
+
 var api = { DEF_LEVELS: DEF_LEVELS, uid: uid, blank: blank, norm: norm, monthKey: monthKey, addMonth: addMonth, daysIn: daysIn, monthLabel: monthLabel, parseMonthCell: parseMonthCell,
-  expandHolidays: expandHolidays, workDays: workDays, toggleDay: toggleDay, parseForecast: parseForecast, applyImport: applyImport, demo: demo, compute: compute, fitLevel: fitLevel, partHrs: partHrs };
+  expandHolidays: expandHolidays, workDays: workDays, toggleDay: toggleDay, parseForecast: parseForecast, applyImport: applyImport, demo: demo, compute: compute, fitLevel: fitLevel, partHrs: partHrs, normPn: normPn, findParts: findParts, taktFor: taktFor };
 if (typeof module !== 'undefined' && module.exports) module.exports = api; else Object.assign(root, { lbFcLib: api });
 })(typeof window !== 'undefined' ? window : globalThis);
