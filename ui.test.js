@@ -113,3 +113,20 @@ test('ui: ไม่พบ Part No. ใน Forecast → ไม่แสดงต�
   click(w, d.getElementById('tabbtn-flow'));
   assert.equal(d.getElementById('fcPick').hidden, true); assert.deepEqual(errors, []);
 });
+
+test('ui: Standard Work Chart อ่านตัวเลขที่มีคอมมาคั่นหลักพัน (27,000 = 27000)', async () => {
+  const { w, d, errors } = await open();
+  click(w, d.getElementById('tabbtn-swc'));
+  const src = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+  const swn = new w.Function(src.match(/function swn\(v\)[^\n]*/)[0] + '; return swn;')();
+  assert.equal(swn('27,000'), 27000); assert.equal(swn('1,234,567'), 1234567);
+  assert.equal(swn('2,5'), 2.5); assert.equal(swn('2.5'), 2.5); assert.equal(swn(''), 0); assert.equal(swn('-3'), 0);
+  assert.deepEqual(errors, []);
+});
+
+test('ui: Forecast ยังพิมพ์ได้เมื่ออยู่โหมด viewer (ข้อมูล local ไม่ถูกล็อก)', async () => {
+  const { w, d } = await open();
+  const src = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+  assert.match(src, /function lockedEl\(t\)[^\n]*!t\.closest\('#tab-fc'\)/);
+  click(w, d.getElementById('tabbtn-fc'));
+});

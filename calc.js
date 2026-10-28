@@ -11,7 +11,7 @@ function lbSchedule(E, par, R) {
   return E.map(function (e) {
     var ids = Object.keys(e.vals).filter(function (k) { return e.vals[k] > 0; }), o;
     if (!par || !ids.length) {
-      var len = e.time * ids.reduce(function (a, k) { return Math.max(a, mu(k)); }, 0); /* ต่อเนื่อง: เวลางาน × ตัวคูณสูงสุดของทรัพยากรที่ใช้ */
+      var len = ids.reduce(function (a, k) { return Math.max(a, e.vals[k] * mu(k)); }, 0); /* ต่อเนื่อง: ความยาวงาน = max(เวลาต่อทรัพยากร × ตัวคูณ) ให้ตรงกับโหลดใน lbCompute */
       o = { e: e, start: t, end: t + len }; t += len; return o;
     }
     var st = ids.reduce(function (a, k) { return Math.max(a, free[k] || 0); }, 0), mx = 0;

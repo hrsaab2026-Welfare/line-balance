@@ -88,3 +88,10 @@ test('lbSchedule ต่อเนื่อง: mult < 1 ใช้ตัวคู�
   const m = C.lbCompute({ cycle: 10, pcs: 1, takt: 0, resources: [{ id: 'a', name: 'A', kind: 'man', mult: 0.5 }], elements: [{ cat: 'x', name: 'e', time: 10, vals: { a: 10 } }] }, false);
   near(m.loads.a, 5); near(m.total, 5);
 });
+test('lbSchedule ต่อเนื่อง: ความยาวงานใช้ vals × mult ไม่ใช่ time (แก้ vals แล้ว time เดิม)', () => {
+  const md = model(); md.elements[0].vals.m1 = 25; md.resources[0].mult = 2; /* time ยังเป็น 10 */
+  const m = C.lbCompute(md, false);
+  near(m.sched[0].end - m.sched[0].start, 50);
+  near(m.total, 50 + 30 + 20);
+  near(m.loads.m1, 50);
+});

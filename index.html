@@ -1220,7 +1220,7 @@ function lbSchedule(E, par, R) {
   return E.map(function (e) {
     var ids = Object.keys(e.vals).filter(function (k) { return e.vals[k] > 0; }), o;
     if (!par || !ids.length) {
-      var len = e.time * ids.reduce(function (a, k) { return Math.max(a, mu(k)); }, 0); /* ต่อเนื่อง: เวลางาน × ตัวคูณสูงสุดของทรัพยากรที่ใช้ */
+      var len = ids.reduce(function (a, k) { return Math.max(a, e.vals[k] * mu(k)); }, 0); /* ต่อเนื่อง: ความยาวงาน = max(เวลาต่อทรัพยากร × ตัวคูณ) ให้ตรงกับโหลดใน lbCompute */
       o = { e: e, start: t, end: t + len }; t += len; return o;
     }
     var st = ids.reduce(function (a, k) { return Math.max(a, free[k] || 0); }, 0), mx = 0;
@@ -2810,7 +2810,7 @@ function swcUsed() {
   if (Object.keys(s.info).some(function (k) { return s.info[k] !== ''; })) return true;
   return s.rows.some(function (r) { return Object.keys(r).some(function (k) { return r[k] !== ''; }); }) || s.nc.some(function (r) { return r.desc !== '' || r.time !== '' || r.pcs !== ''; });
 }
-function swn(v) { v = parseFloat(String(v).replace(',', '.')); return isFinite(v) && v > 0 ? v : 0; }
+function swn(v) { var s = String(v == null ? '' : v).trim(); s = /^\d+,\d{1,2}$/.test(s) ? s.replace(',', '.') : s.replace(/,/g, ''); /* 27,000 = หมื่น; 2,5 = ทศนิยม */ v = parseFloat(s); return isFinite(v) && v > 0 ? v : 0; }
 
 /* คำนวณ: เวลานาฬิกาของพนักงานเดินหน้าด้วย งานมือ+ตรวจ+เดิน+คอย (เวลาเครื่องไม่นับ) ตรงกับสูตรในฟอร์ม Excel */
 function swcCalc() {
@@ -3281,9 +3281,9 @@ window.lbConfirm = function (o) {
       quiet = Date.now() + 4000; clearTimeout(saveT); clearTimeout(histT); clearTimeout(flTimer);
       S = null; D = null; SC = null; SWC = swcBlank(); SWCOPEN = false; hist = []; hi = -1; histSync();
     }
-    if (s.sc) setScenarios(s.sc);
+    if (s.sc) setScenarios(s.sc); else if (keep) SC = null; /* Undo กลับไปจุดที่ยังไม่มีตารางเทียบ: ไม่ให้ SC เดิมค้างแล้วถูกบันทึกทับ */
     if (s.swc) { SWC = swcNorm(s.swc); SWCOPEN = true; } else { SWC = swcBlank(); SWCOPEN = false; } swcDraw();
-    if (s.flow) { D = s.flow; renderFlow(); flowUpdate(); }
+    if (s.flow) { D = s.flow; renderFlow(); flowUpdate(); } else if (keep) D = null;
     if (s.fromFile && s.model) { clearTimeout(flTimer); setModel(s.model, s.file || 'งานที่บันทึกไว้'); }
     showTab(s.tab || 'flow');
   }
@@ -3331,7 +3331,7 @@ window.lbConfirm = function (o) {
   }
   /* กันแก้ข้อมูลในหน้าจอเมื่อเป็นผู้ดูอย่างเดียว (ฐานข้อมูลก็บล็อกด้วย RLS อีกชั้น) */
   function viewing() { return document.body.classList.contains('viewer'); }
-  function lockedEl(t) { return !!(t && t.closest && t.closest('.tabpanel') && !t.closest('#lbInsight') && t.id !== 'parChk'); }
+  function lockedEl(t) { return !!(t && t.closest && t.closest('.tabpanel') && !t.closest('#lbInsight') && !t.closest('#tab-fc') && t.id !== 'parChk'); }
   ['beforeinput', 'paste', 'cut'].forEach(function (n) {
     document.addEventListener(n, function (e) { if (viewing() && lockedEl(e.target)) e.preventDefault(); }, true);
   });
