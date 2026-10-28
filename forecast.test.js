@@ -100,3 +100,12 @@ test('norm: ซ่อมข้อมูลที่เพี้ยน (ไลน
   assert.equal(f.parts[0].qty['2026-10'], 5); assert.equal(f.parts[0].time, ''); assert.equal(f.parts[0].line, ''); assert.equal(f.parts[1].time, 2.5); assert.equal(f.parts[1].line, 'L1');
   assert.deepEqual(f.dayOv, { '2026-10': 21 }); assert.deepEqual(F.norm(null).parts, []);
 });
+
+test('demo: ข้อมูลจำลองคำนวณได้ ทุกไลน์มีโหลด และไม่ทับระดับ N / วันหยุดที่ผู้ใช้ตั้งไว้', () => {
+  const f = F.blank(); f.levels[0].hpd = 7; f.holidays = [{ id: 'h', date: '2026-10-13', to: '', name: 'x', type: 'off' }];
+  F.demo(f, '2026-10');
+  assert.equal(f.months.length, 6); assert.equal(f.parts.length, 12); assert.equal(f.lines.length, 3); assert.equal(f.levels[0].hpd, 7); assert.equal(f.holidays.length, 1);
+  const c = F.compute(f); assert.deepEqual(c.missing, []); assert.ok(c.lines.every(l => l.n === 4 && l.total > 0));
+  assert.ok(f.months.every(k => c.total[k] > 100 && c.total[k] < 1000));
+  const g = F.blank(); F.demo(g, '2026-10'); assert.equal(g.holidays.length, 2);
+});

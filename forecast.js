@@ -136,6 +136,25 @@ function compute(F) {
   return out;
 }
 
+/* ข้อมูลจำลองสำหรับดูภาพรวม: 3 ไลน์ 12 ชิ้นงาน 6 เดือนนับจาก startKey (สุ่มแบบกำหนดค่าตั้งต้น ได้ผลเหมือนเดิมทุกครั้ง)
+   แทนที่ชิ้นงาน/เดือน/ไลน์เดิม คงระดับ N และวันทำงานในสัปดาห์ไว้ ใส่วันหยุดตัวอย่างเฉพาะเมื่อยังไม่มีวันหยุด */
+function demo(F, startKey) {
+  var s = 20261028, r = function () { s = (s * 1664525 + 1013904223) % 4294967296; return s / 4294967296; };
+  var ms = [], i, j;
+  for (i = 0; i < 6; i++) ms.push(addMonth(startKey, i));
+  var L = [{ id: uid('l'), name: 'Line A (Muffler)' }, { id: uid('l'), name: 'Line B (Step ASM)' }, { id: uid('l'), name: 'Line C (Bracket)' }];
+  var spec = [[0, 'MUFFLER ASM', 'RT85', 2400, 38], [0, 'PIPE ASM;EXHAUST', 'RT85', 1800, 45], [0, 'PIPE ASM EXH FRT', 'RJ01', 2900, 32], [0, 'SILENCER ASM', 'VD00', 900, 55],
+    [1, "STEP ASM ASS'Y LH (CREW)", 'RG21', 2600, 78], [1, "STEP ASM ASS'Y RH (CREW)", 'RG21', 2600, 78], [1, "STEP ASM ASS'Y LH (EXT)", 'RG21', 1500, 70], [1, "STEP ASM ASS'Y RH (EXT)", 'RG21', 1500, 70],
+    [2, 'BRACKET;HARNESS', 'ES30', 5200, 14], [2, 'BRACKET;C/CASE B', 'ES30', 3100, 18], [2, 'PROTECTOR;HEAT', 'RG01', 4300, 16], [2, 'BRACKET AIR DUCT', 'RT93', 2800, 22]];
+  F.months = ms; F.dayOv = {}; F.customer = 'DEMO'; F.file = 'ข้อมูลจำลอง (Demo)'; F.lines = L;
+  F.parts = spec.map(function (x, n) {
+    var q = {}; ms.forEach(function (k) { q[k] = Math.round(x[3] * (0.7 + r() * 0.6) / 10) * 10; });
+    return { id: uid('p'), grp: L[x[0]].name.replace(/ \(.*/, ''), no: String(9000000000 + 1000 * (n + 1) + Math.floor(r() * 900)), name: x[1], model: x[2], qty: q, time: x[4], line: L[x[0]].id, note: '' };
+  });
+  if (!F.holidays.length && ms.length > 3) F.holidays = [{ id: uid('h'), date: ms[1] + '-13', to: '', name: 'วันหยุดบริษัท (ตัวอย่าง)', type: 'off' }, { id: uid('h'), date: ms[3] + '-02', to: ms[3] + '-04', name: 'หยุดต่อเนื่อง (ตัวอย่าง)', type: 'off' }];
+  return F;
+}
+
 /* ตรวจ/ซ่อมข้อมูลที่โหลดจาก localStorage หรือไฟล์สำรอง */
 function norm(o) {
   var F = blank(); if (!o || typeof o !== 'object') return F;
@@ -156,6 +175,6 @@ function norm(o) {
 }
 
 var api = { DEF_LEVELS: DEF_LEVELS, uid: uid, blank: blank, norm: norm, monthKey: monthKey, addMonth: addMonth, daysIn: daysIn, monthLabel: monthLabel, parseMonthCell: parseMonthCell,
-  expandHolidays: expandHolidays, workDays: workDays, parseForecast: parseForecast, applyImport: applyImport, compute: compute, fitLevel: fitLevel, partHrs: partHrs };
+  expandHolidays: expandHolidays, workDays: workDays, parseForecast: parseForecast, applyImport: applyImport, demo: demo, compute: compute, fitLevel: fitLevel, partHrs: partHrs };
 if (typeof module !== 'undefined' && module.exports) module.exports = api; else Object.assign(root, { lbFcLib: api });
 })(typeof window !== 'undefined' ? window : globalThis);

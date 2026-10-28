@@ -284,6 +284,10 @@
   });
 
   $('fcFile').addEventListener('change', function () { importFile(this.files[0]); this.value = ''; });
+  $('fcDemo').addEventListener('click', function () {
+    var go = function () { Lib.demo(F, curMonth()); sel = {}; flt = { q: '', line: '', qty: true, nt: false }; scope = 'all'; renderAll(); keep(); msg('สร้างข้อมูลจำลองแล้ว (3 ไลน์ 12 ชิ้นงาน 6 เดือน) ลองแก้เวลา ยอด หรือวันหยุดดูผลได้เลย'); };
+    if (!F.parts.length) go(); else lbConfirm({ tone: 'warn', title: 'สร้างข้อมูลจำลองทับข้อมูลเดิม?', msg: 'ชิ้นงาน ยอดผลิต เวลาต่อชิ้น และไลน์ปัจจุบันจะถูกแทนที่ด้วยข้อมูลตัวอย่าง', hint: 'ถ้าต้องการเก็บข้อมูลเดิม ให้กดส่งออก Excel ก่อน', ok: 'สร้างข้อมูลจำลอง', cancel: 'ยกเลิก' }).then(function (y) { if (y) go(); });
+  });
   $('fcExport').addEventListener('click', exportXlsx);
   $('fcClear').addEventListener('click', function () {
     if (!F.parts.length && !F.months.length) return;
