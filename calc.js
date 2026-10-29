@@ -33,7 +33,8 @@ function bandsOf(m) {
 }
 function lbCompute(S, par) {
   var E = S.elements, R = S.resources, cycle = +S.cycle || 0, pcs = Math.max(1, +S.pcs || 1), takt = +S.takt || 0;
-  var loads = {}, m = { perPiece: cycle / pcs, cycle: cycle, pcs: pcs, takt: takt };
+  var eff = Math.min(1, Math.max(0.01, (+S.eff > 0 ? +S.eff : 100) / 100)); /* Efficiency การทำงานจริง (ใส่เป็น %, ไม่ใส่ = 100%) */
+  var loads = {}, m = { perPiece: cycle / pcs / eff, stdPerPiece: cycle / pcs, eff: eff, cycle: cycle, pcs: pcs, takt: takt };
   R.forEach(function (r) { loads[r.id] = E.reduce(function (a, e) { return a + (e.vals[r.id] || 0); }, 0) * (r.mult == null ? 1 : r.mult); });
   m.loads = loads;
   var men = R.filter(function (r) { return r.kind === 'man'; });
@@ -41,6 +42,7 @@ function lbCompute(S, par) {
   var manMax = men.reduce(function (a, r) { return Math.max(a, loads[r.id]); }, 0);
   m.men = men.length; m.manSum = manSum;
   m.balEff = men.length && manMax ? manSum / (men.length * manMax) : null;
+  m.overallEff = m.balEff == null ? null : m.balEff * eff; /* Efficiency รวม = สมดุลสาย × Efficiency จริง */
   m.laborUtil = men.length && cycle ? manSum / (men.length * cycle) : null;
   m.laborPerPc = men.length ? manSum / pcs : null;
   var maxLoad = 0; R.forEach(function (r) { if (loads[r.id] > maxLoad) maxLoad = loads[r.id]; });

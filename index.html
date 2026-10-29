@@ -697,6 +697,7 @@ body.viewer #tab-fc input, body.viewer #tab-fc select { pointer-events:auto !imp
     <div class="field"><label for="takt">Takt Time</label><div class="row"><input id="takt" type="number" min="1" step="any" inputmode="decimal"><span class="unit">วินาที / ชิ้น</span></div></div>
     <div class="field"><label for="pcs">ชิ้นต่อรอบ</label><div class="row"><input id="pcs" type="number" min="1" step="1" inputmode="numeric"><span class="unit">ชิ้น</span></div></div>
     <div class="field"><label for="cycle">Cycle Time ต่อรอบ</label><div class="row"><input id="cycle" type="number" min="1" step="any" inputmode="decimal"><span class="unit">วินาที</span><button class="linkbtn" id="cycleReset" type="button">ใช้ค่าจากไฟล์</button></div></div>
+    <div class="field"><label for="eff" title="ประสิทธิภาพการทำงานจริงของพนักงาน เช่น พัก เดินหยิบของ เหนื่อยล้า ปกติหน้างานจริงอยู่ประมาณ 80–90%">Efficiency การทำงานจริง</label><div class="row"><input id="eff" type="number" min="1" max="100" step="any" inputmode="decimal" value="100"><span class="unit">%</span></div></div>
     <p class="derived" id="derived"></p>
     <button class="linkbtn" id="rg21Btn" type="button">ดูตัวอย่าง Process Line RG21</button>
     <button class="btn ghost" id="exportBtn" type="button">ส่งออก Excel (Process Line + Man-Machine)</button>
@@ -1249,7 +1250,8 @@ function bandsOf(m) {
 }
 function lbCompute(S, par) {
   var E = S.elements, R = S.resources, cycle = +S.cycle || 0, pcs = Math.max(1, +S.pcs || 1), takt = +S.takt || 0;
-  var loads = {}, m = { perPiece: cycle / pcs, cycle: cycle, pcs: pcs, takt: takt };
+  var eff = Math.min(1, Math.max(0.01, (+S.eff > 0 ? +S.eff : 100) / 100)); /* Efficiency การทำงานจริง (ใส่เป็น %, ไม่ใส่ = 100%) */
+  var loads = {}, m = { perPiece: cycle / pcs / eff, stdPerPiece: cycle / pcs, eff: eff, cycle: cycle, pcs: pcs, takt: takt };
   R.forEach(function (r) { loads[r.id] = E.reduce(function (a, e) { return a + (e.vals[r.id] || 0); }, 0) * (r.mult == null ? 1 : r.mult); });
   m.loads = loads;
   var men = R.filter(function (r) { return r.kind === 'man'; });
@@ -1257,6 +1259,7 @@ function lbCompute(S, par) {
   var manMax = men.reduce(function (a, r) { return Math.max(a, loads[r.id]); }, 0);
   m.men = men.length; m.manSum = manSum;
   m.balEff = men.length && manMax ? manSum / (men.length * manMax) : null;
+  m.overallEff = m.balEff == null ? null : m.balEff * eff; /* Efficiency รวม = สมดุลสาย × Efficiency จริง */
   m.laborUtil = men.length && cycle ? manSum / (men.length * cycle) : null;
   m.laborPerPc = men.length ? manSum / pcs : null;
   var maxLoad = 0; R.forEach(function (r) { if (loads[r.id] > maxLoad) maxLoad = loads[r.id]; });
@@ -1319,7 +1322,7 @@ function lbYamazumi(S, override) {
 /* ข้อเสนอ: ย้ายงานแรก/งานสุดท้ายของคอขวด (คน) ไปสถานีข้างเคียง เพื่อคงลำดับงานไว้ */
 function lbSuggest(S, m, override) {
   var out = [], men = S.resources.filter(function (r) { return r.kind === 'man'; });
-  var cap = m.takt && m.takt > 0 ? m.takt * m.pcs : 0;
+  var cap = m.takt && m.takt > 0 ? m.takt * m.pcs * (m.eff || 1) : 0;
   if (men.length < 2) return out;
   var worst = men.reduce(function (a, r) { return m.loads[r.id] > m.loads[a.id] ? r : a; }, men[0]);
   var wi = men.indexOf(worst), oldMax = Math.max.apply(null, men.map(function (r) { return m.loads[r.id]; }));
@@ -1353,6 +1356,7 @@ var SAMPLE_PF = {"part":{"cust":"IEMT","model":"ES37","partNo":"7552731170","par
 var S = null;          // current model
 var FILE = '';         // file label
 var FILE_CYCLE = 0;    // cycle from file
+var S_PREV_EFF = 100;  // Efficiency ล่าสุดที่ผู้ใช้ตั้ง
 
 function $(id) { return document.getElementById(id); }
 function esc(t) { return String(t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
@@ -1365,7 +1369,9 @@ function setModel(m, label) {
   $('fileChip').innerHTML = '<span class="mono">' + esc(label) + '</span>' + (m.sheet ? '<span class="mut" style="color:var(--muted)">· ชีต ' + esc(m.sheet) + '</span>' : '');
   $('takt').value = m.takt == null ? '' : m.takt;
   $('pcs').value = m.pcs;
+  if (!(+m.eff > 0)) m.eff = (typeof S_PREV_EFF !== 'undefined' && S_PREV_EFF > 0) ? S_PREV_EFF : 100; /* คงค่า Efficiency ที่ตั้งไว้เมื่อเปลี่ยนไฟล์ */
   $('cycle').value = m.cycle;
+  $('eff').value = m.eff;
   renderAll(null);
 }
 
@@ -1389,7 +1395,7 @@ function lbAnimBars(root, ns) {
 /* ---------- verdict + kpis ---------- */
 function renderVerdict(m) {
   var el = $('verdict');
-  $('derived').innerHTML = 'Cycle Time ต่อชิ้น <b class="mono">' + fmt(m.perPiece) + '</b> วินาที';
+  $('derived').innerHTML = m.eff < 1 ? 'Cycle Time ต่อชิ้น (มาตรฐาน) <b class="mono">' + fmt(m.stdPerPiece) + '</b> วินาที · ที่ Efficiency ' + fmt(m.eff * 100) + '% = <b class="mono">' + fmt(m.perPiece) + '</b> วินาที' : 'Cycle Time ต่อชิ้น <b class="mono">' + fmt(m.perPiece) + '</b> วินาที';
   var over = S.resources.filter(function (r) { return m.loads[r.id] > m.cycle + 1e-9; });
   var overTxt = over.length ? ' · เกินรอบ: ' + over.map(function (r) { return esc(r.name); }).join(', ') : '';
   if (!m.takt) {
@@ -1413,8 +1419,9 @@ function renderVerdict(m) {
 function renderKpi(m) {
   var bn = m.bottle.length ? m.bottle.map(function (r) { return r.name; }).join(', ') : '—';
   var k = [
-    ['กำลังผลิตสูงสุด', m.capacity ? fmt(m.capacity) + ' <span style="font-size:13px;font-weight:500">ชิ้น/ชม.</span>' : '—', m.required ? 'ที่ต้องการ ' + fmt(m.required) + ' ชิ้น/ชม. (Takt ' + fmt(m.takt) + ' วินาที)' : 'กรอก Takt Time เพื่อเทียบ'],
-    ['Balance efficiency', m.balEff == null ? '—' : pct(m.balEff), 'เฉพาะพนักงาน ' + m.men + ' คน · Σ โหลด ÷ (คน × โหลดสูงสุด)'],
+    ['กำลังผลิตสูงสุด', m.capacity ? fmt(m.capacity) + ' <span style="font-size:13px;font-weight:500">ชิ้น/ชม.</span>' : '—', (m.required ? 'ที่ต้องการ ' + fmt(m.required) + ' ชิ้น/ชม. (Takt ' + fmt(m.takt) + ' วินาที)' : 'กรอก Takt Time เพื่อเทียบ') + (m.eff < 1 ? ' · คิดที่ Efficiency ' + fmt(m.eff * 100) + '%' : '')],
+    ['Balance efficiency', m.balEff == null ? '—' : pct(m.balEff), m.men === 1 ? 'มีพนักงาน 1 คน จึงสมดุล 100% เสมอ · ดู Efficiency รวมแทน' : 'เฉพาะพนักงาน ' + m.men + ' คน · Σ โหลด ÷ (คน × โหลดสูงสุด)'],
+    ['Efficiency รวม', m.overallEff == null ? '—' : pct(m.overallEff), 'Balance × Efficiency การทำงานจริง ' + fmt(m.eff * 100) + '%'],
     ['Labor utilization', m.laborUtil == null ? '—' : pct(m.laborUtil), 'Σ โหลด ÷ (คน × Cycle Time)'],
     ['คอขวด', esc(bn), m.maxLoad ? fmt(m.maxLoad) + ' วินาที จาก Cycle ' + fmt(m.cycle) + ' (' + pct(m.cycle ? m.maxLoad / m.cycle : 0) + ')' : ''],
     ['แรงงานต่อชิ้น', m.laborPerPc == null ? '—' : fmt(m.laborPerPc) + ' <span style="font-size:13px;font-weight:500">วินาที-คน</span>', 'Σ โหลดพนักงาน ÷ ' + m.pcs + ' ชิ้น']
@@ -1425,14 +1432,14 @@ function renderKpi(m) {
 /* ---------- load chart ---------- */
 function renderLoadChart(m) {
   var R = S.resources, W = 760, gut = 104, right = 64, rowH = 30, top = 34;
-  var taktCyc = m.takt * m.pcs;
+  var taktCyc = m.takt * m.pcs * m.eff; /* เวลาที่ใช้ได้จริงต่อรอบ = Takt × ชิ้น × Efficiency */
   var xmax = Math.max(m.cycle, taktCyc, m.maxLoad) * 1.06 || 10;
   var H = top + R.length * rowH + 22, pw = W - gut - right;
   function X(v) { return gut + (v / xmax) * pw; }
   var g = '', i, step = xmax > 150 ? 50 : xmax > 60 ? 20 : 10;
   for (var tv = 0; tv <= xmax; tv += step) g += '<line x1="' + X(tv) + '" x2="' + X(tv) + '" y1="' + top + '" y2="' + (H - 22) + '" stroke="var(--line)" stroke-width="1"/><text class="num mut" x="' + X(tv) + '" y="' + (H - 6) + '" text-anchor="middle" style="font-size:11px">' + tv + '</text>';
   var lines = [{ v: m.cycle, t: 'Cycle ' + fmt(m.cycle), dash: true }];
-  if (taktCyc) lines.push({ v: taktCyc, t: 'Takt×' + m.pcs + ' ' + fmt(taktCyc), dash: false });
+  if (taktCyc) lines.push({ v: taktCyc, t: 'Takt×' + m.pcs + (m.eff < 1 ? '×' + fmt(m.eff * 100) + '%' : '') + ' ' + fmt(taktCyc), dash: false });
   lines.sort(function (a, b) { return a.v - b.v; });
   var bars = '';
   R.forEach(function (r, k) {
@@ -2315,6 +2322,12 @@ function msg(t, err) { var el = $('msg'); el.textContent = t || ''; el.className
     S[id] = isFinite(v) && v > 0 ? v : (id === 'takt' ? null : id === 'pcs' ? 1 : 0);
     renderAll('cond');
   });
+});
+$('eff').addEventListener('input', function () {
+  var v = parseFloat(this.value);
+  S.eff = isFinite(v) && v > 0 ? Math.min(100, v) : 100;
+  S_PREV_EFF = S.eff;
+  renderAll('cond');
 });
 $('cycleReset').addEventListener('click', function () { $('cycle').value = FILE_CYCLE; S.cycle = FILE_CYCLE; renderAll(null); });
 
@@ -3883,7 +3896,7 @@ window.lbConfirm = function (o) {
 
   function chart(m, rows) {
     var W = 760, left = 46, right = 20, top = 32, bot = 46, H = 300, ph = H - top - bot, pw = W - left - right;
-    var cap = m.takt ? m.takt * m.pcs : 0, ymax = Math.max(cap, m.cycle, m.maxLoad) * 1.12 || 10;
+    var cap = m.takt ? m.takt * m.pcs * (m.eff || 1) : 0, ymax = Math.max(cap, m.cycle, m.maxLoad) * 1.12 || 10;
     function Y(v) { return top + ph - (v / ymax) * ph; }
     var step = ymax > 150 ? 50 : ymax > 60 ? 20 : 10, g = '', tv;
     for (tv = 0; tv <= ymax; tv += step) g += '<line x1="' + left + '" x2="' + (W - right) + '" y1="' + Y(tv) + '" y2="' + Y(tv) + '" stroke="var(--line)"/><text class="num mut" x="' + (left - 6) + '" y="' + (Y(tv) + 4) + '" text-anchor="end" style="font-size:11px">' + tv + '</text>';
@@ -3954,7 +3967,7 @@ var r1 = function (n) { return Math.round((+n || 0) * 10) / 10; };
 var cut = function (s, n) { return String(s == null ? '' : s).replace(/\s+/g, ' ').trim().slice(0, n); };
 
 function lbAiPayload(S, m, rows, sug) {
-  var cap = m.takt > 0 ? m.takt * m.pcs : 0, mult = {}, i;
+  var cap = m.takt > 0 ? m.takt * m.pcs * (m.eff || 1) : 0, mult = {}, i;
   S.resources.forEach(function (r) { mult[r.id] = r.mult == null ? 1 : r.mult; });
   var verdict = !cap ? 'no_takt' : m.maxLoad > cap + 1e-9 ? 'over' : m.maxLoad >= cap * 0.95 ? 'near' : 'ok';
   var worst = m.bottle && m.bottle[0];
