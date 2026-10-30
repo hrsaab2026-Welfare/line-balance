@@ -15,8 +15,9 @@
 (function (root) {
   var URLS = {
     xlsx: 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
-    exceljs: 'https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js'
-  }, GLOBAL = { xlsx: 'XLSX', exceljs: 'ExcelJS' }, pending = {};
+    exceljs: 'https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js',
+    pdf: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js'
+  }, GLOBAL = { xlsx: 'XLSX', exceljs: 'ExcelJS', pdf: 'pdfjsLib' }, pending = {};
   function one(k) {
     if (root[GLOBAL[k]]) return Promise.resolve(true);
     if (pending[k]) return pending[k];
@@ -617,7 +618,7 @@ body.viewer #tab-fc input, body.viewer #tab-fc select { pointer-events:auto !imp
       <span class="tb-sep" aria-hidden="true"></span>
       <button class="btn ghost" id="closeFileBtn" type="button" title="ปิดไฟล์นี้แล้วกลับหน้าเริ่มต้น" hidden><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>ปิดไฟล์</button>
       <label class="btn" id="hdrUpload" for="fileInput" hidden><svg viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></svg>อัปโหลด Excel</label>
-      <input id="fileInput" type="file" accept=".xlsx,.xlsm,.xls" hidden>
+      <input id="fileInput" type="file" accept=".xlsx,.xlsm,.xls,.pdf" hidden>
       <div class="menu">
         <button class="btn ghost" id="cloudMenuBtn" type="button" data-menu aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 24 24"><path d="M7 18a4 4 0 0 1-.6-7.96A6 6 0 0 1 18 9.5a4.2 4.2 0 0 1-.5 8.5z"/></svg>Cloud<svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
         <div class="menupop" role="menu" hidden>
@@ -647,7 +648,7 @@ body.viewer #tab-fc input, body.viewer #tab-fc select { pointer-events:auto !imp
         <label class="btn wl-big" for="fileInput">เริ่มงานใหม่จากไฟล์ Excel</label>
         <button class="btn ghost wl-big" id="wlSample" type="button">ดูตัวอย่างก่อน</button>
       </div>
-      <p class="wl-drop">ลากไฟล์ .xlsx มาวางที่หน้านี้ได้เลย · ยังไม่มีไฟล์? <button class="linkbtn" type="button" data-ea="tpl">ดาวน์โหลดแม่แบบ Excel</button> · หรือ <button class="linkbtn" type="button" id="wlSwc">เริ่ม Standard Work Chart เปล่า</button></p>
+      <p class="wl-drop">ลากไฟล์ .xlsx หรือ .pdf มาวางที่หน้านี้ได้เลย · ยังไม่มีไฟล์? <button class="linkbtn" type="button" data-ea="tpl">ดาวน์โหลดแม่แบบ Excel</button> · หรือ <button class="linkbtn" type="button" id="wlSwc">เริ่ม Standard Work Chart เปล่า</button></p>
     </div>
     <ol class="wl-steps">
       <li><b>อัปโหลดไฟล์</b><span>ใช้ไฟล์ Process Flow, Process Line หรือ Man-Machine ระบบดูรูปแบบให้เอง</span></li>
@@ -1209,7 +1210,99 @@ function lbAutoModel(D) {
   }
   return { empty: false, warn: warn, model: { elements: elements, resources: resources, takt: takt || null, pcs: 1, cycle: cycle, auto: true } };
 }
-var api = { lbClean: lbClean, lbNum: lbNum, LB_TIME_RE: LB_TIME_RE, lbParseSheet: lbParseSheet, lbParseWorkbook: lbParseWorkbook, lbParseScenarios: lbParseScenarios, lbParseScenarioWorkbook: lbParseScenarioWorkbook, lbTitle: lbTitle, lbUniq: lbUniq, lbClassify: lbClassify, lbParseProcessFlow: lbParseProcessFlow, lbParseProcessFlowWorkbook: lbParseProcessFlowWorkbook, lbBom: lbBom, lbGenElements: lbGenElements, lbAddGenerated: lbAddGenerated, lbInitDraft: lbInitDraft, lbAutoModel: lbAutoModel };
+/* ---- PDF -> ตาราง (aoa): จัดข้อความตามตำแหน่งบนหน้า แล้วส่งเข้า parser เดิมของ Excel ---- */
+function lbPdfLines(items) {
+  var it = items.filter(function (t) { return lbClean(t.s) !== ''; }).sort(function (a, b) { return a.y - b.y || a.x - b.x; });
+  var lines = [];
+  it.forEach(function (t) {
+    var ln = lines[lines.length - 1], tol = Math.max(1.5, (t.h || 8) * 0.4);
+    if (ln && Math.abs(t.y - ln.y) <= tol) { ln.items.push(t); ln.sum += t.y; ln.y = ln.sum / ln.items.length; }
+    else lines.push({ y: t.y, sum: t.y, items: [t] });
+  });
+  lines.forEach(function (ln) {
+    ln.items.sort(function (a, b) { return a.x - b.x; });
+    var cells = [];
+    ln.items.forEach(function (t) {
+      var c = cells[cells.length - 1], w = t.w || 0, hh = t.h || 8;
+      if (c && t.x - c.x1 < hh * 0.15) { c.s += (t.x - c.x1 > hh * 0.05 ? ' ' : '') + t.s; c.x1 = Math.max(c.x1, t.x + w); }
+      else cells.push({ s: t.s, x0: t.x, x1: t.x + w });
+    });
+    ln.cells = cells;
+  });
+  return lines;
+}
+/* หาคอลัมน์จากช่องว่างแนวตั้ง (gutter) ที่ไม่มีข้อความคาบเกี่ยว ใช้เฉพาะแถวที่มีหลายช่อง และไม่นับช่องที่กว้างมาก (หัวเรื่อง) */
+function lbPdfBands(lines) {
+  var rows = lines.filter(function (l) { return l.cells.length >= 4; });
+  if (!rows.length) rows = lines;
+  var all = []; rows.forEach(function (l) { all = all.concat(l.cells); });
+  if (!all.length) return { bands: [], W: 0 };
+  var lo = Infinity, hi = -Infinity;
+  all.forEach(function (c) { lo = Math.min(lo, c.x0); hi = Math.max(hi, c.x1); });
+  var W = hi - lo, segs = all.filter(function (c) { return c.x1 - c.x0 <= W * 0.4; }).map(function (c) { return [c.x0, c.x1]; }).sort(function (a, b) { return a[0] - b[0]; });
+  var bands = [];
+  segs.forEach(function (g) { var b = bands[bands.length - 1]; if (b && g[0] <= b[1] + 1.5) b[1] = Math.max(b[1], g[1]); else bands.push([g[0], g[1]]); });
+  return { bands: bands, W: W };
+}
+function lbPdfSheet(lines, bd) {
+  var bands = bd.bands, nb = bands.length;
+  function colOf(c) {
+    var w = c.x1 - c.x0, p = w > bd.W * 0.4 ? c.x0 + 1 : (c.x0 + c.x1) / 2, k, best = 0, bd2 = Infinity;
+    for (k = 0; k < nb; k++) {
+      if (p >= bands[k][0] - 1 && p <= bands[k][1] + 1) return k;
+      var d = Math.min(Math.abs(p - bands[k][0]), Math.abs(p - bands[k][1]));
+      if (d < bd2) { bd2 = d; best = k; }
+    }
+    return best;
+  }
+  return lines.map(function (l) {
+    var row = []; for (var k = 0; k < nb; k++) row.push(null);
+    l.cells.forEach(function (c) { var j = colOf(c), t = lbClean(c.s); if (t === '') return; row[j] = row[j] == null ? t : row[j] + ' ' + t; });
+    return row.map(function (v) { return typeof v === 'string' && /^-?\d+(\.\d+)?$/.test(v) ? parseFloat(v) : v; });
+  });
+}
+function lbPdfToAoa(pages) {
+  var pl = pages.map(lbPdfLines), flat = [];
+  pl.forEach(function (ls) { flat = flat.concat(ls); });
+  var bd = lbPdfBands(flat), merged = [];
+  pl.forEach(function (ls, p) {
+    var rows = lbPdfSheet(ls, bd), cut = -1, i;
+    if (p > 0) { /* หน้าถัดไปที่พิมพ์หัวตารางซ้ำ: ตัดหัวตารางออก ไม่งั้น parser จะหยุดที่หัวซ้ำ */
+      for (i = 0; i < Math.min(rows.length, 20) && cut < 0; i++) { if (rows[i].some(function (v) { return LB_TIME_RE.test(lbClean(v)); })) cut = i; }
+      if (cut >= 0) rows = rows.slice(cut + 2);
+    }
+    merged = merged.concat(rows);
+  });
+  return { aoa: merged, pages: pl.map(function (ls) { return lbPdfSheet(ls, lbPdfBands(ls)); }) };
+}
+function lbPdfWorkbook(pages, X) {
+  var r = lbPdfToAoa(pages), names = [], sheets = {};
+  function add(n, a) { if (a.length) { names.push(n); sheets[n] = X.utils.aoa_to_sheet(a); } }
+  add('PDF', r.aoa);
+  if (pages.length > 1) r.pages.forEach(function (a, i) { add('PDF หน้า ' + (i + 1), a); });
+  return { SheetNames: names, Sheets: sheets };
+}
+/* ดึงข้อความพร้อมตำแหน่งจาก pdf.js (lib = pdfjsLib) */
+function lbPdfPages(lib, doc, maxPages) {
+  var pages = [], n = Math.min(doc.numPages, maxPages || 40), chain = Promise.resolve();
+  function one(k) {
+    return function () {
+      return doc.getPage(k).then(function (pg) {
+        var vp = pg.getViewport({ scale: 1 });
+        return pg.getTextContent().then(function (tc) {
+          pages.push(tc.items.filter(function (i) { return typeof i.str === 'string' && i.transform; }).map(function (i) {
+            var m = lib.Util.transform(vp.transform, i.transform);
+            return { s: i.str, x: m[4], y: m[5], w: Math.abs(i.width || 0) * vp.scale, h: Math.hypot(m[2], m[3]) };
+          }));
+        });
+      });
+    };
+  }
+  for (var k = 1; k <= n; k++) chain = chain.then(one(k));
+  return chain.then(function () { return pages; });
+}
+
+var api = { lbPdfToAoa: lbPdfToAoa, lbPdfWorkbook: lbPdfWorkbook, lbPdfPages: lbPdfPages, lbClean: lbClean, lbNum: lbNum, LB_TIME_RE: LB_TIME_RE, lbParseSheet: lbParseSheet, lbParseWorkbook: lbParseWorkbook, lbParseScenarios: lbParseScenarios, lbParseScenarioWorkbook: lbParseScenarioWorkbook, lbTitle: lbTitle, lbUniq: lbUniq, lbClassify: lbClassify, lbParseProcessFlow: lbParseProcessFlow, lbParseProcessFlowWorkbook: lbParseProcessFlowWorkbook, lbBom: lbBom, lbGenElements: lbGenElements, lbAddGenerated: lbAddGenerated, lbInitDraft: lbInitDraft, lbAutoModel: lbAutoModel };
 if (typeof module !== 'undefined' && module.exports) module.exports = api; else Object.assign(root, api);
 })(typeof window !== 'undefined' ? window : globalThis);
 
@@ -2450,23 +2543,45 @@ document.addEventListener('click', function (ev) {
 });
 $('wlSample').addEventListener('click', function () { $('sampleBtn').click(); });
 
-function handleFile(file) { if (!file) return; if (!lbLoaded(['xlsx'])) msg('กำลังโหลดตัวช่วย Excel…'); lbLoad(['xlsx']).then(function () { handleFileNow(file); }); }
+function handleFile(file) {
+  if (!file) return;
+  var pdf = /\.pdf$/i.test(file.name), libs = pdf ? ['xlsx', 'pdf'] : ['xlsx'];
+  if (!lbLoaded(libs)) msg(pdf ? 'กำลังโหลดตัวช่วยอ่าน PDF…' : 'กำลังโหลดตัวช่วย Excel…');
+  lbLoad(libs).then(function () { handleFileNow(file); });
+}
+function lbOpenWorkbook(wb, file, fromPdf) {
+  var pf = lbParseProcessFlowWorkbook(wb, XLSX), res = lbParseWorkbook(wb, XLSX), sc = lbParseScenarioWorkbook(wb, XLSX), got = [];
+  if (!pf && !res && !sc) {
+    var why = lbDiagnose(wb, XLSX);
+    if (fromPdf) why = ['PDF อ่านข้อความได้ แต่จัดเป็นตารางตามรูปแบบที่ระบบรู้จักไม่ได้ (ตารางใน PDF ต้องเป็นตัวอักษร ไม่ใช่รูปภาพ และคอลัมน์ต้องไม่ชิดกันจนไม่มีช่องว่าง)'].concat(why).concat(['ถ้ายังไม่ได้ ให้ส่งออกเป็น Excel (.xlsx) จากไฟล์ต้นฉบับ แล้วอัปโหลดแทน']);
+    fileError('อ่านตารางจากไฟล์ "' + file.name + '" ไม่ได้', why, 'ระบบรองรับ 3 รูปแบบ: Process Flow (หัวคอลัมน์ PROC. / PROCESS NAME), Process Line (หัวคอลัมน์ Time (Sec) และ Man / Robot / Jig) และ Man-Machine (หัวคอลัมน์ Scenario / Process / Time) ดาวน์โหลดแม่แบบแล้วคัดลอกข้อมูลลงในรูปแบบเดียวกันได้');
+    return;
+  }
+  if (pf) { setFlow(pf, file.name, false); got.push('Process Flow'); }
+  if (res) { setModel(res, file.name); got.push('Line Balance'); }
+  if (sc) { setScenarios(sc); got.push('เทียบ Manual กับ Robot'); }
+  showTab(pf ? 'flow' : res ? 'balance' : 'compare');
+  msg('อ่าน ' + file.name + (fromPdf ? ' (PDF)' : '') + ' แล้ว: ' + got.join(' และ ') + (fromPdf ? ' · ตรวจตัวเลขเทียบกับต้นฉบับอีกครั้ง เพราะอ่านจากตำแหน่งตัวอักษรใน PDF' : ''));
+}
 function handleFileNow(file) {
   if (!file) return;
-  if (!/\.(xlsx|xlsm|xls)$/i.test(file.name)) { fileError('ไฟล์ "' + file.name + '" ยังไม่รองรับ', ['ระบบอ่านได้เฉพาะไฟล์ Excel (.xlsx, .xlsm, .xls)', 'ถ้าเป็น CSV หรือ Google Sheets ให้เปิดแล้วเลือกบันทึก/ดาวน์โหลดเป็น Excel (.xlsx) ก่อน แล้วอัปโหลดอีกครั้ง']); return; }
+  var isPdf = /\.pdf$/i.test(file.name);
+  if (!isPdf && !/\.(xlsx|xlsm|xls)$/i.test(file.name)) { fileError('ไฟล์ "' + file.name + '" ยังไม่รองรับ', ['ระบบอ่านได้เฉพาะไฟล์ Excel (.xlsx, .xlsm, .xls) และ PDF ที่เป็นตัวอักษร', 'ถ้าเป็น CSV หรือ Google Sheets ให้เปิดแล้วเลือกบันทึก/ดาวน์โหลดเป็น Excel (.xlsx) ก่อน แล้วอัปโหลดอีกครั้ง']); return; }
   if (!file.size) { fileError('ไฟล์ "' + file.name + '" ว่างเปล่า', ['ไฟล์มีขนาด 0 ไบต์ ลองเลือกไฟล์ใหม่ หรือบันทึกไฟล์จาก Excel อีกครั้ง']); return; }
   if (typeof XLSX === 'undefined') { msg('โหลดตัวอ่าน Excel ไม่สำเร็จ ลองรีเฟรชหน้านี้อีกครั้ง', true); return; }
+  if (isPdf && !window.pdfjsLib) { msg('โหลดตัวอ่าน PDF ไม่สำเร็จ ตรวจอินเทอร์เน็ตแล้วลองรีเฟรชหน้านี้อีกครั้ง', true); return; }
   var rd = new FileReader();
   rd.onload = function () {
+    if (isPdf) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      pdfjsLib.getDocument({ data: new Uint8Array(rd.result) }).promise.then(function (doc) { return lbPdfPages(pdfjsLib, doc, 40); }).then(function (pages) {
+        if (!pages.some(function (p) { return p.length; })) { fileError('ไฟล์ PDF "' + file.name + '" ไม่มีตัวอักษรให้อ่าน', ['ไฟล์นี้น่าจะเป็นภาพสแกนหรือภาพถ่าย ระบบยังอ่านตัวอักษรจากภาพ (OCR) ไม่ได้', 'ให้ส่งออก PDF จาก Excel โดยตรง (Save as PDF) หรืออัปโหลดไฟล์ Excel ต้นฉบับแทน']); return; }
+        lbOpenWorkbook(lbPdfWorkbook(pages, XLSX), file, true);
+      }).catch(function (err) { fileError('เปิดไฟล์ PDF "' + file.name + '" ไม่ได้', ['ไฟล์อาจเสีย หรือมีรหัสผ่านป้องกัน', 'ลองเปิดไฟล์ใน PDF Reader เอารหัสผ่านออก แล้วบันทึกใหม่ จากนั้นอัปโหลดอีกครั้ง', 'รายละเอียดจากระบบ: ' + ((err && err.message) || err)]); });
+      return;
+    }
     try {
-      var wb = XLSX.read(rd.result, { type: 'array' });
-      var pf = lbParseProcessFlowWorkbook(wb, XLSX), res = lbParseWorkbook(wb, XLSX), sc = lbParseScenarioWorkbook(wb, XLSX), got = [];
-      if (!pf && !res && !sc) { fileError('อ่านตารางจากไฟล์ "' + file.name + '" ไม่ได้', lbDiagnose(wb, XLSX), 'ระบบรองรับ 3 รูปแบบ: Process Flow (หัวคอลัมน์ PROC. / PROCESS NAME), Process Line (หัวคอลัมน์ Time (Sec) และ Man / Robot / Jig) และ Man-Machine (หัวคอลัมน์ Scenario / Process / Time) ดาวน์โหลดแม่แบบแล้วคัดลอกข้อมูลลงในรูปแบบเดียวกันได้'); return; }
-      if (pf) { setFlow(pf, file.name, false); got.push('Process Flow'); }
-      if (res) { setModel(res, file.name); got.push('Line Balance'); }
-      if (sc) { setScenarios(sc); got.push('เทียบ Manual กับ Robot'); }
-      showTab(pf ? 'flow' : res ? 'balance' : 'compare');
-      msg('อ่าน ' + file.name + ' แล้ว: ' + got.join(' และ '));
+      lbOpenWorkbook(XLSX.read(rd.result, { type: 'array' }), file, false);
     } catch (err) { fileError('เปิดไฟล์ "' + file.name + '" ไม่ได้', ['ไฟล์อาจเสีย มีรหัสผ่านป้องกัน หรือเป็นไฟล์ชนิดอื่นที่ตั้งนามสกุลเป็น Excel', 'ลองเปิดไฟล์ใน Excel เอารหัสผ่านออก แล้วบันทึกเป็น .xlsx ใหม่ จากนั้นอัปโหลดอีกครั้ง', 'รายละเอียดจากระบบ: ' + err.message]); }
   };
   rd.readAsArrayBuffer(file);
