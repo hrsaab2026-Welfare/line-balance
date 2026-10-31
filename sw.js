@@ -2,8 +2,8 @@
    ไฟล์ของแอปเอง: ลองเน็ตก่อน ถ้าไม่ได้ใช้ของที่เก็บไว้ (ได้เวอร์ชันใหม่เสมอเมื่อออนไลน์)
    ไลบรารี/ฟอนต์จาก CDN: ใช้ที่เก็บไว้ก่อน  ส่วน Supabase ไม่แตะเลย
    เปลี่ยนไฟล์แอปแล้วไม่ต้องแก้อะไร ถ้าเปลี่ยนรายการ SHELL ให้เพิ่มเลขเวอร์ชันของ CACHE */
-var CACHE = 'lb-v5';
-var SHELL = ['./', 'index.html', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
+var CACHE = 'lb-v6';
+var SHELL = ['./', 'index.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
 var CDN = /^https:\/\/(cdnjs\.cloudflare\.com|cdn\.jsdelivr\.net|fonts\.googleapis\.com|fonts\.gstatic\.com)\//;
 
 self.addEventListener('install', function (e) {

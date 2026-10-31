@@ -8,7 +8,7 @@
 index.html             แอปทั้งหมดในไฟล์เดียว (โค้ด, CSS, config ฝังอยู่ข้างใน)
 sw.js                  Service worker (ติดตั้งเป็นแอป / เปิดได้แม้เน็ตหลุด)
 manifest.webmanifest   ข้อมูลติดตั้งแอป
-icons/                 icon-192.png, icon-512.png, apple-touch-icon.png
+icon-*.png, apple-touch-icon.png, favicon-32.png, icon.svg   ไอคอนแอป (วางที่ root เดียวกับ index.html)
 supabase/              ไฟล์ SQL ตั้งค่าฐานข้อมูล (ดูลำดับด้านล่าง)
 tests.js + package.json  ชุดทดสอบ (npm install แล้ว npm test)
 .gitignore, README.md
@@ -53,4 +53,4 @@ Supabase URL และ anon key อยู่ในส่วน `config.js` ท�
 
 ## แก้ไขและอัปเดต
 - แก้โค้ดที่ `index.html` ที่เดียว แล้วรัน `npm test` ก่อนอัปโหลด
-- ถ้าเพิ่ม/ลบไฟล์ในรายการ `SHELL` ของ `sw.js` ให้เปลี่ยนเลข `CACHE` (เช่น `lb-v6`) เพื่อให้เครื่องที่ติดตั้งแอปไว้อัปเดตทันที
+- ถ้าเพิ่ม/ลบไฟล์ในรายการ `SHELL` ของ `sw.js` ให้เปลี่ยนเลข `CACHE` (เช่น `lb-v7`) เพื่อให้เครื่องที่ติดตั้งแอปไว้อัปเดตทันที
