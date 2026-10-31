@@ -458,6 +458,31 @@ test('ui: เปิดหน้าแรกไม่มี error', async () => {
   assert.equal(d.getElementById('welcome').hidden, false);
 });
 
+test('ui: ปุ่มวิธีใช้ 3 ขั้นตอน เปิด/ปิดได้ และมีศัพท์ 3 คำ', async () => {
+  const { w, d, errors } = await open();
+  const dlg = d.getElementById('helpDlg');
+  assert.ok(!dlg.open);
+  click(w, d.getElementById('wlHelp')); assert.ok(dlg.open, 'ปุ่มหน้าแรกต้องเปิดวิธีใช้');
+  assert.equal(dlg.querySelectorAll('.hl-steps li').length, 3);
+  assert.deepEqual([...dlg.querySelectorAll('.hl-gloss dt')].map(e => e.textContent), ['Takt Time', 'Cycle Time', 'Yamazumi']);
+  click(w, d.getElementById('hlClose')); assert.ok(!dlg.open);
+  click(w, d.getElementById('helpBtn')); assert.ok(dlg.open, 'ปุ่มบน header ต้องเปิดวิธีใช้');
+  assert.deepEqual(errors, []);
+});
+
+test('ui: เมนูที่ยังไม่มีข้อมูลบอกเหตุผล ไม่ใช่หน้าว่างเฉยๆ', async () => {
+  const { w, d, errors } = await open();
+  const note = d.getElementById('wlTabNote');
+  for (const [id, nm] of [['flow', 'Process Flow'], ['balance', 'Line Balance'], ['compare', 'Manual กับ Robot']]) {
+    click(w, d.getElementById('tabbtn-' + id));
+    assert.equal(note.hidden, false, id); assert.ok(note.textContent.includes(nm), id + ': ' + note.textContent);
+  }
+  click(w, d.getElementById('tabbtn-fc')); assert.equal(note.hidden, true, 'Forecast ใช้ได้เลย ไม่ต้องมีข้อความนี้');
+  click(w, d.getElementById('sampleBtn')); click(w, d.getElementById('tabbtn-balance'));
+  assert.equal(note.hidden, true, 'มีข้อมูลแล้วต้องซ่อน');
+  assert.deepEqual(errors, []);
+});
+
 test('ui: โหลดข้อมูลตัวอย่าง แล้วทุกแท็บวาดได้ ไม่มี error', async () => {
   const { w, d, errors } = await open();
   click(w, d.getElementById('sampleBtn'));

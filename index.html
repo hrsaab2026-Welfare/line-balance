@@ -597,6 +597,7 @@ body.viewer #tab-fc input, body.viewer #tab-fc select { pointer-events:auto !imp
   <div class="crumb appname"><b>Takt Studio</b><span aria-hidden="true">/</span><span id="crumb">Man-Machine Studio</span></div>
   <div class="bar-actions">
     <div class="bar-clock" id="barClock" role="timer" aria-label="วันที่และเวลาปัจจุบัน"><span class="bc-date" id="bcDate"></span><span class="bc-time num" id="bcTime"></span></div>
+        <button class="icbtn" id="helpBtn" type="button" aria-label="วิธีใช้ 3 ขั้นตอน" title="วิธีใช้ 3 ขั้นตอน" aria-haspopup="dialog"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.5a2.5 2.5 0 1 1 3.6 2.2c-.8.4-1.2 1-1.2 1.8M12 17h.01"/></svg></button>
         <button class="icbtn" id="themeBtn" type="button" aria-label="สลับโหมดสว่าง/มืด" title="สลับโหมดสว่าง/มืด"><svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg></button>
     <button class="icbtn" id="logoutBtn" type="button" aria-label="ออกจากระบบ" title="ออกจากระบบ" hidden><svg viewBox="0 0 24 24"><path d="M9 4H5v16h4M16 8l4 4-4 4M20 12H9"/></svg></button>
   </div>
@@ -640,12 +641,14 @@ body.viewer #tab-fc input, body.viewer #tab-fc select { pointer-events:auto !imp
   <div class="notice" id="viewerNotice" hidden><b aria-hidden="true">i</b><span><strong>โหมดดูอย่างเดียว</strong> บัญชีนี้เปิดดู คำนวณ ลองสมมติ และส่งออก Excel ได้ แต่แก้ไขข้อมูล บันทึก และลบงานไม่ได้ ถ้าต้องการสิทธิ์แก้ไข ให้ผู้ดูแลระบบปรับสิทธิ์ให้</span></div>
 
   <section class="welcome" id="welcome" aria-label="เริ่มต้นใช้งาน">
+    <div class="notice" id="wlTabNote" role="status" hidden><b aria-hidden="true">i</b><span id="wlTabTxt"></span></div>
     <div class="wl-hero">
       <h2>เริ่มงาน Line Balance ใหม่</h2>
       <p>อัปโหลดไฟล์ Excel ของคุณ หรือเปิดตัวอย่างเพื่อลองก่อน ระบบจะคำนวณ Takt Time จัดคนและสถานี แล้วสร้าง Man-Machine Chart ให้</p>
       <div class="wl-cta">
         <label class="btn wl-big" for="fileInput">เริ่มงานใหม่จากไฟล์ Excel</label>
         <button class="btn ghost wl-big" id="wlSample" type="button">ดูตัวอย่างก่อน</button>
+        <button class="btn ghost wl-big" id="wlHelp" type="button" aria-haspopup="dialog">วิธีใช้ 3 ขั้นตอน</button>
       </div>
       <p class="wl-drop">ลากไฟล์ .xlsx มาวางที่หน้านี้ได้เลย · ยังไม่มีไฟล์? เลือกทางลัดด้านล่างได้เลย</p>
       <div class="wl-alt">
@@ -2511,11 +2514,14 @@ showTab = function (tok) {
   _showTab(tok); jobCard();
   $('live').hidden = (tok === 'compare' || tok === 'swc' || tok === 'fc'); /* สถานะ Takt เทียบ Cycle เป็นของโมเดล Line Balance ไม่เกี่ยวกับหน้านี้ */
   var has = lbHas() || tok === 'fc'; /* Forecast ใช้งานได้โดยไม่ต้องเปิดงาน Line Balance */
-  $('welcome').hidden = has; $('hdrUpload').hidden = !has || tok === 'fc';
+  $('welcome').hidden = has; $('wlTabNote').hidden = true; $('hdrUpload').hidden = !has || tok === 'fc';
   if (!has) {
     Object.keys(TAB_PANELS).forEach(function (k) { TAB_PANELS[k].forEach(function (id) { $(id).hidden = true; }); });
     $('pgT').textContent = $('crumb').textContent = 'เริ่มต้นใช้งาน';
     $('pgS').textContent = 'เริ่มจากไฟล์ Excel ของคุณ หรือเปิดตัวอย่างเพื่อลองใช้งานก่อน';
+    var nm = (PG[tok] && PG[tok][0]) || (tok === 'swc' ? 'Standard Work Chart' : '');
+    $('wlTabTxt').textContent = nm ? 'เมนู “' + nm + '” ยังไม่มีอะไรให้แสดง เพราะยังไม่มีข้อมูลงาน ไม่ได้กดผิดหรือเมนูเสีย เริ่มด้วยการอัปโหลด Excel หรือกด “ดูตัวอย่างก่อน” แล้วหน้านี้จะขึ้นเอง' : '';
+    $('wlTabNote').hidden = !nm;
     return;
   }
   if (!PG[tok]) tok = 'flow';
@@ -2577,8 +2583,8 @@ try { showTab((location.hash || '').replace('#', '')); } catch (e) { showTab('fl
 </script>
 
 <style>
-#cloudDlg, #rptDlg { border: 1px solid var(--line-strong); border-radius: 10px; background: var(--surface); color: var(--fg); padding: 0; width: min(520px, calc(100vw - 24px)); }
-#cloudDlg::backdrop, #rptDlg::backdrop { background: rgba(0, 0, 0, .4); }
+#cloudDlg, #rptDlg, #helpDlg { border: 1px solid var(--line-strong); border-radius: 10px; background: var(--surface); color: var(--fg); padding: 0; width: min(520px, calc(100vw - 24px)); }
+#cloudDlg::backdrop, #rptDlg::backdrop, #helpDlg::backdrop { background: rgba(0, 0, 0, .4); }
 .cd { padding: 18px; display: flex; flex-direction: column; gap: 14px; }
 .cd h2 { font-size: 16px; }
 .cd-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
@@ -2747,7 +2753,7 @@ body.viewer .tabpanel td input, body.viewer .tabpanel .field input { opacity: .8
   .wl-cta, .wl-big { width: 100%; justify-content: center; }
   .wrap, main { padding-left: 12px; padding-right: 12px; }
 }
-#cloudDlg, #rptDlg { max-height: calc(100dvh - 24px); overflow: auto; max-width: calc(100vw - 16px); }
+#cloudDlg, #rptDlg, #helpDlg { max-height: calc(100dvh - 24px); overflow: auto; max-width: calc(100vw - 16px); }
 #lbReport { display: none; --bg:#fff; --surface:#fff; --fg:#14201d; --fg2:#4b5653; --muted:#7d8683; --line:#dcddd6; --line-strong:#c3c4bc; --accent:#11594f; --good:#0a8a0a; --good-text:#006300; --warn:#b97a00; --warn-text:#7a5200; --bad:#c43434; --bad-text:#a52a2a; --text-heading:#14201d; color:#14201d; background:#fff; padding:16px 20px; font-size:12px; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
 #lbReport.cap { display:block; position:fixed; left:-10000px; top:0; width:1123px; }
 #lbReport .rp-h { display:flex; align-items:center; gap:16px; border-bottom:3px solid var(--accent); padding-bottom:10px; margin-bottom:10px; }
@@ -3201,6 +3207,25 @@ swcDraw();
     </div>
 
     <p class="cd-msg" id="cdMsg" role="status" aria-live="polite"></p>
+  </div>
+</dialog>
+<dialog id="helpDlg" aria-labelledby="hlTitle">
+  <div class="cd">
+    <div class="cd-row" style="justify-content:space-between"><h2 id="hlTitle">วิธีใช้ 3 ขั้นตอน</h2><button class="btn ghost sm" id="hlClose" type="button">ปิด</button></div>
+    <p class="hint">เลข 1–5 ที่เมนูด้านซ้ายเป็นแค่ลำดับที่แนะนำ ไม่ต้องทำครบทุกข้อ และไม่ต้องเรียงกัน ถ้าไม่มียอด Forecast ให้ข้ามข้อ 1 แล้วใส่ Takt Time ตรงๆ ในข้อ 2 ได้เลย</p>
+    <ol class="hl-steps">
+      <li><b>ใส่ยอดผลิตและเวลาทำงาน</b><span>ที่เมนู Forecast หรือกรอกเอง ระบบคำนวณ Takt Time ให้</span></li>
+      <li><b>ใส่งานและเวลา</b><span>อัปโหลดไฟล์ Excel หรือกด “ดูตัวอย่างก่อน” แล้วใส่เวลางานย่อย ระบบจัดคนและสถานีให้</span></li>
+      <li><b>ดูผล แล้วทำเอกสาร</b><span>ดูว่าใครโหลดหนักสุด เทียบ Manual กับ Robot แล้วทำ Standard Work Chart หรือส่งออก PDF / Excel</span></li>
+    </ol>
+    <div class="hl-gloss">
+      <p class="hint" style="margin-bottom:2px"><b>ศัพท์ที่จะเจอในหน้าจอ</b></p>
+      <dl>
+        <dt>Takt Time</dt><dd>เวลาที่ต้องผลิตให้ได้ 1 ชิ้น เพื่อให้ทันยอดสั่ง คิดจาก เวลาทำงาน ÷ ยอดผลิต เช่น ทำงาน 28,800 วินาที ยอด 960 ชิ้น = 30 วินาที/ชิ้น</dd>
+        <dt>Cycle Time</dt><dd>เวลาที่สายการผลิตใช้จริงต่อ 1 ชิ้น ถ้า Cycle Time น้อยกว่าหรือเท่ากับ Takt Time แปลว่าทันยอด</dd>
+        <dt>Yamazumi</dt><dd>กราฟแท่งซ้อนที่แสดงโหลดงานของแต่ละคน คนที่แท่งสูงสุดคือคอขวด (ทำให้ทั้งไลน์ช้า) ถ้าแท่งเตี้ยมาก แปลว่าคนนั้นว่าง ย้ายงานมาช่วยได้</dd>
+      </dl>
+    </div>
   </div>
 </dialog>
 <div id="lbReport" aria-hidden="true"></div>
@@ -4852,6 +4877,20 @@ tr.stephead td { background:linear-gradient(90deg,color-mix(in srgb,var(--accent
 .wl-steps li::before { background:linear-gradient(145deg,#FFD688,#F2A93B); color:#2A1A00; }
 .wl-steps li b { color:var(--text-heading); }
 
+/* ---------- วิธีใช้ ---------- */
+#helpDlg { width: min(600px, calc(100vw - 24px)); }
+.hl-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; counter-reset: hl; }
+.hl-steps li { position: relative; display: flex; flex-direction: column; gap: 2px; padding: 4px 0 4px 44px; counter-increment: hl; }
+.hl-steps li::before { content: counter(hl); position: absolute; left: 0; top: 2px; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: linear-gradient(145deg,#FFD688,#F2A93B); color: #2A1A00; font-weight: 600; }
+.hl-steps li b { color: var(--text-heading); }
+.hl-steps li span { color: var(--fg2); font-size: 13.5px; }
+.hl-gloss { border-top: 1px solid var(--line); padding-top: 12px; }
+.hl-gloss dl { margin: 6px 0 0; display: grid; grid-template-columns: max-content 1fr; gap: 8px 14px; font-size: 13.5px; }
+.hl-gloss dt { font-weight: 600; color: var(--text-heading); }
+.hl-gloss dd { margin: 0; color: var(--fg2); }
+@media (max-width:560px) { .hl-gloss dl { grid-template-columns: 1fr; gap: 2px; } .hl-gloss dd { margin-bottom: 8px; } }
+#wlTabNote { margin-bottom: 0; }
+
 /* ---------- Sidebar สำหรับจอเล็ก ---------- */
 @media (max-width:960px) { .side { position:relative; border-radius:0; } }
 @media (prefers-reduced-motion:reduce) { .btn,.nav .tab { transition:none; } }
@@ -4888,6 +4927,16 @@ tr.stephead td { background:linear-gradient(90deg,color-mix(in srgb,var(--accent
   function tick() { var n = new Date(); d.textContent = fd.format(n); t.textContent = ft.format(n); }
   tick();
   if (!/jsdom/i.test(navigator.userAgent)) setInterval(tick, 1000); /* เทสต์ jsdom ไม่ต้องมี timer ค้าง */
+})();
+/* วิธีใช้ 3 ขั้นตอน */
+(function () {
+  var dlg = document.getElementById('helpDlg');
+  function openHelp() { if (typeof dlg.showModal === 'function') { if (!dlg.open) dlg.showModal(); } else dlg.setAttribute('open', ''); }
+  function closeHelp() { if (typeof dlg.close === 'function') dlg.close(); else dlg.removeAttribute('open'); }
+  document.getElementById('helpBtn').addEventListener('click', openHelp);
+  document.getElementById('wlHelp').addEventListener('click', openHelp);
+  document.getElementById('hlClose').addEventListener('click', closeHelp);
+  dlg.addEventListener('click', function (e) { if (e.target === dlg) closeHelp(); }); /* กดพื้นหลังเพื่อปิด */
 })();
 </script>
 </body></html>
