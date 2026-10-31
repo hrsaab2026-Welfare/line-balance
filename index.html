@@ -4587,11 +4587,11 @@ if (typeof module !== 'undefined' && module.exports) module.exports = api; else 
       F.months.forEach(function (k) { q += num(p.qty && p.qty[k]) || 0; });
       qsum += q; tot += h; if (!(t > 0)) noCt++;
       var ln2 = ln ? (ln.name || '(ไม่มีชื่อ)') : 'ยังไม่ระบุไลน์'; if (lines.indexOf(ln2) < 0) lines.push(ln2);
-      return '<tr><td>' + esc(partLbl(p)) + '</td><td>' + esc(ln2) + '</td><td class="r num">' + nf(q) + '</td><td class="r">' + (t > 0 ? '<span class="num">' + nf(t, 2) + '</span>' : '<span class="pc-n warn">ไม่มี CT</span>') + '</td><td class="r num">' + nf(h, 1) + '</td></tr>';
+      return '<tr data-id="' + va(p.id) + '"><td>' + esc(partLbl(p)) + '</td><td>' + esc(ln2) + '</td><td class="r num">' + nf(q) + '</td><td class="r"><input class="tm" data-f="mct" inputmode="decimal" placeholder="กรอก CT" aria-label="CT ' + va(partLbl(p)) + '" value="' + va(p.time) + '"></td><td class="r num">' + nf(h, 1) + '</td></tr>';
     }).join('');
     return '<div class="panel fc-pcard fc-multi"><div class="pc-h"><b>รวม ' + ps.length + ' ชิ้นงาน</b><span class="note">' + [esc(lines.join(', ')), 'ยอดรวม ' + nf(qsum) + ' ชิ้น', 'Work load รวม ' + nf(tot, 1) + ' ชม.'].join(' · ') + '</span></div>' +
       '<div class="scroll fc-ms-t"><table class="fc-sum"><thead><tr><th>ชิ้นงาน</th><th>ไลน์</th><th class="r">ยอดรวม (ชิ้น)</th><th class="r">CT (' + unitTxt() + ')</th><th class="r">Work load (ชม.)</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
-      '<p class="pc-n' + (noCt ? ' warn' : '') + '">' + (noCt ? '<strong>' + noCt + ' ชิ้นงานยังไม่มี CT</strong> จึงยังไม่ถูกนับ · ' : '') + 'ผลด้านล่างเป็นผลรวมของชิ้นงานที่ติ๊ก · แก้ CT ได้ที่ตาราง “รายการชิ้นงาน” หรือเลือกทีละชิ้น</p></div>';
+      '<p class="pc-n' + (noCt ? ' warn' : '') + '">' + (noCt ? '<strong>' + noCt + ' ชิ้นงานยังไม่มี CT</strong> จึงยังไม่ถูกนับ · ' : '') + 'ผลด้านล่างเป็นผลรวมของชิ้นงานที่ติ๊ก · แก้ CT ในตารางนี้ได้เลย ผลคำนวณใหม่ทันที (ค่าซิงก์กับตาราง “รายการชิ้นงาน”)</p></div>';
   }
   function partInfo(p, c) {
     var ln = F.lines.filter(function (l) { return l.id === p.line; })[0], t = num(p.time), has = t > 0, div = F.unit === 'min' ? 60 : 3600, best = null, qsum = 0;
@@ -4603,10 +4603,11 @@ if (typeof module !== 'undefined' && module.exports) module.exports = api; else 
   }
   /* แก้ CT จากการ์ด: คำนวณใหม่ แล้วคืนเคอร์เซอร์ให้ช่องเดิม (การ์ดถูกวาดใหม่ทุกครั้ง) */
   function pcEdit(p, el) {
-    var pos = el ? el.selectionStart : null, c = rRes(); rWarn(c);
+    var pos = el ? el.selectionStart : null, mid = el && el.getAttribute('data-f') === 'mct' ? p.id : null, ms0 = root.querySelector('.fc-ms-t'), sc0 = ms0 ? ms0.scrollTop : 0, c = rRes(); rWarn(c);
     var tr = root.querySelector('#fcPT tr[data-id="' + p.id + '"]');
     if (tr) { var ti = tr.querySelector('[data-f="time"]'), ph = tr.querySelector('[data-ph]'); if (ti) ti.value = p.time === '' ? '' : p.time; if (ph && c.parts[p.id]) ph.textContent = nf(c.parts[p.id].total, 1); }
     keep();
+    if (mid) { var ms1 = root.querySelector('.fc-ms-t'); if (ms1) ms1.scrollTop = sc0; var n1 = root.querySelector('.fc-multi tr[data-id="' + mid + '"] input[data-f="mct"]'); if (n1) { n1.focus(); try { n1.setSelectionRange(pos, pos); } catch (e) {} } return; }
     if (el) { var n = $('fcPtCT'); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (e) {} } }
   }
   function rRes() {
@@ -4743,6 +4744,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = api; else 
     var f = fld(e), t = e.target, tr = t.closest && t.closest('tr'), p, L, h, v;
     if (!f) return;
     if (f === 'msq') { msQ = t.value; var ml = root.querySelector('#fcMs .fc-ms-l'); if (ml) { ml.innerHTML = msList(); msSyncGroups(); } return; }
+    if (f === 'mct') { p = part(tr.getAttribute('data-id')); if (p) { v = num(t.value); p.time = v > 0 ? v : ''; pcEdit(p, t); } return; }
     if (f === 'pct') { p = one(); if (p) { v = num(t.value); p.time = v > 0 ? v : ''; pcEdit(p, t); } return; }
     if (f === 'q' || f === 'time' || f === 'no' || f === 'name' || f === 'model' || f === 'grp') {
       p = part(tr.getAttribute('data-id')); if (!p) return;

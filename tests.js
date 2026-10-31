@@ -571,6 +571,13 @@ test('ui: Work load ดูรายชิ้นงาน (Part) ได้ แล
   assert.match(d.querySelector('.fc-multi').textContent, /รวม 2 ชิ้นงาน/);
   assert.match(d.querySelector('#fcRes .fc-sum tbody tr.fc-hl').textContent, /ชม\.\)20$/);
   assert.equal(d.querySelector('#fcPtCT'), null, 'หลายชิ้น → ไม่มีช่องแก้ CT เดี่ยว');
+  /* แก้ CT ในตารางสรุปหลายชิ้น: B 20 → 40 วินาที = 20 ชม. รวม 30 ชม. และซิงก์กับตารางรายการชิ้นงาน */
+  const mi = () => d.querySelector('.fc-multi tr[data-id="' + ids[1] + '"] input[data-f="mct"]');
+  mi().value = '40'; mi().dispatchEvent(new w.Event('input', { bubbles: true }));
+  assert.equal(w.lbFc.state().parts[1].time, 40);
+  assert.equal(d.querySelector('#fcPT tr[data-id="' + ids[1] + '"] input[data-f="time"]').value, '40');
+  assert.match(d.querySelector('#fcRes .fc-sum tbody tr.fc-hl').textContent, /ชม\.\)30$/);
+  mi().value = '20'; mi().dispatchEvent(new w.Event('input', { bubbles: true }));
   tick(ids[1], false);
   assert.equal(d.querySelector('.fc-multi'), null);
   tick(ids[0], false);
