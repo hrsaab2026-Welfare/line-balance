@@ -4388,7 +4388,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = api; else 
 /* หน้าจอเมนู Forecast: อัปโหลด Forecast (.xlsx) → Work Load ต่อเดือน/ต่อไลน์ เทียบกำลังผลิต N1..Nx
    ใช้ฟังก์ชันคำนวณจาก forecast.js และตัวช่วยของหน้าหลัก ข้อมูลเก็บในเครื่อง (localStorage) */
 (function () {
-  var Lib = window.lbFcLib, K = 'lbFc1', F, scope = '', sel = {}, flt = { q: '', line: '', qty: true, nt: false }, saveT = 0;
+  var Lib = window.lbFcLib, K = 'lbFc1', F, picks = [], picksInit = false, msOpen = false, msQ = '', sel = {}, flt = { q: '', line: '', qty: true, nt: false }, saveT = 0;
   var COL = ['#10b981', '#8b5cf6', '#f59e0b', '#f43f5e', '#3b82f6', '#14b8a6', '#ec4899', '#84cc16'], WD = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
   try { F = Lib.norm(JSON.parse(localStorage.getItem(K) || 'null')); } catch (e) { F = Lib.blank(); }
   function keep() { clearTimeout(saveT); saveT = setTimeout(function () { try { localStorage.setItem(K, JSON.stringify(F)); } catch (e) {} }, 300); }
@@ -4495,7 +4495,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = api; else 
     var step = niceStep(mx * 1.08 || 10), ymax = Math.ceil((mx * 1.08 || 10) / step) * step;
     function Y(v) { return top + ph - (v / ymax) * ph; }
     var base = Y(0), slot = pw / ms.length, bw = Math.min(54, slot * 0.56), xs = ms.map(function (k, j) { return left + slot * (j + 0.5); });
-    var sig = scope + '|' + F.file + '|' + ms.join(','), grow = sig !== lastSig; lastSig = sig;
+    var sig = picks.join(',') + '|' + F.file + '|' + ms.join(','), grow = sig !== lastSig; lastSig = sig;
     function ext(a) { return [a[0]].concat(a, [a[a.length - 1]]); }
     var xe = [left].concat(xs, [W - right]);
     var srt = c.levels.map(function (L, li) { return { L: L, i: li }; }).sort(function (a, b) { return a.L.hpd - b.L.hpd; });
@@ -4542,20 +4542,56 @@ if (typeof module !== 'undefined' && module.exports) module.exports = api; else 
     return '<svg class="fc-svg' + (grow ? ' grow' : '') + '" viewBox="0 0 ' + W + ' ' + H + '" width="100%" role="img" aria-label="กราฟ Work Load ต่อเดือน เทียบกำลังผลิตแต่ละระดับ N">' + defs + zones + g + bars + hits + lines + dots + lab + ax + '</svg>';
   }
   function partLbl(p) { return [p.no, p.name].filter(Boolean).join(' · ') || '(ไม่มีชื่อ)'; }
-  /* ตัวเลือกรายชิ้นงาน จัดกลุ่มตามไลน์ แสดงเฉพาะชิ้นงานที่มียอด */
-  function partOpts(cur) {
-    var groups = F.lines.map(function (l) { return [l.id, l.name || '(ไม่มีชื่อ)']; }).concat([['', 'ยังไม่ระบุไลน์']]), out = '';
+  /* รายการชิ้นงานให้ติ๊กเลือกได้หลายรายการ จัดกลุ่มตามไลน์ แสดงเฉพาะชิ้นงานที่มียอด (หรือที่ติ๊กอยู่) */
+  function msGroups() {
+    var groups = F.lines.map(function (l) { return [l.id, l.name || '(ไม่มีชื่อ)']; }).concat([['', 'ยังไม่ระบุไลน์']]), q = msQ.trim().toLowerCase(), out = [];
     groups.forEach(function (g) {
-      var ps = F.parts.filter(function (p) { return (p.line || '') === g[0] && (hasQty(p) || 'p:' + p.id === cur); });
-      if (ps.length) out += '<optgroup label="' + va('ชิ้นงานใน ' + g[1] + ' (' + ps.length + ')') + '">' + ps.map(function (p) { return opt('p:' + p.id, partLbl(p), cur); }).join('') + '</optgroup>';
+      var ps = F.parts.filter(function (p) {
+        if ((p.line || '') !== g[0] || !(hasQty(p) || picks.indexOf(p.id) >= 0)) return false;
+        return !q || (p.no + ' ' + p.name + ' ' + p.model).toLowerCase().indexOf(q) >= 0;
+      });
+      if (ps.length) out.push({ id: g[0], name: g[1], ps: ps });
     });
     return out;
+  }
+  function msList() {
+    var gs = msGroups();
+    if (!gs.length) return '<div class="fc-ms-e">ไม่พบชิ้นงาน</div>';
+    return gs.map(function (g) {
+      var all = g.ps.every(function (p) { return picks.indexOf(p.id) >= 0; });
+      return '<div class="fc-ms-g"><label class="fc-ms-gh"><input type="checkbox" data-f="msgrp" data-g="' + va(g.id) + '"' + (all ? ' checked' : '') + '>ชิ้นงานใน ' + esc(g.name) + ' (' + g.ps.length + ')</label>' +
+        g.ps.map(function (p) { return '<label class="fc-ms-o"><input type="checkbox" data-f="mspart" value="' + va(p.id) + '"' + (picks.indexOf(p.id) >= 0 ? ' checked' : '') + '>' + esc(partLbl(p)) + '</label>'; }).join('') + '</div>';
+    }).join('');
+  }
+  function msSyncGroups() { /* ติ๊กบางส่วนในกลุ่ม → แสดงเป็นสถานะ “ติ๊กบางส่วน” */
+    var gs = msGroups();
+    gs.forEach(function (g) {
+      var cb = root.querySelector('#fcMs input[data-f="msgrp"][data-g="' + g.id + '"]'), n = g.ps.filter(function (p) { return picks.indexOf(p.id) >= 0; }).length;
+      if (cb) cb.indeterminate = n > 0 && n < g.ps.length;
+    });
+  }
+  function msSummary() {
+    return !picks.length ? '— เลือกชิ้นงาน (ติ๊กได้หลายรายการ) —' : picks.length === 1 ? partLbl(part(picks[0])) : 'เลือกแล้ว ' + picks.length + ' ชิ้นงาน';
   }
   /* ค่าเริ่มต้นของช่อง “ดูผลของ”: ชิ้นงานแรกที่มียอด (เรียงตามไลน์) ถ้าไม่มีชิ้นงานที่มียอดเลยใช้ชิ้นงานแรกในรายการ */
   function firstScope() {
     var ids = F.lines.map(function (l) { return l.id; }).concat(['']), i, j;
-    for (i = 0; i < ids.length; i++) for (j = 0; j < F.parts.length; j++) if ((F.parts[j].line || '') === ids[i] && hasQty(F.parts[j])) return 'p:' + F.parts[j].id;
-    return F.parts.length ? 'p:' + F.parts[0].id : '';
+    for (i = 0; i < ids.length; i++) for (j = 0; j < F.parts.length; j++) if ((F.parts[j].line || '') === ids[i] && hasQty(F.parts[j])) return F.parts[j].id;
+    return F.parts.length ? F.parts[0].id : '';
+  }
+  function one() { return picks.length === 1 ? part(picks[0]) : null; }
+  function multiInfo(ps, c) {
+    var div = F.unit === 'min' ? 60 : 3600, qsum = 0, tot = 0, noCt = 0, lines = [];
+    var rows = ps.map(function (p) {
+      var q = 0, ln = F.lines.filter(function (l) { return l.id === p.line; })[0], t = num(p.time), h = c.parts[p.id] ? c.parts[p.id].total : 0;
+      F.months.forEach(function (k) { q += num(p.qty && p.qty[k]) || 0; });
+      qsum += q; tot += h; if (!(t > 0)) noCt++;
+      var ln2 = ln ? (ln.name || '(ไม่มีชื่อ)') : 'ยังไม่ระบุไลน์'; if (lines.indexOf(ln2) < 0) lines.push(ln2);
+      return '<tr><td>' + esc(partLbl(p)) + '</td><td>' + esc(ln2) + '</td><td class="r num">' + nf(q) + '</td><td class="r">' + (t > 0 ? '<span class="num">' + nf(t, 2) + '</span>' : '<span class="pc-n warn">ไม่มี CT</span>') + '</td><td class="r num">' + nf(h, 1) + '</td></tr>';
+    }).join('');
+    return '<div class="panel fc-pcard fc-multi"><div class="pc-h"><b>รวม ' + ps.length + ' ชิ้นงาน</b><span class="note">' + [esc(lines.join(', ')), 'ยอดรวม ' + nf(qsum) + ' ชิ้น', 'Work load รวม ' + nf(tot, 1) + ' ชม.'].join(' · ') + '</span></div>' +
+      '<div class="scroll fc-ms-t"><table class="fc-sum"><thead><tr><th>ชิ้นงาน</th><th>ไลน์</th><th class="r">ยอดรวม (ชิ้น)</th><th class="r">CT (' + unitTxt() + ')</th><th class="r">Work load (ชม.)</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
+      '<p class="pc-n' + (noCt ? ' warn' : '') + '">' + (noCt ? '<strong>' + noCt + ' ชิ้นงานยังไม่มี CT</strong> จึงยังไม่ถูกนับ · ' : '') + 'ผลด้านล่างเป็นผลรวมของชิ้นงานที่ติ๊ก · แก้ CT ได้ที่ตาราง “รายการชิ้นงาน” หรือเลือกทีละชิ้น</p></div>';
   }
   function partInfo(p, c) {
     var ln = F.lines.filter(function (l) { return l.id === p.line; })[0], t = num(p.time), has = t > 0, div = F.unit === 'min' ? 60 : 3600, best = null, qsum = 0;
@@ -4576,24 +4612,36 @@ if (typeof module !== 'undefined' && module.exports) module.exports = api; else 
   function rRes() {
     var c = Lib.compute(F), el = $('fcRes');
     if (!F.months.length || !F.parts.length) { el.innerHTML = '<div class="fc-empty">ยังไม่มีข้อมูล Forecast<br><small>อัปโหลดไฟล์ Forecast (.xlsx) ด้านบน หรือเพิ่มชิ้นงานเองในหัวข้อ “รายการชิ้นงาน”</small></div>'; return c; }
-    var sp = scope.indexOf('p:') === 0 ? part(scope.slice(2)) : null; /* ดูรายชิ้นงาน (Part) */
-    if (!sp) { scope = firstScope(); sp = scope.indexOf('p:') === 0 ? part(scope.slice(2)) : null; } /* ไม่มีตัวเลือก “รวมทุกไลน์” เริ่มที่ชิ้นงานแรก */
-    var cur = sp ? { name: partLbl(sp), hrs: c.parts[sp.id].hrs } : { name: '', hrs: c.total };
-    var sopt = partOpts(scope); /* ช่อง “ดูผลของ” มีแต่ชิ้นงานล้วนๆ ไม่มีตัวเลือกระดับไลน์ */
+    var before = picks.length;
+    picks = picks.filter(function (id) { return part(id); });
+    if (before && !picks.length) picksInit = false;
+    if (!picksInit && !picks.length) { var f0 = firstScope(); picks = f0 ? [f0] : []; picksInit = true; } /* เริ่มที่ชิ้นงานแรก ไม่มีตัวเลือก “รวมทุกไลน์” */
+    var ps = picks.map(part), sp = ps.length === 1 ? ps[0] : null, hrs = {}, qty = {};
+    c.months.forEach(function (k) { hrs[k] = 0; qty[k] = 0; ps.forEach(function (p) { hrs[k] += c.parts[p.id].hrs[k] || 0; qty[k] += num(p.qty && p.qty[k]) || 0; }); });
+    var cur = { name: ps.length === 1 ? partLbl(ps[0]) : ps.length + ' ชิ้นงาน', hrs: hrs };
+    var oldL = root.querySelector('#fcMs .fc-ms-l'), sc = oldL ? oldL.scrollTop : 0, sopt = msList(), af = document.activeElement, afv = af && af.getAttribute && af.getAttribute('data-f') === 'mspart' ? af.value : null;
     var legend = '<div class="legend fc-lg"><span><i class="fc-lg-bar"></i>Work load (ชม./เดือน)</span>' + c.levels.map(function (L, i) { return '<span><i class="fc-lg-ln" style="--c:' + COL[i % COL.length] + '"></i>' + esc(L.name) + ' · ' + nf(L.hpd, 1) + ' ชม./วัน</span>'; }).join('') + '</div>';
     var h = cur.hrs, th = '<th></th>' + c.months.map(function (k) { return '<th class="r">' + Lib.monthLabel(k) + '</th>'; }).join('');
     var body = '<tr class="fc-hl"><td class="lbl">Work load (ชม.)</td>' + c.months.map(function (k) { return '<td class="r num strong">' + nf(h[k], 1) + '</td>'; }).join('') + '</tr>' +
       '<tr><td>วันทำงาน</td>' + c.months.map(function (k) { return '<td class="r num">' + c.days[k].n + (c.days[k].ov ? '<sup title="กรอกทับเอง">*</sup>' : '') + '</td>'; }).join('') + '</tr>';
     c.levels.forEach(function (L, i) { body += '<tr><td><i class="fc-sw" style="background:' + COL[i % COL.length] + '"></i>' + esc(L.name) + ' กำลังผลิต (ชม.)</td>' + c.months.map(function (k) { return '<td class="r num">' + nf(c.cap[L.id][k]) + '</td>'; }).join('') + '</tr>'; });
     c.levels.forEach(function (L, i) { body += '<tr><td><i class="fc-sw" style="background:' + COL[i % COL.length] + '"></i>โหลด ÷ ' + esc(L.name) + '</td>' + c.months.map(function (k) { var cp = c.cap[L.id][k], r = cp ? h[k] / cp : (h[k] > 0 ? Infinity : 0); return '<td class="r">' + (h[k] > 0 ? '<span class="pill ' + ratioCls(r) + '">' + (isFinite(r) ? pct(r) : '—') + '</span>' : '<span class="mut">—</span>') + '</td>'; }).join('') + '</tr>'; });
-    if (sp) body = '<tr><td>ยอดผลิต (ชิ้น)</td>' + c.months.map(function (k) { return '<td class="r num">' + nf(num(sp.qty && sp.qty[k]) || 0) + '</td>'; }).join('') + '</tr>' + body;
+    if (ps.length) body = '<tr><td>ยอดผลิต (ชิ้น)</td>' + c.months.map(function (k) { return '<td class="r num">' + nf(qty[k]) + '</td>'; }).join('') + '</tr>' + body;
     body += '<tr class="fc-hl"><td class="lbl">รองรับได้ที่ระดับ</td>' + c.months.map(function (k) { return '<td class="r">' + lvPill(c, h[k], k) + '</td>'; }).join('') + '</tr>';
     var bl = '<table class="fc-sum"><thead><tr><th>ไลน์ (ชม./เดือน)</th>' + c.months.map(function (k) { return '<th class="r">' + Lib.monthLabel(k) + '</th>'; }).join('') + '<th class="r">รวม</th></tr></thead><tbody>' +
       c.lines.map(function (l) { return '<tr><td>' + esc(l.name || '(ไม่มีชื่อ)') + ' <span class="mut">· ' + l.n + ' ชิ้น</span></td>' + c.months.map(function (k) { return '<td class="r">' + (l.hrs[k] > 0 ? '<span class="num">' + nf(l.hrs[k], 1) + '</span> ' + lvPill(c, l.hrs[k], k) : '<span class="mut">—</span>') + '</td>'; }).join('') + '<td class="r num strong">' + nf(l.total, 1) + '</td></tr>'; }).join('') +
       '<tr class="fc-hl"><td class="lbl">รวมทุกไลน์</td>' + c.months.map(function (k) { return '<td class="r num strong">' + nf(c.total[k], 1) + '</td>'; }).join('') + '<td class="r num strong">' + nf(c.months.reduce(function (a, k) { return a + c.total[k]; }, 0), 1) + '</td></tr></tbody></table>';
-    el.innerHTML = '<div class="fc-bar"><div class="field"><label for="fcScope">ดูผลของ</label><select id="fcScope" data-f="scope">' + sopt + '</select></div><span class="note">Work load = ยอดผลิต × เวลาต่อชิ้น ÷ ' + (F.unit === 'min' ? '60' : '3600') + ' (ชั่วโมง)</span></div>' + (sp ? partInfo(sp, c) : '') +
-      '<div class="panel">' + legend + chart(c, h) + '<div class="fc-cap">พื้นสีจางระหว่างเส้น = ช่วงที่ต้องใช้ระดับ N นั้นรับโหลด · ป้ายใต้เดือน = ระดับ N ที่ต้องใช้ · แท่งสีแดง = เกินกำลังผลิตสูงสุด</div></div><div class="panel scroll">' + '<table class="fc-sum"><thead><tr>' + th + '</tr></thead><tbody>' + body + '</tbody></table></div>' +
+    var bar = '<div class="fc-bar"><div class="field fc-msw"><label id="fcMsLb">ดูผลของ</label><details class="fc-ms" id="fcMs"' + (msOpen ? ' open' : '') + '><summary aria-labelledby="fcMsLb">' + esc(msSummary()) + '</summary>' +
+      '<div class="fc-ms-p"><input id="fcMsQ" data-f="msq" type="search" value="' + va(msQ) + '" placeholder="ค้นหา Part No. / ชื่อ / Model" aria-label="ค้นหาชิ้นงาน"><div class="fc-ms-a"><button class="linkbtn" type="button" data-fc="msall">ติ๊กทั้งหมดที่แสดง</button><button class="linkbtn" type="button" data-fc="msclr">ล้างที่เลือก</button></div><div class="fc-ms-l">' + sopt + '</div></div></details></div>' +
+      '<span class="note">Work load = ยอดผลิต × เวลาต่อชิ้น ÷ ' + (F.unit === 'min' ? '60' : '3600') + ' (ชั่วโมง)</span></div>';
+    var main = !ps.length ? '<div class="fc-empty">ยังไม่ได้เลือกชิ้นงาน<br><small>เปิดช่อง “ดูผลของ” แล้วติ๊กชิ้นงานที่ต้องการ (ติ๊กได้หลายรายการ ผลจะรวมให้)</small></div>' :
+      (sp ? partInfo(sp, c) : multiInfo(ps, c)) +
+      '<div class="panel">' + legend + chart(c, h) + '<div class="fc-cap">พื้นสีจางระหว่างเส้น = ช่วงที่ต้องใช้ระดับ N นั้นรับโหลด · ป้ายใต้เดือน = ระดับ N ที่ต้องใช้ · แท่งสีแดง = เกินกำลังผลิตสูงสุด</div></div><div class="panel scroll">' + '<table class="fc-sum"><thead><tr>' + th + '</tr></thead><tbody>' + body + '</tbody></table></div>';
+    el.innerHTML = bar + main +
       '<div class="fc-h" style="margin-top:6px">แยกตามไลน์ <span class="note">ป้ายระดับ = ระดับ N ที่ต้องใช้เพื่อรับโหลดของไลน์นั้นทั้งไลน์</span></div><div class="panel scroll">' + bl + '</div>';
+    var nl = root.querySelector('#fcMs .fc-ms-l'); if (nl) nl.scrollTop = sc;
+    msSyncGroups();
+    if (afv !== null) { var nf2 = root.querySelector('#fcMs input[data-f="mspart"][value="' + afv + '"]'); if (nf2) nf2.focus(); }
     return c;
   }
   function rWarn(c) {
@@ -4694,7 +4742,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = api; else 
   root.addEventListener('input', function (e) {
     var f = fld(e), t = e.target, tr = t.closest && t.closest('tr'), p, L, h, v;
     if (!f) return;
-    if (f === 'pct') { p = part(scope.slice(2)); if (p) { v = num(t.value); p.time = v > 0 ? v : ''; pcEdit(p, t); } return; }
+    if (f === 'msq') { msQ = t.value; var ml = root.querySelector('#fcMs .fc-ms-l'); if (ml) { ml.innerHTML = msList(); msSyncGroups(); } return; }
+    if (f === 'pct') { p = one(); if (p) { v = num(t.value); p.time = v > 0 ? v : ''; pcEdit(p, t); } return; }
     if (f === 'q' || f === 'time' || f === 'no' || f === 'name' || f === 'model' || f === 'grp') {
       p = part(tr.getAttribute('data-id')); if (!p) return;
       if (f === 'q') { p.qty[t.getAttribute('data-k')] = num(t.value) || 0; afterEdit(tr); }
@@ -4709,23 +4758,31 @@ if (typeof module !== 'undefined' && module.exports) module.exports = api; else 
     else if (f === 'ln') { var l = F.lines.filter(function (x) { return x.id === tr.getAttribute('data-ln'); })[0]; if (l) { l.name = t.value; keep(); } }
   });
   root.addEventListener('change', function (e) {
-    var f = fld(e), t = e.target, tr = t.closest && t.closest('tr'), p, h, ids;
+    var f = fld(e), t = e.target, tr = t.closest && t.closest('tr'), p, h, ids, i0;
     if (f === 'unit') { F.unit = t.value === 'min' ? 'min' : 'sec'; renderAll(); keep(); return; }
     if (f === 'wd') { F.weekdays[+t.getAttribute('data-i')] = t.checked ? 1 : 0; rCal(); rDays(); afterEdit(); return; }
     if (f === 'hy') { h = hOf(t); if (h) { h.type = t.value === 'work' ? 'work' : 'off'; tr.querySelector('[data-hc]').textContent = hDays(h) || '—'; rCal(); rDays(); afterEdit(); } return; }
     if (f === 'ln') { rFilter(); rParts(); rRes(); keep(); return; }
     if (f === 'line') { p = part(tr.getAttribute('data-id')); if (p) { p.line = t.value; afterEdit(tr); rLines(); } return; }
-    if (f === 'scope') { scope = t.value; rRes(); return; }
+    if (f === 'mspart') { i0 = picks.indexOf(t.value); if (t.checked && i0 < 0) picks.push(t.value); else if (!t.checked && i0 >= 0) picks.splice(i0, 1); picksInit = true; rRes(); return; }
+    if (f === 'msgrp') {
+      msGroups().filter(function (g) { return g.id === t.getAttribute('data-g'); }).forEach(function (g) { g.ps.forEach(function (q) { var k = picks.indexOf(q.id); if (t.checked && k < 0) picks.push(q.id); else if (!t.checked && k >= 0) picks.splice(k, 1); }); });
+      picksInit = true; rRes(); return;
+    }
     if (f === 'sel') { p = part(tr.getAttribute('data-id')); if (p) { sel[p.id] = t.checked; cnt(); } return; }
     if (f === 'selall') { F.parts.filter(visible).forEach(function (q) { sel[q.id] = t.checked; }); rParts(); return; }
     if (t.id === 'fcFL') { flt.line = t.value; rParts(); } else if (t.id === 'fcQty') { flt.qty = t.checked; rParts(); } else if (t.id === 'fcNT') { flt.nt = t.checked; rParts(); }
   });
+  root.addEventListener('toggle', function (e) { if (e.target && e.target.id === 'fcMs') msOpen = e.target.open; }, true);
+  document.addEventListener('click', function (e) { var d = root.querySelector('#fcMs'); if (d && d.open && !(e.target.closest && e.target.closest('.fc-ms'))) { d.open = false; msOpen = false; } });
   $('fcPF').addEventListener('input', function (e) { if (e.target.id === 'fcQ') { flt.q = e.target.value; rParts(); } });
 
   root.addEventListener('click', function (e) {
     var b = e.target.closest && e.target.closest('[data-fc]'); if (!b) return;
     var a = b.getAttribute('data-fc'), tr = b.closest('tr'), id = tr && (tr.getAttribute('data-id') || tr.getAttribute('data-ln') || tr.getAttribute('data-lv') || tr.getAttribute('data-h')), i, p, n;
-    if (a === 'pclr') { p = part(scope.slice(2)); if (p) { p.time = ''; pcEdit(p, null); var n0 = $('fcPtCT'); if (n0) n0.focus(); } return; }
+    if (a === 'msall') { msGroups().forEach(function (g) { g.ps.forEach(function (q) { if (picks.indexOf(q.id) < 0) picks.push(q.id); }); }); picksInit = true; rRes(); return; }
+    if (a === 'msclr') { picks = []; picksInit = true; rRes(); return; }
+    if (a === 'pclr') { p = one(); if (p) { p.time = ''; pcEdit(p, null); var n0 = $('fcPtCT'); if (n0) n0.focus(); } return; }
     if (a === 'calprev' || a === 'calnext') { calK = Lib.addMonth(calK, a === 'calnext' ? 1 : -1); rCal(); rDays(); return; }
     if (a === 'calgo') { calK = b.getAttribute('data-k'); rCal(); rDays(); return; }
     if (a === 'cal') { Lib.toggleDay(F, b.getAttribute('data-d')); rHol(); afterEdit(); return; }
@@ -4769,7 +4826,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = api; else 
 
   $('fcFile').addEventListener('change', function () { importFile(this.files[0]); this.value = ''; });
   $('fcDemo').addEventListener('click', function () {
-    var go = function () { Lib.demo(F, curMonth()); sel = {}; flt = { q: '', line: '', qty: true, nt: false }; scope = ''; renderAll(); keep(); msg('สร้างข้อมูลจำลองแล้ว (3 ไลน์ 12 ชิ้นงาน 6 เดือน) ลองแก้เวลา ยอด หรือวันหยุดดูผลได้เลย'); };
+    var go = function () { Lib.demo(F, curMonth()); sel = {}; flt = { q: '', line: '', qty: true, nt: false }; picks = []; picksInit = false; renderAll(); keep(); msg('สร้างข้อมูลจำลองแล้ว (3 ไลน์ 12 ชิ้นงาน 6 เดือน) ลองแก้เวลา ยอด หรือวันหยุดดูผลได้เลย'); };
     if (!F.parts.length) go(); else lbConfirm({ tone: 'warn', title: 'สร้างข้อมูลจำลองทับข้อมูลเดิม?', msg: 'ชิ้นงาน ยอดผลิต เวลาต่อชิ้น และไลน์ปัจจุบันจะถูกแทนที่ด้วยข้อมูลตัวอย่าง', hint: 'ถ้าต้องการเก็บข้อมูลเดิม ให้กดส่งออก Excel ก่อน', ok: 'สร้างข้อมูลจำลอง', cancel: 'ยกเลิก' }).then(function (y) { if (y) go(); });
   });
   $('fcExport').addEventListener('click', exportXlsx);
@@ -4932,6 +4989,21 @@ tr.stephead td { background:linear-gradient(90deg,color-mix(in srgb,var(--accent
 #tab-fc .fc-pcard .tm { width: 120px; }
 #tab-fc .fc-pcard .pc-n { flex: 1 1 280px; margin: 0; font-size: 12.5px; color: var(--fg2); }
 #tab-fc .fc-pcard .pc-n.warn { color: var(--bad-text); }
+#tab-fc .fc-msw { min-width: 280px; flex: 1 1 320px; max-width: 560px; position: relative; }
+#tab-fc .fc-ms { position: relative; }
+#tab-fc .fc-ms > summary { list-style: none; cursor: pointer; padding: 9px 34px 9px 12px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--surface); color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; position: relative; }
+#tab-fc .fc-ms > summary::-webkit-details-marker { display: none; }
+#tab-fc .fc-ms > summary::after { content: "▾"; position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--muted); }
+#tab-fc .fc-ms[open] > summary { border-color: var(--accent); }
+#tab-fc .fc-ms-p { position: absolute; z-index: 30; left: 0; right: 0; top: calc(100% + 4px); background: var(--surface); border: 1px solid var(--line-strong); border-radius: 8px; box-shadow: var(--shadow); padding: 10px; min-width: min(460px, 92vw); }
+#tab-fc .fc-ms-p input[type=search] { text-align: left; width: 100%; box-sizing: border-box; margin-bottom: 6px; }
+#tab-fc .fc-ms-a { display: flex; gap: 14px; margin-bottom: 6px; font-size: 12.5px; }
+#tab-fc .fc-ms-l { max-height: 320px; overflow: auto; }
+#tab-fc .fc-ms-gh { display: flex; gap: 8px; align-items: center; padding: 6px 4px; font-weight: 600; color: var(--text-heading, var(--fg)); position: sticky; top: 0; background: var(--surface); border-bottom: 1px solid var(--line); }
+#tab-fc .fc-ms-o { display: flex; gap: 8px; align-items: flex-start; padding: 6px 4px 6px 22px; cursor: pointer; line-height: 1.35; }
+#tab-fc .fc-ms-o:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+#tab-fc .fc-ms-e { padding: 10px; color: var(--muted); }
+#tab-fc .fc-multi .fc-ms-t { flex: 1 1 100%; max-height: 240px; overflow: auto; }
 
 /* ---------- Sidebar สำหรับจอเล็ก ---------- */
 @media (max-width:960px) { .side { position:relative; border-radius:0; } }

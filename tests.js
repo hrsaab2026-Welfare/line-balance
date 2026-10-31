@@ -556,22 +556,28 @@ test('ui: Work load ดูรายชิ้นงาน (Part) ได้ แล
   assert.ok(w.lbFc.importRows(rows, 'x.xlsx'));
   const ids = w.lbFc.state().parts.map(p => p.id);
   d.querySelectorAll('#fcPT tr input[data-f="time"]').forEach((t, i) => { t.value = String(10 * (i + 1)); t.dispatchEvent(new w.Event('input', { bubbles: true })); });
-  const sel = () => d.getElementById('fcScope');
-  const og = [...sel().querySelectorAll('optgroup[label^="ชิ้นงานใน"] option')].map(o => o.value);
-  assert.deepEqual(og, ['p:' + ids[0], 'p:' + ids[1]], 'แสดงเฉพาะชิ้นงานที่มียอด (C ยอด 0 ไม่ขึ้น)');
-  assert.equal([...sel().options].some(o => o.value === 'all'), false, 'ไม่มีตัวเลือกรวมทุกไลน์');
-  assert.equal(sel().value, 'p:' + ids[0], 'ค่าเริ่มต้น = ชิ้นงานแรกที่มียอด');
-  sel().value = 'p:' + ids[0]; sel().dispatchEvent(new w.Event('change', { bubbles: true }));
-  assert.equal(sel().value, 'p:' + ids[0]);
+  const boxes = () => [...d.querySelectorAll('#fcMs input[data-f="mspart"]')];
+  const tick = (id, on) => { const b = boxes().find(x => x.value === id); b.checked = on; b.dispatchEvent(new w.Event('change', { bubbles: true })); };
+  assert.deepEqual(boxes().map(b => b.value), [ids[0], ids[1]], 'แสดงเฉพาะชิ้นงานที่มียอด (C ยอด 0 ไม่ขึ้น)');
+  assert.equal(d.querySelectorAll('#fcMs input[data-f="mspart"]:checked').length, 1, 'ค่าเริ่มต้น = ติ๊กชิ้นงานแรกที่มียอด');
+  assert.equal(boxes()[0].checked, true);
   assert.ok(d.querySelectorAll('#fcRes svg rect').length > 0);
   assert.match(d.querySelector('.fc-pcard').textContent, /Model M1/);
   /* A: 3600 ชิ้น × 10 วินาที ÷ 3600 = 10 ชม. */
   assert.match(d.querySelector('#fcRes .fc-sum tbody tr.fc-hl').textContent, /ชม\.\)10$/);
-  assert.deepEqual([...sel().options].map(o => o.value), ['p:' + ids[0], 'p:' + ids[1]], 'ช่องดูผลของมีแต่ชิ้นงานล้วนๆ');
-  assert.equal(sel().querySelectorAll('optgroup:not([label^="ชิ้นงานใน"])').length, 0, 'ไม่มีกลุ่มระดับไลน์');
-  assert.ok(![...sel().options].some(o => o.value === '__none' || !o.value.startsWith('p:')), 'ไม่มีตัวเลือกไลน์/ยังไม่ระบุไลน์');
+  /* ติ๊กหลายชิ้น → ผลรวม: A 10 ชม. + B (1800 × 20 ÷ 3600 = 10 ชม.) = 20 ชม. */
+  tick(ids[1], true);
+  assert.equal(d.querySelectorAll('#fcMs input[data-f="mspart"]:checked').length, 2);
+  assert.match(d.querySelector('.fc-multi').textContent, /รวม 2 ชิ้นงาน/);
+  assert.match(d.querySelector('#fcRes .fc-sum tbody tr.fc-hl').textContent, /ชม\.\)20$/);
+  assert.equal(d.querySelector('#fcPtCT'), null, 'หลายชิ้น → ไม่มีช่องแก้ CT เดี่ยว');
+  tick(ids[1], false);
+  assert.equal(d.querySelector('.fc-multi'), null);
+  tick(ids[0], false);
+  assert.match(d.getElementById('fcRes').textContent, /ยังไม่ได้เลือกชิ้นงาน/, 'ไม่ติ๊กอะไรเลย → ข้อความแนะนำ ไม่ error');
+  tick(ids[0], true);
+  assert.equal(d.querySelector('#fcMs select, #fcScope'), null, 'ไม่มี select ระดับไลน์เดิมแล้ว');
   /* แก้/ลบ CT จากการ์ด */
-  sel().value = 'p:' + ids[0]; sel().dispatchEvent(new w.Event('change', { bubbles: true }));
   const ct = () => d.getElementById('fcPtCT'), rowCT = () => d.querySelector('#fcPT tr[data-id="' + ids[0] + '"] input[data-f="time"]');
   assert.equal(ct().value, '10');
   ct().focus(); ct().value = '20'; ct().dispatchEvent(new w.Event('input', { bubbles: true }));
