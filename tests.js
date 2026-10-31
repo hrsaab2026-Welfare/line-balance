@@ -557,16 +557,18 @@ test('ui: Work load ดูรายชิ้นงาน (Part) ได้ แล
   const ids = w.lbFc.state().parts.map(p => p.id);
   d.querySelectorAll('#fcPT tr input[data-f="time"]').forEach((t, i) => { t.value = String(10 * (i + 1)); t.dispatchEvent(new w.Event('input', { bubbles: true })); });
   const sel = () => d.getElementById('fcScope');
-  const og = [...sel().querySelectorAll('optgroup option')].map(o => o.value);
+  const og = [...sel().querySelectorAll('optgroup[label^="ชิ้นงานใน"] option')].map(o => o.value);
   assert.deepEqual(og, ['p:' + ids[0], 'p:' + ids[1]], 'แสดงเฉพาะชิ้นงานที่มียอด (C ยอด 0 ไม่ขึ้น)');
+  assert.equal([...sel().options].some(o => o.value === 'all'), false, 'ไม่มีตัวเลือกรวมทุกไลน์');
+  assert.equal(sel().value, 'p:' + ids[0], 'ค่าเริ่มต้น = ชิ้นงานแรกที่มียอด');
   sel().value = 'p:' + ids[0]; sel().dispatchEvent(new w.Event('change', { bubbles: true }));
   assert.equal(sel().value, 'p:' + ids[0]);
   assert.ok(d.querySelectorAll('#fcRes svg rect').length > 0);
   assert.match(d.querySelector('.fc-pcard').textContent, /Model M1/);
   /* A: 3600 ชิ้น × 10 วินาที ÷ 3600 = 10 ชม. */
   assert.match(d.querySelector('#fcRes .fc-sum tbody tr.fc-hl').textContent, /ชม\.\)10$/);
-  sel().value = 'all'; sel().dispatchEvent(new w.Event('change', { bubbles: true }));
-  assert.equal(d.querySelector('.fc-pcard'), null);
+  sel().value = '__none'; sel().dispatchEvent(new w.Event('change', { bubbles: true }));
+  assert.equal(d.querySelector('.fc-pcard'), null, 'เลือกระดับไลน์ ไม่ใช่ชิ้นงาน → ไม่มีการ์ด CT');
   /* แก้/ลบ CT จากการ์ด */
   sel().value = 'p:' + ids[0]; sel().dispatchEvent(new w.Event('change', { bubbles: true }));
   const ct = () => d.getElementById('fcPtCT'), rowCT = () => d.querySelector('#fcPT tr[data-id="' + ids[0] + '"] input[data-f="time"]');

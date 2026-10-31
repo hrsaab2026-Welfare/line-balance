@@ -4388,7 +4388,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = api; else 
 /* หน้าจอเมนู Forecast: อัปโหลด Forecast (.xlsx) → Work Load ต่อเดือน/ต่อไลน์ เทียบกำลังผลิต N1..Nx
    ใช้ฟังก์ชันคำนวณจาก forecast.js และตัวช่วยของหน้าหลัก ข้อมูลเก็บในเครื่อง (localStorage) */
 (function () {
-  var Lib = window.lbFcLib, K = 'lbFc1', F, scope = 'all', sel = {}, flt = { q: '', line: '', qty: true, nt: false }, saveT = 0;
+  var Lib = window.lbFcLib, K = 'lbFc1', F, scope = '', sel = {}, flt = { q: '', line: '', qty: true, nt: false }, saveT = 0;
   var COL = ['#10b981', '#8b5cf6', '#f59e0b', '#f43f5e', '#3b82f6', '#14b8a6', '#ec4899', '#84cc16'], WD = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
   try { F = Lib.norm(JSON.parse(localStorage.getItem(K) || 'null')); } catch (e) { F = Lib.blank(); }
   function keep() { clearTimeout(saveT); saveT = setTimeout(function () { try { localStorage.setItem(K, JSON.stringify(F)); } catch (e) {} }, 300); }
@@ -4551,6 +4551,12 @@ if (typeof module !== 'undefined' && module.exports) module.exports = api; else 
     });
     return out;
   }
+  /* ค่าเริ่มต้นของช่อง “ดูผลของ”: ชิ้นงานแรกที่มียอด (เรียงตามไลน์) ถ้าไม่มีชิ้นงานที่มียอดเลยใช้ไลน์แรก */
+  function firstScope() {
+    var ids = F.lines.map(function (l) { return l.id; }).concat(['']), i, j;
+    for (i = 0; i < ids.length; i++) for (j = 0; j < F.parts.length; j++) if ((F.parts[j].line || '') === ids[i] && hasQty(F.parts[j])) return 'p:' + F.parts[j].id;
+    return F.lines.length ? F.lines[0].id : '__none';
+  }
   function partInfo(p, c) {
     var ln = F.lines.filter(function (l) { return l.id === p.line; })[0], t = num(p.time), has = t > 0, div = F.unit === 'min' ? 60 : 3600, best = null, qsum = 0;
     F.months.forEach(function (k) { var q = num(p.qty && p.qty[k]) || 0; qsum += q; if (q > 0 && (!best || q > best.q)) best = { k: k, q: q }; });
@@ -4571,9 +4577,10 @@ if (typeof module !== 'undefined' && module.exports) module.exports = api; else 
     var c = Lib.compute(F), el = $('fcRes');
     if (!F.months.length || !F.parts.length) { el.innerHTML = '<div class="fc-empty">ยังไม่มีข้อมูล Forecast<br><small>อัปโหลดไฟล์ Forecast (.xlsx) ด้านบน หรือเพิ่มชิ้นงานเองในหัวข้อ “รายการชิ้นงาน”</small></div>'; return c; }
     var sp = scope.indexOf('p:') === 0 ? part(scope.slice(2)) : null; /* ดูรายชิ้นงาน (Part) */
-    if (scope !== 'all' && scope !== '__none' && !sp && !F.lines.some(function (l) { return l.id === scope; })) scope = 'all';
-    var cur = sp ? { name: partLbl(sp), hrs: c.parts[sp.id].hrs } : scope === 'all' ? { name: 'ทุกไลน์รวมกัน', hrs: c.total } : scope === '__none' ? c.lines.filter(function (l) { return l.id === ''; })[0] || { name: 'ยังไม่ระบุไลน์', hrs: c.total } : c.lines.filter(function (l) { return l.id === scope; })[0];
-    var sopt = opt('all', 'ทุกไลน์รวมกัน', scope) + F.lines.map(function (l) { return opt(l.id, l.name || '(ไม่มีชื่อ)', scope); }).join('') + (c.lines.some(function (l) { return l.id === ''; }) ? opt('__none', 'ยังไม่ระบุไลน์', scope) : '') + partOpts(scope);
+    if (!sp && scope !== '__none' && !F.lines.some(function (l) { return l.id === scope; })) { scope = firstScope(); sp = scope.indexOf('p:') === 0 ? part(scope.slice(2)) : null; } /* ไม่มีตัวเลือก “รวมทุกไลน์” เริ่มที่ชิ้นงานแรก */
+    var cur = sp ? { name: partLbl(sp), hrs: c.parts[sp.id].hrs } : scope === '__none' ? c.lines.filter(function (l) { return l.id === ''; })[0] || { name: 'ยังไม่ระบุไลน์', hrs: c.total } : c.lines.filter(function (l) { return l.id === scope; })[0];
+    var lnOpts = F.lines.map(function (l) { return opt(l.id, l.name || '(ไม่มีชื่อ)', scope); }).join('') + (c.lines.some(function (l) { return l.id === ''; }) ? opt('__none', 'ยังไม่ระบุไลน์', scope) : ''),
+      sopt = partOpts(scope) + (lnOpts ? '<optgroup label="รวมทั้งไลน์ (ทุกชิ้นงานในไลน์)">' + lnOpts + '</optgroup>' : '');
     var legend = '<div class="legend fc-lg"><span><i class="fc-lg-bar"></i>Work load (ชม./เดือน)</span>' + c.levels.map(function (L, i) { return '<span><i class="fc-lg-ln" style="--c:' + COL[i % COL.length] + '"></i>' + esc(L.name) + ' · ' + nf(L.hpd, 1) + ' ชม./วัน</span>'; }).join('') + '</div>';
     var h = cur.hrs, th = '<th></th>' + c.months.map(function (k) { return '<th class="r">' + Lib.monthLabel(k) + '</th>'; }).join('');
     var body = '<tr class="fc-hl"><td class="lbl">Work load (ชม.)</td>' + c.months.map(function (k) { return '<td class="r num strong">' + nf(h[k], 1) + '</td>'; }).join('') + '</tr>' +
@@ -4763,7 +4770,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = api; else 
 
   $('fcFile').addEventListener('change', function () { importFile(this.files[0]); this.value = ''; });
   $('fcDemo').addEventListener('click', function () {
-    var go = function () { Lib.demo(F, curMonth()); sel = {}; flt = { q: '', line: '', qty: true, nt: false }; scope = 'all'; renderAll(); keep(); msg('สร้างข้อมูลจำลองแล้ว (3 ไลน์ 12 ชิ้นงาน 6 เดือน) ลองแก้เวลา ยอด หรือวันหยุดดูผลได้เลย'); };
+    var go = function () { Lib.demo(F, curMonth()); sel = {}; flt = { q: '', line: '', qty: true, nt: false }; scope = ''; renderAll(); keep(); msg('สร้างข้อมูลจำลองแล้ว (3 ไลน์ 12 ชิ้นงาน 6 เดือน) ลองแก้เวลา ยอด หรือวันหยุดดูผลได้เลย'); };
     if (!F.parts.length) go(); else lbConfirm({ tone: 'warn', title: 'สร้างข้อมูลจำลองทับข้อมูลเดิม?', msg: 'ชิ้นงาน ยอดผลิต เวลาต่อชิ้น และไลน์ปัจจุบันจะถูกแทนที่ด้วยข้อมูลตัวอย่าง', hint: 'ถ้าต้องการเก็บข้อมูลเดิม ให้กดส่งออก Excel ก่อน', ok: 'สร้างข้อมูลจำลอง', cancel: 'ยกเลิก' }).then(function (y) { if (y) go(); });
   });
   $('fcExport').addEventListener('click', exportXlsx);
