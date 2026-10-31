@@ -4551,11 +4551,11 @@ if (typeof module !== 'undefined' && module.exports) module.exports = api; else 
     });
     return out;
   }
-  /* ค่าเริ่มต้นของช่อง “ดูผลของ”: ชิ้นงานแรกที่มียอด (เรียงตามไลน์) ถ้าไม่มีชิ้นงานที่มียอดเลยใช้ไลน์แรก */
+  /* ค่าเริ่มต้นของช่อง “ดูผลของ”: ชิ้นงานแรกที่มียอด (เรียงตามไลน์) ถ้าไม่มีชิ้นงานที่มียอดเลยใช้ชิ้นงานแรกในรายการ */
   function firstScope() {
     var ids = F.lines.map(function (l) { return l.id; }).concat(['']), i, j;
     for (i = 0; i < ids.length; i++) for (j = 0; j < F.parts.length; j++) if ((F.parts[j].line || '') === ids[i] && hasQty(F.parts[j])) return 'p:' + F.parts[j].id;
-    return F.lines.length ? F.lines[0].id : '__none';
+    return F.parts.length ? 'p:' + F.parts[0].id : '';
   }
   function partInfo(p, c) {
     var ln = F.lines.filter(function (l) { return l.id === p.line; })[0], t = num(p.time), has = t > 0, div = F.unit === 'min' ? 60 : 3600, best = null, qsum = 0;
@@ -4577,10 +4577,9 @@ if (typeof module !== 'undefined' && module.exports) module.exports = api; else 
     var c = Lib.compute(F), el = $('fcRes');
     if (!F.months.length || !F.parts.length) { el.innerHTML = '<div class="fc-empty">ยังไม่มีข้อมูล Forecast<br><small>อัปโหลดไฟล์ Forecast (.xlsx) ด้านบน หรือเพิ่มชิ้นงานเองในหัวข้อ “รายการชิ้นงาน”</small></div>'; return c; }
     var sp = scope.indexOf('p:') === 0 ? part(scope.slice(2)) : null; /* ดูรายชิ้นงาน (Part) */
-    if (!sp && scope !== '__none' && !F.lines.some(function (l) { return l.id === scope; })) { scope = firstScope(); sp = scope.indexOf('p:') === 0 ? part(scope.slice(2)) : null; } /* ไม่มีตัวเลือก “รวมทุกไลน์” เริ่มที่ชิ้นงานแรก */
-    var cur = sp ? { name: partLbl(sp), hrs: c.parts[sp.id].hrs } : scope === '__none' ? c.lines.filter(function (l) { return l.id === ''; })[0] || { name: 'ยังไม่ระบุไลน์', hrs: c.total } : c.lines.filter(function (l) { return l.id === scope; })[0];
-    var lnOpts = F.lines.map(function (l) { return opt(l.id, l.name || '(ไม่มีชื่อ)', scope); }).join('') + (c.lines.some(function (l) { return l.id === ''; }) ? opt('__none', 'ยังไม่ระบุไลน์', scope) : ''),
-      sopt = partOpts(scope) + (lnOpts ? '<optgroup label="รวมทั้งไลน์ (ทุกชิ้นงานในไลน์)">' + lnOpts + '</optgroup>' : '');
+    if (!sp) { scope = firstScope(); sp = scope.indexOf('p:') === 0 ? part(scope.slice(2)) : null; } /* ไม่มีตัวเลือก “รวมทุกไลน์” เริ่มที่ชิ้นงานแรก */
+    var cur = sp ? { name: partLbl(sp), hrs: c.parts[sp.id].hrs } : { name: '', hrs: c.total };
+    var sopt = partOpts(scope); /* ช่อง “ดูผลของ” มีแต่ชิ้นงานล้วนๆ ไม่มีตัวเลือกระดับไลน์ */
     var legend = '<div class="legend fc-lg"><span><i class="fc-lg-bar"></i>Work load (ชม./เดือน)</span>' + c.levels.map(function (L, i) { return '<span><i class="fc-lg-ln" style="--c:' + COL[i % COL.length] + '"></i>' + esc(L.name) + ' · ' + nf(L.hpd, 1) + ' ชม./วัน</span>'; }).join('') + '</div>';
     var h = cur.hrs, th = '<th></th>' + c.months.map(function (k) { return '<th class="r">' + Lib.monthLabel(k) + '</th>'; }).join('');
     var body = '<tr class="fc-hl"><td class="lbl">Work load (ชม.)</td>' + c.months.map(function (k) { return '<td class="r num strong">' + nf(h[k], 1) + '</td>'; }).join('') + '</tr>' +

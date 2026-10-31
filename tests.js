@@ -567,8 +567,9 @@ test('ui: Work load ดูรายชิ้นงาน (Part) ได้ แล
   assert.match(d.querySelector('.fc-pcard').textContent, /Model M1/);
   /* A: 3600 ชิ้น × 10 วินาที ÷ 3600 = 10 ชม. */
   assert.match(d.querySelector('#fcRes .fc-sum tbody tr.fc-hl').textContent, /ชม\.\)10$/);
-  sel().value = '__none'; sel().dispatchEvent(new w.Event('change', { bubbles: true }));
-  assert.equal(d.querySelector('.fc-pcard'), null, 'เลือกระดับไลน์ ไม่ใช่ชิ้นงาน → ไม่มีการ์ด CT');
+  assert.deepEqual([...sel().options].map(o => o.value), ['p:' + ids[0], 'p:' + ids[1]], 'ช่องดูผลของมีแต่ชิ้นงานล้วนๆ');
+  assert.equal(sel().querySelectorAll('optgroup:not([label^="ชิ้นงานใน"])').length, 0, 'ไม่มีกลุ่มระดับไลน์');
+  assert.ok(![...sel().options].some(o => o.value === '__none' || !o.value.startsWith('p:')), 'ไม่มีตัวเลือกไลน์/ยังไม่ระบุไลน์');
   /* แก้/ลบ CT จากการ์ด */
   sel().value = 'p:' + ids[0]; sel().dispatchEvent(new w.Event('change', { bubbles: true }));
   const ct = () => d.getElementById('fcPtCT'), rowCT = () => d.querySelector('#fcPT tr[data-id="' + ids[0] + '"] input[data-f="time"]');
