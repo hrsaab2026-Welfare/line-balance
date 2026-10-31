@@ -4559,8 +4559,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = api; else 
     if (!gs.length) return '<div class="fc-ms-e">ไม่พบชิ้นงาน</div>';
     return gs.map(function (g) {
       var all = g.ps.every(function (p) { return picks.indexOf(p.id) >= 0; });
-      return '<div class="fc-ms-g"><label class="fc-ms-gh"><input type="checkbox" data-f="msgrp" data-g="' + va(g.id) + '"' + (all ? ' checked' : '') + '>ชิ้นงานใน ' + esc(g.name) + ' (' + g.ps.length + ')</label>' +
-        g.ps.map(function (p) { return '<label class="fc-ms-o"><input type="checkbox" data-f="mspart" value="' + va(p.id) + '"' + (picks.indexOf(p.id) >= 0 ? ' checked' : '') + '>' + esc(partLbl(p)) + '</label>'; }).join('') + '</div>';
+      return '<div class="fc-ms-g"><label class="fc-ms-gh"><input type="checkbox" data-f="msgrp" data-g="' + va(g.id) + '"' + (all ? ' checked' : '') + '>ชิ้นงานใน ' + esc(g.name) + ' (' + g.ps.length + ')<span class="fc-ms-cnt">มี CT แล้ว ' + g.ps.filter(function (p) { return num(p.time) > 0; }).length + '/' + g.ps.length + '</span></label>' +
+        g.ps.map(function (p) { var t = num(p.time), has = t > 0; return '<label class="fc-ms-o' + (has ? ' has-ct' : '') + '"><input type="checkbox" data-f="mspart" value="' + va(p.id) + '"' + (picks.indexOf(p.id) >= 0 ? ' checked' : '') + '><span class="fc-ms-t1">' + esc(partLbl(p)) + '</span>' + (has ? '<span class="fc-ct-b" title="มี CT แล้ว ' + va(nf(t, 2)) + ' ' + unitTxt() + '/ชิ้น">✓ CT ' + esc(nf(t, 2)) + '</span>' : '') + '</label>'; }).join('') + '</div>';
     }).join('');
   }
   function msSyncGroups() { /* ติ๊กบางส่วนในกลุ่ม → แสดงเป็นสถานะ “ติ๊กบางส่วน” */
@@ -5004,6 +5004,10 @@ tr.stephead td { background:linear-gradient(90deg,color-mix(in srgb,var(--accent
 #tab-fc .fc-ms-gh { display: flex; gap: 8px; align-items: center; padding: 6px 4px; font-weight: 600; color: var(--text-heading, var(--fg)); position: sticky; top: 0; background: var(--surface); border-bottom: 1px solid var(--line); }
 #tab-fc .fc-ms-o { display: flex; gap: 8px; align-items: flex-start; padding: 6px 4px 6px 22px; cursor: pointer; line-height: 1.35; }
 #tab-fc .fc-ms-o:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+#tab-fc .fc-ms-t1 { flex: 1; min-width: 0; }
+#tab-fc .fc-ct-b { flex: none; margin-left: auto; padding: 1px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 600; white-space: nowrap; color: var(--good-text); background: color-mix(in srgb, var(--good) 14%, var(--surface)); }
+#tab-fc .fc-ms-o.has-ct { box-shadow: inset 3px 0 0 var(--good); }
+#tab-fc .fc-ms-cnt { margin-left: auto; font-size: 11.5px; font-weight: 500; color: var(--muted); }
 #tab-fc .fc-ms-e { padding: 10px; color: var(--muted); }
 #tab-fc .fc-multi .fc-ms-t { flex: 1 1 100%; max-height: 240px; overflow: auto; }
 
