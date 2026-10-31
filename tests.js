@@ -548,6 +548,29 @@ test('ui: เมนู Forecast เปิดได้โดยไม่ต้อ
   assert.deepEqual(errors, []);
 });
 
+test('ui: Work load ดูรายชิ้นงาน (Part) ได้ และคำนวณชั่วโมงต่อชิ้นงานถูกต้อง', async () => {
+  const { w, d, errors } = await open();
+  click(w, d.getElementById('tabbtn-fc'));
+  const rows = [['Item', 'Part Number', null, 'Part Name', 'Model', new w.Date(2026, 9, 1)],
+    [1, 1111111111, null, 'A', 'M1', 3600], [2, 2222222222, null, 'B', 'M2', 1800], [3, 3333333333, null, 'C', 'M3', 0]];
+  assert.ok(w.lbFc.importRows(rows, 'x.xlsx'));
+  const ids = w.lbFc.state().parts.map(p => p.id);
+  d.querySelectorAll('#fcPT tr input[data-f="time"]').forEach((t, i) => { t.value = String(10 * (i + 1)); t.dispatchEvent(new w.Event('input', { bubbles: true })); });
+  const sel = () => d.getElementById('fcScope');
+  const og = [...sel().querySelectorAll('optgroup option')].map(o => o.value);
+  assert.deepEqual(og, ['p:' + ids[0], 'p:' + ids[1]], 'แสดงเฉพาะชิ้นงานที่มียอด (C ยอด 0 ไม่ขึ้น)');
+  sel().value = 'p:' + ids[0]; sel().dispatchEvent(new w.Event('change', { bubbles: true }));
+  assert.equal(sel().value, 'p:' + ids[0]);
+  assert.ok(d.querySelectorAll('#fcRes svg rect').length > 0);
+  assert.match(d.querySelector('.fc-pinfo').textContent, /Model M1/);
+  /* A: 3600 ชิ้น × 10 วินาที ÷ 3600 = 10 ชม. */
+  assert.match(d.querySelector('#fcRes .fc-sum tbody tr.fc-hl').textContent, /ชม\.\)10$/);
+  sel().value = 'all'; sel().dispatchEvent(new w.Event('change', { bubbles: true }));
+  assert.equal(d.querySelector('.fc-pinfo'), null);
+  assert.ok(!/undefined|NaN/.test(d.getElementById('tab-fc').textContent));
+  assert.deepEqual(errors, []);
+});
+
 test('ui: ดึงยอด/วัน + เวลาทำงานจาก Forecast → Takt (จับคู่ Part No.) และส่งต่อหน้า Line Balance', async () => {
   const { w, d, errors } = await open();
   click(w, d.getElementById('sampleBtn')); /* Process Flow ตัวอย่าง Part No. 7552731170 */

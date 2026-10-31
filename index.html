@@ -4541,12 +4541,28 @@ if (typeof module !== 'undefined' && module.exports) module.exports = api; else 
     ends.forEach(function (e) { var w = Math.max(30, 14 + e.name.length * 7.6); lab += '<rect class="fc-np" x="' + (W - right + 8) + '" y="' + (e.y - 10) + '" width="' + w + '" height="20" rx="10" fill="' + e.col + '"/><text class="fc-np" x="' + (W - right + 8 + w / 2) + '" y="' + (e.y + 4) + '" text-anchor="middle" style="font-size:11.5px;font-weight:700;fill:' + ink(e.col) + '">' + esc(e.name) + '</text>'; });
     return '<svg class="fc-svg' + (grow ? ' grow' : '') + '" viewBox="0 0 ' + W + ' ' + H + '" width="100%" role="img" aria-label="กราฟ Work Load ต่อเดือน เทียบกำลังผลิตแต่ละระดับ N">' + defs + zones + g + bars + hits + lines + dots + lab + ax + '</svg>';
   }
+  function partLbl(p) { return [p.no, p.name].filter(Boolean).join(' · ') || '(ไม่มีชื่อ)'; }
+  /* ตัวเลือกรายชิ้นงาน จัดกลุ่มตามไลน์ แสดงเฉพาะชิ้นงานที่มียอด */
+  function partOpts(cur) {
+    var groups = F.lines.map(function (l) { return [l.id, l.name || '(ไม่มีชื่อ)']; }).concat([['', 'ยังไม่ระบุไลน์']]), out = '';
+    groups.forEach(function (g) {
+      var ps = F.parts.filter(function (p) { return (p.line || '') === g[0] && (hasQty(p) || 'p:' + p.id === cur); });
+      if (ps.length) out += '<optgroup label="' + va('ชิ้นงานใน ' + g[1] + ' (' + ps.length + ')') + '">' + ps.map(function (p) { return opt('p:' + p.id, partLbl(p), cur); }).join('') + '</optgroup>';
+    });
+    return out;
+  }
+  function partInfo(p) {
+    var ln = F.lines.filter(function (l) { return l.id === p.line; })[0], t = num(p.time), tot = Lib.compute(F).parts[p.id].total,
+      bits = [p.model && 'Model ' + esc(p.model), ln ? esc(ln.name || '(ไม่มีชื่อ)') : 'ยังไม่ระบุไลน์', t > 0 ? 'เวลา ' + nf(t, 2) + ' ' + unitTxt() + '/ชิ้น' : '<strong>ยังไม่กรอกเวลาต่อชิ้น</strong> จึงยังไม่นับเป็น Work load', 'รวม ' + nf(tot, 1) + ' ชม.'].filter(Boolean);
+    return '<p class="note fc-pinfo">ชิ้นงานนี้: ' + bits.join(' · ') + ' · ป้ายระดับ N = ระดับที่ต้องใช้ถ้าผลิตชิ้นงานนี้อย่างเดียว</p>';
+  }
   function rRes() {
     var c = Lib.compute(F), el = $('fcRes');
     if (!F.months.length || !F.parts.length) { el.innerHTML = '<div class="fc-empty">ยังไม่มีข้อมูล Forecast<br><small>อัปโหลดไฟล์ Forecast (.xlsx) ด้านบน หรือเพิ่มชิ้นงานเองในหัวข้อ “รายการชิ้นงาน”</small></div>'; return c; }
-    if (scope !== 'all' && scope !== '__none' && !F.lines.some(function (l) { return l.id === scope; })) scope = 'all';
-    var cur = scope === 'all' ? { name: 'ทุกไลน์รวมกัน', hrs: c.total } : scope === '__none' ? c.lines.filter(function (l) { return l.id === ''; })[0] || { name: 'ยังไม่ระบุไลน์', hrs: c.total } : c.lines.filter(function (l) { return l.id === scope; })[0];
-    var sopt = opt('all', 'ทุกไลน์รวมกัน', scope) + F.lines.map(function (l) { return opt(l.id, l.name || '(ไม่มีชื่อ)', scope); }).join('') + (c.lines.some(function (l) { return l.id === ''; }) ? opt('__none', 'ยังไม่ระบุไลน์', scope) : '');
+    var sp = scope.indexOf('p:') === 0 ? part(scope.slice(2)) : null; /* ดูรายชิ้นงาน (Part) */
+    if (scope !== 'all' && scope !== '__none' && !sp && !F.lines.some(function (l) { return l.id === scope; })) scope = 'all';
+    var cur = sp ? { name: partLbl(sp), hrs: c.parts[sp.id].hrs } : scope === 'all' ? { name: 'ทุกไลน์รวมกัน', hrs: c.total } : scope === '__none' ? c.lines.filter(function (l) { return l.id === ''; })[0] || { name: 'ยังไม่ระบุไลน์', hrs: c.total } : c.lines.filter(function (l) { return l.id === scope; })[0];
+    var sopt = opt('all', 'ทุกไลน์รวมกัน', scope) + F.lines.map(function (l) { return opt(l.id, l.name || '(ไม่มีชื่อ)', scope); }).join('') + (c.lines.some(function (l) { return l.id === ''; }) ? opt('__none', 'ยังไม่ระบุไลน์', scope) : '') + partOpts(scope);
     var legend = '<div class="legend fc-lg"><span><i class="fc-lg-bar"></i>Work load (ชม./เดือน)</span>' + c.levels.map(function (L, i) { return '<span><i class="fc-lg-ln" style="--c:' + COL[i % COL.length] + '"></i>' + esc(L.name) + ' · ' + nf(L.hpd, 1) + ' ชม./วัน</span>'; }).join('') + '</div>';
     var h = cur.hrs, th = '<th></th>' + c.months.map(function (k) { return '<th class="r">' + Lib.monthLabel(k) + '</th>'; }).join('');
     var body = '<tr class="fc-hl"><td class="lbl">Work load (ชม.)</td>' + c.months.map(function (k) { return '<td class="r num strong">' + nf(h[k], 1) + '</td>'; }).join('') + '</tr>' +
@@ -4557,7 +4573,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = api; else 
     var bl = '<table class="fc-sum"><thead><tr><th>ไลน์ (ชม./เดือน)</th>' + c.months.map(function (k) { return '<th class="r">' + Lib.monthLabel(k) + '</th>'; }).join('') + '<th class="r">รวม</th></tr></thead><tbody>' +
       c.lines.map(function (l) { return '<tr><td>' + esc(l.name || '(ไม่มีชื่อ)') + ' <span class="mut">· ' + l.n + ' ชิ้น</span></td>' + c.months.map(function (k) { return '<td class="r">' + (l.hrs[k] > 0 ? '<span class="num">' + nf(l.hrs[k], 1) + '</span> ' + lvPill(c, l.hrs[k], k) : '<span class="mut">—</span>') + '</td>'; }).join('') + '<td class="r num strong">' + nf(l.total, 1) + '</td></tr>'; }).join('') +
       '<tr class="fc-hl"><td class="lbl">รวมทุกไลน์</td>' + c.months.map(function (k) { return '<td class="r num strong">' + nf(c.total[k], 1) + '</td>'; }).join('') + '<td class="r num strong">' + nf(c.months.reduce(function (a, k) { return a + c.total[k]; }, 0), 1) + '</td></tr></tbody></table>';
-    el.innerHTML = '<div class="fc-bar"><div class="field"><label for="fcScope">ดูผลของ</label><select id="fcScope" data-f="scope">' + sopt + '</select></div><span class="note">Work load = ยอดผลิต × เวลาต่อชิ้น ÷ ' + (F.unit === 'min' ? '60' : '3600') + ' (ชั่วโมง)</span></div>' +
+    el.innerHTML = '<div class="fc-bar"><div class="field"><label for="fcScope">ดูผลของ</label><select id="fcScope" data-f="scope">' + sopt + '</select></div><span class="note">Work load = ยอดผลิต × เวลาต่อชิ้น ÷ ' + (F.unit === 'min' ? '60' : '3600') + ' (ชั่วโมง)</span></div>' + (sp ? partInfo(sp) : '') +
       '<div class="panel">' + legend + chart(c, h) + '<div class="fc-cap">พื้นสีจางระหว่างเส้น = ช่วงที่ต้องใช้ระดับ N นั้นรับโหลด · ป้ายใต้เดือน = ระดับ N ที่ต้องใช้ · แท่งสีแดง = เกินกำลังผลิตสูงสุด</div></div><div class="panel scroll">' + '<table class="fc-sum"><thead><tr>' + th + '</tr></thead><tbody>' + body + '</tbody></table></div>' +
       '<div class="fc-h" style="margin-top:6px">แยกตามไลน์ <span class="note">ป้ายระดับ = ระดับ N ที่ต้องใช้เพื่อรับโหลดของไลน์นั้นทั้งไลน์</span></div><div class="panel scroll">' + bl + '</div>';
     return c;
@@ -4890,6 +4906,7 @@ tr.stephead td { background:linear-gradient(90deg,color-mix(in srgb,var(--accent
 .hl-gloss dd { margin: 0; color: var(--fg2); }
 @media (max-width:560px) { .hl-gloss dl { grid-template-columns: 1fr; gap: 2px; } .hl-gloss dd { margin-bottom: 8px; } }
 #wlTabNote { margin-bottom: 0; }
+#tab-fc .fc-pinfo { margin: -2px 0 8px; }
 
 /* ---------- Sidebar สำหรับจอเล็ก ---------- */
 @media (max-width:960px) { .side { position:relative; border-radius:0; } }
