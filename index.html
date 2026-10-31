@@ -4551,10 +4551,21 @@ if (typeof module !== 'undefined' && module.exports) module.exports = api; else 
     });
     return out;
   }
-  function partInfo(p) {
-    var ln = F.lines.filter(function (l) { return l.id === p.line; })[0], t = num(p.time), tot = Lib.compute(F).parts[p.id].total,
-      bits = [p.model && 'Model ' + esc(p.model), ln ? esc(ln.name || '(ไม่มีชื่อ)') : 'ยังไม่ระบุไลน์', t > 0 ? 'เวลา ' + nf(t, 2) + ' ' + unitTxt() + '/ชิ้น' : '<strong>ยังไม่กรอกเวลาต่อชิ้น</strong> จึงยังไม่นับเป็น Work load', 'รวม ' + nf(tot, 1) + ' ชม.'].filter(Boolean);
-    return '<p class="note fc-pinfo">ชิ้นงานนี้: ' + bits.join(' · ') + ' · ป้ายระดับ N = ระดับที่ต้องใช้ถ้าผลิตชิ้นงานนี้อย่างเดียว</p>';
+  function partInfo(p, c) {
+    var ln = F.lines.filter(function (l) { return l.id === p.line; })[0], t = num(p.time), has = t > 0, div = F.unit === 'min' ? 60 : 3600, best = null, qsum = 0;
+    F.months.forEach(function (k) { var q = num(p.qty && p.qty[k]) || 0; qsum += q; if (q > 0 && (!best || q > best.q)) best = { k: k, q: q }; });
+    var eg = has && best ? 'ตัวอย่าง ' + Lib.monthLabel(best.k) + ': ' + nf(best.q) + ' ชิ้น × ' + nf(t, 2) + ' ' + unitTxt() + ' ÷ ' + nf(div) + ' = ' + nf(best.q * t / div, 1) + ' ชม.' : '';
+    return '<div class="panel fc-pcard"><div class="pc-h"><b>' + esc(partLbl(p)) + '</b><span class="note">' + [p.model && 'Model ' + esc(p.model), ln ? esc(ln.name || '(ไม่มีชื่อ)') : 'ยังไม่ระบุไลน์', 'ยอดรวม ' + nf(qsum) + ' ชิ้น', 'Work load รวม ' + nf(c.parts[p.id].total, 1) + ' ชม.'].filter(Boolean).join(' · ') + '</span></div>' +
+      '<div class="field"><label for="fcPtCT">เวลาต่อชิ้น CT (' + unitTxt() + ')</label><div class="row"><input id="fcPtCT" class="tm" data-f="pct" inputmode="decimal" placeholder="กรอก CT" value="' + va(p.time) + '"><button class="btn ghost sm" type="button" data-fc="pclr"' + (has ? '' : ' disabled') + ' title="ลบ CT ของชิ้นงานนี้">ลบ CT</button></div></div>' +
+      '<p class="pc-n' + (has ? '' : ' warn') + '">' + (has ? esc(eg) + ' · แก้ตัวเลขช่องนี้แล้วผลด้านล่างคำนวณใหม่ทันที' : '<strong>ยังไม่มี CT</strong> ชิ้นงานนี้จึงยังไม่ถูกนับเป็น Work load กรอกช่องนี้ได้เลย') + '<br>ป้ายระดับ N = ระดับที่ต้องใช้ถ้าผลิตชิ้นงานนี้อย่างเดียว</p></div>';
+  }
+  /* แก้ CT จากการ์ด: คำนวณใหม่ แล้วคืนเคอร์เซอร์ให้ช่องเดิม (การ์ดถูกวาดใหม่ทุกครั้ง) */
+  function pcEdit(p, el) {
+    var pos = el ? el.selectionStart : null, c = rRes(); rWarn(c);
+    var tr = root.querySelector('#fcPT tr[data-id="' + p.id + '"]');
+    if (tr) { var ti = tr.querySelector('[data-f="time"]'), ph = tr.querySelector('[data-ph]'); if (ti) ti.value = p.time === '' ? '' : p.time; if (ph && c.parts[p.id]) ph.textContent = nf(c.parts[p.id].total, 1); }
+    keep();
+    if (el) { var n = $('fcPtCT'); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (e) {} } }
   }
   function rRes() {
     var c = Lib.compute(F), el = $('fcRes');
@@ -4569,11 +4580,12 @@ if (typeof module !== 'undefined' && module.exports) module.exports = api; else 
       '<tr><td>วันทำงาน</td>' + c.months.map(function (k) { return '<td class="r num">' + c.days[k].n + (c.days[k].ov ? '<sup title="กรอกทับเอง">*</sup>' : '') + '</td>'; }).join('') + '</tr>';
     c.levels.forEach(function (L, i) { body += '<tr><td><i class="fc-sw" style="background:' + COL[i % COL.length] + '"></i>' + esc(L.name) + ' กำลังผลิต (ชม.)</td>' + c.months.map(function (k) { return '<td class="r num">' + nf(c.cap[L.id][k]) + '</td>'; }).join('') + '</tr>'; });
     c.levels.forEach(function (L, i) { body += '<tr><td><i class="fc-sw" style="background:' + COL[i % COL.length] + '"></i>โหลด ÷ ' + esc(L.name) + '</td>' + c.months.map(function (k) { var cp = c.cap[L.id][k], r = cp ? h[k] / cp : (h[k] > 0 ? Infinity : 0); return '<td class="r">' + (h[k] > 0 ? '<span class="pill ' + ratioCls(r) + '">' + (isFinite(r) ? pct(r) : '—') + '</span>' : '<span class="mut">—</span>') + '</td>'; }).join('') + '</tr>'; });
+    if (sp) body = '<tr><td>ยอดผลิต (ชิ้น)</td>' + c.months.map(function (k) { return '<td class="r num">' + nf(num(sp.qty && sp.qty[k]) || 0) + '</td>'; }).join('') + '</tr>' + body;
     body += '<tr class="fc-hl"><td class="lbl">รองรับได้ที่ระดับ</td>' + c.months.map(function (k) { return '<td class="r">' + lvPill(c, h[k], k) + '</td>'; }).join('') + '</tr>';
     var bl = '<table class="fc-sum"><thead><tr><th>ไลน์ (ชม./เดือน)</th>' + c.months.map(function (k) { return '<th class="r">' + Lib.monthLabel(k) + '</th>'; }).join('') + '<th class="r">รวม</th></tr></thead><tbody>' +
       c.lines.map(function (l) { return '<tr><td>' + esc(l.name || '(ไม่มีชื่อ)') + ' <span class="mut">· ' + l.n + ' ชิ้น</span></td>' + c.months.map(function (k) { return '<td class="r">' + (l.hrs[k] > 0 ? '<span class="num">' + nf(l.hrs[k], 1) + '</span> ' + lvPill(c, l.hrs[k], k) : '<span class="mut">—</span>') + '</td>'; }).join('') + '<td class="r num strong">' + nf(l.total, 1) + '</td></tr>'; }).join('') +
       '<tr class="fc-hl"><td class="lbl">รวมทุกไลน์</td>' + c.months.map(function (k) { return '<td class="r num strong">' + nf(c.total[k], 1) + '</td>'; }).join('') + '<td class="r num strong">' + nf(c.months.reduce(function (a, k) { return a + c.total[k]; }, 0), 1) + '</td></tr></tbody></table>';
-    el.innerHTML = '<div class="fc-bar"><div class="field"><label for="fcScope">ดูผลของ</label><select id="fcScope" data-f="scope">' + sopt + '</select></div><span class="note">Work load = ยอดผลิต × เวลาต่อชิ้น ÷ ' + (F.unit === 'min' ? '60' : '3600') + ' (ชั่วโมง)</span></div>' + (sp ? partInfo(sp) : '') +
+    el.innerHTML = '<div class="fc-bar"><div class="field"><label for="fcScope">ดูผลของ</label><select id="fcScope" data-f="scope">' + sopt + '</select></div><span class="note">Work load = ยอดผลิต × เวลาต่อชิ้น ÷ ' + (F.unit === 'min' ? '60' : '3600') + ' (ชั่วโมง)</span></div>' + (sp ? partInfo(sp, c) : '') +
       '<div class="panel">' + legend + chart(c, h) + '<div class="fc-cap">พื้นสีจางระหว่างเส้น = ช่วงที่ต้องใช้ระดับ N นั้นรับโหลด · ป้ายใต้เดือน = ระดับ N ที่ต้องใช้ · แท่งสีแดง = เกินกำลังผลิตสูงสุด</div></div><div class="panel scroll">' + '<table class="fc-sum"><thead><tr>' + th + '</tr></thead><tbody>' + body + '</tbody></table></div>' +
       '<div class="fc-h" style="margin-top:6px">แยกตามไลน์ <span class="note">ป้ายระดับ = ระดับ N ที่ต้องใช้เพื่อรับโหลดของไลน์นั้นทั้งไลน์</span></div><div class="panel scroll">' + bl + '</div>';
     return c;
@@ -4676,6 +4688,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = api; else 
   root.addEventListener('input', function (e) {
     var f = fld(e), t = e.target, tr = t.closest && t.closest('tr'), p, L, h, v;
     if (!f) return;
+    if (f === 'pct') { p = part(scope.slice(2)); if (p) { v = num(t.value); p.time = v > 0 ? v : ''; pcEdit(p, t); } return; }
     if (f === 'q' || f === 'time' || f === 'no' || f === 'name' || f === 'model' || f === 'grp') {
       p = part(tr.getAttribute('data-id')); if (!p) return;
       if (f === 'q') { p.qty[t.getAttribute('data-k')] = num(t.value) || 0; afterEdit(tr); }
@@ -4706,6 +4719,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = api; else 
   root.addEventListener('click', function (e) {
     var b = e.target.closest && e.target.closest('[data-fc]'); if (!b) return;
     var a = b.getAttribute('data-fc'), tr = b.closest('tr'), id = tr && (tr.getAttribute('data-id') || tr.getAttribute('data-ln') || tr.getAttribute('data-lv') || tr.getAttribute('data-h')), i, p, n;
+    if (a === 'pclr') { p = part(scope.slice(2)); if (p) { p.time = ''; pcEdit(p, null); var n0 = $('fcPtCT'); if (n0) n0.focus(); } return; }
     if (a === 'calprev' || a === 'calnext') { calK = Lib.addMonth(calK, a === 'calnext' ? 1 : -1); rCal(); rDays(); return; }
     if (a === 'calgo') { calK = b.getAttribute('data-k'); rCal(); rDays(); return; }
     if (a === 'cal') { Lib.toggleDay(F, b.getAttribute('data-d')); rHol(); afterEdit(); return; }
@@ -4906,7 +4920,12 @@ tr.stephead td { background:linear-gradient(90deg,color-mix(in srgb,var(--accent
 .hl-gloss dd { margin: 0; color: var(--fg2); }
 @media (max-width:560px) { .hl-gloss dl { grid-template-columns: 1fr; gap: 2px; } .hl-gloss dd { margin-bottom: 8px; } }
 #wlTabNote { margin-bottom: 0; }
-#tab-fc .fc-pinfo { margin: -2px 0 8px; }
+#tab-fc .fc-pcard { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 22px; padding: 14px 16px; margin-bottom: 10px; }
+#tab-fc .fc-pcard .pc-h { flex: 1 1 100%; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; }
+#tab-fc .fc-pcard .pc-h b { color: var(--text-heading); font-size: 15px; }
+#tab-fc .fc-pcard .tm { width: 120px; }
+#tab-fc .fc-pcard .pc-n { flex: 1 1 280px; margin: 0; font-size: 12.5px; color: var(--fg2); }
+#tab-fc .fc-pcard .pc-n.warn { color: var(--bad-text); }
 
 /* ---------- Sidebar สำหรับจอเล็ก ---------- */
 @media (max-width:960px) { .side { position:relative; border-radius:0; } }

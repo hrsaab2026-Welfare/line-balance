@@ -562,11 +562,24 @@ test('ui: Work load ดูรายชิ้นงาน (Part) ได้ แล
   sel().value = 'p:' + ids[0]; sel().dispatchEvent(new w.Event('change', { bubbles: true }));
   assert.equal(sel().value, 'p:' + ids[0]);
   assert.ok(d.querySelectorAll('#fcRes svg rect').length > 0);
-  assert.match(d.querySelector('.fc-pinfo').textContent, /Model M1/);
+  assert.match(d.querySelector('.fc-pcard').textContent, /Model M1/);
   /* A: 3600 ชิ้น × 10 วินาที ÷ 3600 = 10 ชม. */
   assert.match(d.querySelector('#fcRes .fc-sum tbody tr.fc-hl').textContent, /ชม\.\)10$/);
   sel().value = 'all'; sel().dispatchEvent(new w.Event('change', { bubbles: true }));
-  assert.equal(d.querySelector('.fc-pinfo'), null);
+  assert.equal(d.querySelector('.fc-pcard'), null);
+  /* แก้/ลบ CT จากการ์ด */
+  sel().value = 'p:' + ids[0]; sel().dispatchEvent(new w.Event('change', { bubbles: true }));
+  const ct = () => d.getElementById('fcPtCT'), rowCT = () => d.querySelector('#fcPT tr[data-id="' + ids[0] + '"] input[data-f="time"]');
+  assert.equal(ct().value, '10');
+  ct().focus(); ct().value = '20'; ct().dispatchEvent(new w.Event('input', { bubbles: true }));
+  assert.equal(w.lbFc.state().parts[0].time, 20); assert.equal(rowCT().value, '20', 'ตารางรายการชิ้นงานต้องตามทัน');
+  assert.match(d.querySelector('#fcRes .fc-sum tbody tr.fc-hl').textContent, /ชม\.\)20$/);
+  assert.equal(d.activeElement, ct(), 'พิมพ์ต่อได้ ไม่เสียโฟกัส');
+  click(w, d.querySelector('[data-fc="pclr"]'));
+  assert.equal(w.lbFc.state().parts[0].time, ''); assert.equal(rowCT().value, ''); assert.ok(d.querySelector('.pc-n.warn'), 'ไม่มี CT ต้องเตือน');
+  assert.equal(d.querySelector('[data-fc="pclr"]').disabled, true);
+  ct().value = '5'; ct().dispatchEvent(new w.Event('input', { bubbles: true }));
+  assert.equal(w.lbFc.state().parts[0].time, 5); assert.equal(d.querySelector('.pc-n.warn'), null);
   assert.ok(!/undefined|NaN/.test(d.getElementById('tab-fc').textContent));
   assert.deepEqual(errors, []);
 });
