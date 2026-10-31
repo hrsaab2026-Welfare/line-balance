@@ -577,13 +577,13 @@ body.viewer #tab-fc input, body.viewer #tab-fc select { pointer-events:auto !imp
 <div class="app">
 <aside class="side">
   <div class="brand"><div class="logo"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#06211c" stroke-width="2.2" stroke-linecap="round"><path d="M5 20v-7M12 20V6M19 20v-10"/><path d="M3 9h18" stroke-dasharray="2.5 3" stroke-width="1.6"/></svg></div><div><b>Takt Studio</b><small>Line &amp; Capacity Planning</small></div></div>
-  <div><div class="navlabel">เครื่องมือ</div>
+  <div><div class="navlabel">ลำดับการทำงาน</div>
   <nav class="nav tabs" role="tablist" aria-label="มุมมอง" style="margin-top:8px">
+    <button class="tab" id="tabbtn-fc" role="tab" type="button" aria-selected="false"><svg viewBox="0 0 24 24"><path d="M4 6h16v14H4zM4 11h16M8 3v4M16 3v4M8 15h3M13 15h3"/></svg><span>Forecast และ Work Load<small>เริ่มที่นี่: ยอดผลิต → Takt Time</small></span></button>
     <button class="tab on" id="tabbtn-flow" role="tab" type="button" aria-selected="true"><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="12" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M8.5 6H12a3 3 0 0 1 3 3v.5M8.5 18H12a3 3 0 0 0 3-3v-.5"/></svg><span>สร้างจาก Process Flow<small>แตกงานย่อย จัดคนและสถานี</small></span></button>
     <button class="tab" id="tabbtn-balance" role="tab" type="button" aria-selected="false"><svg viewBox="0 0 24 24"><path d="M5 20V11M11 20V4M17 20v-6M3 20h18"/></svg><span>Line Balance และ Man-Machine<small>โหลดต่อคน เทียบ Takt</small></span></button>
     <button class="tab" id="tabbtn-compare" role="tab" type="button" aria-selected="false"><svg viewBox="0 0 24 24"><path d="M7 7h12M15 3l4 4-4 4M17 17H5M9 13l-4 4 4 4"/></svg><span>เทียบ Manual กับ Robot<small>เวลาต่อชิ้นที่ลดได้</small></span></button>
     <button class="tab" id="tabbtn-swc" role="tab" type="button" aria-selected="false"><svg viewBox="0 0 24 24"><path d="M4 6h9M8 12h12M4 18h7M14 18h6"/></svg><span>Standard Work Chart<small>ลำดับงานและเวลาของพนักงาน</small></span></button>
-    <button class="tab" id="tabbtn-fc" role="tab" type="button" aria-selected="false"><svg viewBox="0 0 24 24"><path d="M4 6h16v14H4zM4 11h16M8 3v4M16 3v4M8 15h3M13 15h3"/></svg><span>Forecast และ Work Load<small>ยอดผลิตรายเดือน เทียบกำลังผลิต N1–N4</small></span></button>
   </nav></div>
   <div class="gauge" id="gauge"><div class="gjob" id="gJob" hidden><span class="gt">งานที่กำลังดู</span><b class="gj-name" id="gjName"></b><div class="gj-meta"><div><small>Model</small><span id="gjModel">—</span></div><div><small>Part No.</small><span id="gjNo">—</span></div></div></div><span class="gt">Takt vs Cycle ตอนนี้</span>
     <div class="gr"><span>Takt Time</span><b id="gT">—</b></div>
@@ -654,9 +654,9 @@ body.viewer #tab-fc input, body.viewer #tab-fc select { pointer-events:auto !imp
       </div>
     </div>
     <ol class="wl-steps">
-      <li><b>อัปโหลดไฟล์</b><span>ใช้ไฟล์ Process Flow, Process Line หรือ Man-Machine ระบบดูรูปแบบให้เอง</span></li>
-      <li><b>ใส่เวลาและ Takt Time</b><span>กรอกยอดผลิตกับเวลาทำงาน หรือใส่ Takt ตรงๆ แล้วกรอกเวลางานย่อย วางคอลัมน์จาก Excel ได้</span></li>
-      <li><b>ดูผลและส่งออก</b><span>ดูคอขวดและโหลดของแต่ละคน แล้วส่งออก Excel พร้อม Man-Machine Chart</span></li>
+      <li><b>ใส่ยอดผลิตและเวลาทำงาน</b><span>ที่เมนู Forecast หรือกรอกเองก็ได้ ระบบคำนวณ Takt Time ให้ (Takt = เวลาทำงาน ÷ ยอดผลิต)</span></li>
+      <li><b>จัดงานและคน</b><span>อัปโหลดไฟล์ Process Flow, Process Line หรือ Man-Machine แล้วใส่เวลางานย่อย ระบบจัดคนและสถานีตาม Takt ให้</span></li>
+      <li><b>ดูผลและทำเอกสารมาตรฐาน</b><span>ดูคอขวดและ Yamazumi แล้วส่งออก Excel หรือ PDF และทำ Standard Work Chart ให้พนักงานใช้หน้างาน</span></li>
     </ol>
   </section>
 
@@ -4774,6 +4774,12 @@ h1,h2,h3 { font-family:var(--font-body); }
 .nav .tab:hover { background:rgba(255,255,255,.07); color:#fff; } .nav .tab:hover svg { color:#fff; }
 .nav .tab.on { color:#fff; background:linear-gradient(90deg,rgba(242,169,59,.2),rgba(255,255,255,.05) 70%); box-shadow:inset 3px 0 0 var(--signal),0 8px 20px -14px rgba(0,0,0,.8); }
 .nav .tab.on svg { color:var(--signal); } .nav .tab.on span small { color:#C8D4E4; }
+/* เลขลำดับการทำงานหน้าเมนูด้านข้าง 1-5 */
+.nav.tabs { counter-reset:lbstep; }
+.nav.tabs .tab { counter-increment:lbstep; }
+.nav.tabs .tab > span::before { content:counter(lbstep); display:inline-grid; place-items:center; width:19px; height:19px; margin-right:8px; border-radius:50%; font-size:11px; font-weight:700; line-height:1; vertical-align:1px; background:rgba(255,255,255,.13); color:#C8D4E4; }
+.nav.tabs .tab.on > span::before { background:#F2A93B; color:#2A1A00; }
+
 .gauge { border-radius:16px; background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.03)); border:1px solid rgba(255,255,255,.1); }
 .gauge .gt { color:#8FA6C2; } .gauge .gr { color:#D3DDEA; }
 .gtrack i { background:linear-gradient(90deg,#2DD17A,#8BEFB8); } .gtrack u { background:var(--signal); box-shadow:0 0 0 3px rgba(242,169,59,.25); }

@@ -41,6 +41,12 @@ h1,h2,h3 { font-family:var(--font-body); }
 .nav .tab:hover { background:rgba(255,255,255,.07); color:#fff; } .nav .tab:hover svg { color:#fff; }
 .nav .tab.on { color:#fff; background:linear-gradient(90deg,rgba(242,169,59,.2),rgba(255,255,255,.05) 70%); box-shadow:inset 3px 0 0 var(--signal),0 8px 20px -14px rgba(0,0,0,.8); }
 .nav .tab.on svg { color:var(--signal); } .nav .tab.on span small { color:#C8D4E4; }
+/* เลขลำดับการทำงานหน้าเมนูด้านข้าง 1-5 */
+.nav.tabs { counter-reset:lbstep; }
+.nav.tabs .tab { counter-increment:lbstep; }
+.nav.tabs .tab > span::before { content:counter(lbstep); display:inline-grid; place-items:center; width:19px; height:19px; margin-right:8px; border-radius:50%; font-size:11px; font-weight:700; line-height:1; vertical-align:1px; background:rgba(255,255,255,.13); color:#C8D4E4; }
+.nav.tabs .tab.on > span::before { background:#F2A93B; color:#2A1A00; }
+
 .gauge { border-radius:16px; background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.03)); border:1px solid rgba(255,255,255,.1); }
 .gauge .gt { color:#8FA6C2; } .gauge .gr { color:#D3DDEA; }
 .gtrack i { background:linear-gradient(90deg,#2DD17A,#8BEFB8); } .gtrack u { background:var(--signal); box-shadow:0 0 0 3px rgba(242,169,59,.25); }
